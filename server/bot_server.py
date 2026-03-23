@@ -5,14 +5,19 @@ import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-import os
+import http
 
 # --- KONFIGURASI ---
-# Token Telegram (Disarankan diset di Dashboard Back4app)
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '8794005734:AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8')
-# Port dinamis dari Back4app
-WEBSOCKET_PORT = int(os.environ.get('PORT', 8080))
+# Paksa ke 8080 agar sinkron dengan Dockerfile dan Dashboard Back4app
+WEBSOCKET_PORT = 8080
 WEBSOCKET_HOST = '0.0.0.0'
+
+async def health_check(path, request_headers):
+    # Respon OK untuk semua request HTTP non-websocket ke root
+    if "Upgrade" not in request_headers.get("Connection", ""):
+        return http.HTTPStatus.OK, [], b"OK\n"
+    return None
 
 # Setup Logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -89,17 +94,9 @@ async def show_toast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await send_command_to_all({"command": "show_toast", "text": text}, update):
         await update.message.reply_text(f"⏳ Sending toast: '{text}'")
 
-import http
-
-async def health_check(path, request_headers):
-    # Jika ada permintaan ke root (/) via HTTP biasa (bukan WS), balas dengan 200 OK
-    if path == "/":
-        return http.HTTPStatus.OK, [], b"OK\n"
-    return None
-
 async def main():
     global bot_app
-    # Jalankan WebSocket Server dengan handler health check
+    # Jalankan WebSocket Server
     ws_server = await websockets.serve(
         websocket_handler, 
         WEBSOCKET_HOST, 
