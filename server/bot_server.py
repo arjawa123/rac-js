@@ -14,10 +14,14 @@ WEBSOCKET_PORT = 8080
 WEBSOCKET_HOST = '0.0.0.0'
 
 async def health_check(path, request_headers):
-    # Respon OK untuk semua request HTTP non-websocket ke root
-    if "Upgrade" not in request_headers.get("Connection", ""):
-        return http.HTTPStatus.OK, [], b"OK\n"
-    return None
+    # Cek apakah ini permintaan WebSocket (punya header Upgrade)
+    if "upgrade" in request_headers.get("Connection", "").lower() or \
+       "websocket" in request_headers.get("Upgrade", "").lower():
+        return None  # Biarkan websockets menangani upgrade
+    
+    # Jika bukan WebSocket (misal: Health Check, OPTIONS, atau GET biasa)
+    # Balas dengan 200 OK untuk menyenangkan load balancer
+    return http.HTTPStatus.OK, [("Content-Type", "text/plain")], b"OK\n"
 
 # Setup Logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
