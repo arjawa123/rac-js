@@ -1,5 +1,4 @@
 .gradle/
-Dockerfile
 app/
 build.gradle.kts
 gradle/
