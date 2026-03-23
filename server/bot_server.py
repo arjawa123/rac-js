@@ -89,10 +89,23 @@ async def show_toast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await send_command_to_all({"command": "show_toast", "text": text}, update):
         await update.message.reply_text(f"⏳ Sending toast: '{text}'")
 
+import http
+
+async def health_check(path, request_headers):
+    # Jika ada permintaan ke root (/) via HTTP biasa (bukan WS), balas dengan 200 OK
+    if path == "/":
+        return http.HTTPStatus.OK, [], b"OK\n"
+    return None
+
 async def main():
     global bot_app
-    # 1. Jalankan WebSocket Server di background
-    ws_server = await websockets.serve(websocket_handler, WEBSOCKET_HOST, WEBSOCKET_PORT)
+    # Jalankan WebSocket Server dengan handler health check
+    ws_server = await websockets.serve(
+        websocket_handler, 
+        WEBSOCKET_HOST, 
+        WEBSOCKET_PORT,
+        process_request=health_check
+    )
     logger.info(f"WebSocket Server started on {WEBSOCKET_HOST}:{WEBSOCKET_PORT}")
 
     # 2. Jalankan Telegram Bot
