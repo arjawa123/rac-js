@@ -1,130 +1,121 @@
-import asyncio
-import websockets
+import os
 import json
 import logging
+import asyncio
+from aiohttp import web
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-import http
-
 # --- KONFIGURASI ---
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '8794005734:AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8')
-# Paksa ke 8080 agar sinkron dengan Dockerfile dan Dashboard Back4app
-WEBSOCKET_PORT = 8080
-WEBSOCKET_HOST = '0.0.0.0'
-
-async def health_check(path, request_headers):
-    # Cek apakah ini permintaan WebSocket (punya header Upgrade)
-    if "upgrade" in request_headers.get("Connection", "").lower() or \
-       "websocket" in request_headers.get("Upgrade", "").lower():
-        return None  # Biarkan websockets menangani upgrade
-    
-    # Jika bukan WebSocket (misal: Health Check, OPTIONS, atau GET biasa)
-    # Balas dengan 200 OK untuk menyenangkan load balancer
-    return http.HTTPStatus.OK, [("Content-Type", "text/plain")], b"OK\n"
+PORT = int(os.environ.get('PORT', 8080))
 
 # Setup Logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Simpan koneksi device yang aktif
-connected_devices = {}  # {websocket: "device_name"}
-last_chat_id = None    # Simpan chat_id terakhir untuk membalas respon dari device
+# Simpan koneksi device
+connected_devices = set()
+last_chat_id = None
+bot_app = None
 
-async def websocket_handler(websocket, path):
+# --- HANDLER HTTP & WEBSOCKET (AIOHTTP) ---
+
+async def handle_health_check(request):
+    """Menangani Health Check (GET, OPTIONS, HEAD) dari Back4app"""
+    return web.Response(text="OK\n")
+
+async def websocket_handler(request):
+    """Menangani Koneksi WebSocket dari Android"""
     global last_chat_id
-    logger.info("New device attempting to connect...")
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    
+    logger.info("New device connected via WebSocket")
+    connected_devices.add(ws)
+    
     try:
-        # Pendaftaran device (opsional: bisa kirim info device saat connect)
-        connected_devices[websocket] = "Android Device"
-        logger.info(f"Device connected! Total: {len(connected_devices)}")
-        
-        async for message in websocket:
-            logger.info(f"Received from device: {message}")
-            data = json.loads(message)
-            
-            # Jika ada chat_id terakhir, kirim balik respon device ke Telegram
-            if last_chat_id:
-                response_text = f"📱 *Response from Device:*\n`{json.dumps(data, indent=2)}`"
-                # Kita butuh bot instance untuk mengirim pesan di luar context Telegram
-                await bot_app.bot.send_message(chat_id=last_chat_id, text=response_text, parse_mode='Markdown')
-
-    except websockets.ConnectionClosed:
-        logger.info("Device disconnected")
+        async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT:
+                logger.info(f"Received from device: {msg.data}")
+                if last_chat_id:
+                    data = json.loads(msg.data)
+                    response_text = f"📱 *Response from Device:*\n`{json.dumps(data, indent=2)}`"
+                    await bot_app.bot.send_message(chat_id=last_chat_id, text=response_text, parse_mode='Markdown')
+            elif msg.type == web.WSMsgType.ERROR:
+                logger.error(f"WS connection closed with exception {ws.exception()}")
     finally:
-        if websocket in connected_devices:
-            del connected_devices[websocket]
+        connected_devices.remove(ws)
+        logger.info("Device disconnected")
+    
+    return ws
+
+# --- HANDLER PERINTAH TELEGRAM ---
 
 async def send_command_to_all(command_payload, update: Update):
     global last_chat_id
     last_chat_id = update.effective_chat.id
     
     if not connected_devices:
-        await update.message.reply_text("❌ No devices connected via WebSocket.")
+        await update.message.reply_text("❌ No devices connected.")
         return False
     
     payload = json.dumps(command_payload)
-    for ws in connected_devices.keys():
-        await ws.send(payload)
+    for ws in list(connected_devices):
+        try:
+            await ws.send_str(payload)
+        except Exception as e:
+            logger.error(f"Failed to send to device: {e}")
     return True
 
-# --- HANDLER COMMAND TELEGRAM ---
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome = (
-        "🤖 *Device Control Bot Active!*\n\n"
-        "Commands:\n"
-        "/ping - Check connection\n"
-        "/info - Get device details\n"
-        "/battery - Check battery level\n"
-        "/toast <text> - Show toast message"
-    )
-    await update.message.reply_text(welcome, parse_mode='Markdown')
+    await update.message.reply_text("🤖 *Device Control Active!*", parse_mode='Markdown')
 
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await send_command_to_all({"command": "ping"}, update):
-        await update.message.reply_text("⏳ Sending PING to device...")
+        await update.message.reply_text("⏳ Pinging device...")
 
-async def get_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if await send_command_to_all({"command": "get_device_info"}, update):
-        await update.message.reply_text("⏳ Requesting device info...")
-
-async def get_battery(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def battery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await send_command_to_all({"command": "get_battery"}, update):
-        await update.message.reply_text("⏳ Checking battery level...")
+        await update.message.reply_text("⏳ Getting battery level...")
 
-async def show_toast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = " ".join(context.args) if context.args else "Hello from Telegram!"
+async def toast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = " ".join(context.args) if context.args else "Hello from Remote!"
     if await send_command_to_all({"command": "show_toast", "text": text}, update):
-        await update.message.reply_text(f"⏳ Sending toast: '{text}'")
+        await update.message.reply_text(f"⏳ Sending toast: {text}")
+
+# --- MAIN RUNNER ---
 
 async def main():
     global bot_app
-    # Jalankan WebSocket Server
-    ws_server = await websockets.serve(
-        websocket_handler, 
-        WEBSOCKET_HOST, 
-        WEBSOCKET_PORT,
-        process_request=health_check
-    )
-    logger.info(f"WebSocket Server started on {WEBSOCKET_HOST}:{WEBSOCKET_PORT}")
-
-    # 2. Jalankan Telegram Bot
+    # 1. Setup Telegram Bot
     bot_app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("ping", ping))
-    bot_app.add_handler(CommandHandler("info", get_info))
-    bot_app.add_handler(CommandHandler("battery", get_battery))
-    bot_app.add_handler(CommandHandler("toast", show_toast))
+    bot_app.add_handler(CommandHandler("battery", battery))
+    bot_app.add_handler(CommandHandler("toast", toast))
+    
+    await bot_app.initialize()
+    await bot_app.start()
+    await bot_app.updater.start_polling()
+    logger.info("Telegram Bot started.")
 
-    logger.info("Telegram Bot starting...")
-    async with bot_app:
-        await bot_app.initialize()
-        await bot_app.start()
-        await bot_app.updater.start_polling()
-        # Biarkan server tetap berjalan
-        await asyncio.Future()
+    # 2. Setup AIOHTTP Server (WebSocket + Health Check)
+    app = web.Application()
+    # Route root (/) melayani WebSocket DAN Health Check
+    app.router.add_get('/', websocket_handler)
+    app.router.add_options('/', handle_health_check)
+    app.router.add_get('/health', handle_health_check) # Extra route untuk health check
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+    logger.info(f"AIOHTTP Server started on port {PORT}")
+
+    # Biarkan keduanya berjalan selamanya
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == '__main__':
     try:
