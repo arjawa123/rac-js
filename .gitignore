@@ -1,5 +1,6 @@
 .gradle/
-app/
-build.gradle.kts
 gradle/
 server/.venv
+*.env
+.env
+app/build
