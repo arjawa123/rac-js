@@ -139,8 +139,12 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     });
 
     if (WEBHOOK_URL) {
-        bot.createWebhook({ domain: WEBHOOK_URL.replace('https://', '').replace('/webhook', '') })
-            .then(() => console.log('Webhook set successfully!'));
+        // Baris ini akan memastikan webhook terdaftar ke Telegram
+        bot.telegram.setWebhook(`${WEBHOOK_URL}`).then(() => {
+            console.log(`Webhook set successfully to: ${WEBHOOK_URL}`);
+        }).catch(err => {
+            console.error('Failed to set webhook:', err);
+        });
     }
 }
 
