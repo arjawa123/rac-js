@@ -122,7 +122,7 @@
                     <button @click="fetchDevices"
                         class="text-primary hover:text-indigo-400 p-1 bg-gray-900 rounded-md transition-colors"
                         title="Refresh">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4" :class="{'animate-spin': isFetchingDevices}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
                             </path>
@@ -140,13 +140,18 @@
                                     <span class="font-mono text-sm font-bold text-white tracking-wide"
                                         x-text="device.id"></span>
                                 </div>
-                                <div
-                                    class="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">
-                                    <span class="w-2.5 h-2.5 rounded-full"
-                                        :class="device.is_online ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'"></span>
-                                    <span class="text-[10px] uppercase font-bold tracking-wider"
-                                        :class="device.is_online ? 'text-green-500' : 'text-red-500'"
-                                        x-text="device.is_online ? 'ONLINE' : 'OFFLINE'"></span>
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">
+                                        <span class="w-2.5 h-2.5 rounded-full"
+                                            :class="device.is_online ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'"></span>
+                                        <span class="text-[10px] uppercase font-bold tracking-wider"
+                                            :class="device.is_online ? 'text-green-500' : 'text-red-500'"
+                                            x-text="device.is_online ? 'ONLINE' : 'OFFLINE'"></span>
+                                    </div>
+                                    <button @click.stop="deleteDevice(device.id)" class="text-gray-500 hover:text-red-500 transition-colors p-1" title="Hapus Perangkat">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
                                 </div>
                             </div>
                             <div class="text-xs text-gray-500 flex items-center gap-1 mt-1">
@@ -236,13 +241,24 @@
                         Log Sistem & Respons
                     </h2>
                     <div class="flex gap-2">
+                        <!-- Selector Clear Logs -->
+                        <div class="relative items-center flex">
+                            <select x-model="clearLogDays" class="text-xs bg-gray-900 text-gray-400 border border-gray-700 rounded-l-md px-2 py-1.5 focus:outline-none focus:border-red-500 appearance-none">
+                                <option value="0">Bersihkan Semua Server Logs</option>
+                                <option value="1">Hapus Log > 1 Hari</option>
+                                <option value="7">Hapus Log > 7 Hari</option>
+                            </select>
+                            <button @click="clearLogs()" class="bg-red-900/50 hover:bg-red-800 text-red-400 hover:text-red-200 border border-l-0 border-gray-700 px-2 py-1.5 rounded-r-md transition-colors" title="Eksekusi Hapus">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
                         <span
-                            class="text-xs text-gray-500 bg-gray-900 px-2 py-1 rounded border border-gray-700 self-center">Auto-refresh
+                            class="text-xs text-gray-500 bg-gray-900 px-2 py-1 rounded border border-gray-700 self-center hidden md:inline-block">Auto-refresh
                             5s</span>
                         <button @click="fetchLogs"
                             class="text-primary hover:text-indigo-400 p-1.5 bg-gray-900 rounded-md transition-colors"
                             title="Refresh Log">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4" :class="{'animate-spin': isFetchingLogs}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
                                 </path>
@@ -310,6 +326,9 @@
                 cmdInput: '',
                 textInput: '',
                 isSending: false,
+                isFetchingDevices: false,
+                isFetchingLogs: false,
+                clearLogDays: 0,
                 toasts: [],
                 toastId: 0,
 
@@ -323,6 +342,7 @@
                 },
 
                 async fetchDevices() {
+                    this.isFetchingDevices = true;
                     try {
                         const res = await fetch('/admin/api/devices');
                         if (res.ok) {
@@ -332,9 +352,11 @@
                             window.location.reload(); // Auth expired
                         }
                     } catch (e) { console.error('Gagal memuat perangkat'); }
+                    finally { setTimeout(() => this.isFetchingDevices = false, 500); }
                 },
 
                 async fetchLogs() {
+                    this.isFetchingLogs = true;
                     try {
                         const res = await fetch('/admin/api/logs');
                         if (res.ok) {
@@ -342,6 +364,35 @@
                             this.logs = data.logs;
                         }
                     } catch (e) { console.error('Gagal memuat log'); }
+                    finally { setTimeout(() => this.isFetchingLogs = false, 500); }
+                },
+
+                async deleteDevice(id) {
+                    if(!confirm('Apakah Anda yakin ingin menghapus jejak perangkat ini beserta seluruh riwayat log dan perintahnya?')) return;
+                    try {
+                        const res = await fetch('/admin/api/device/' + id, { method: 'DELETE' });
+                        if (res.ok) {
+                            this.showToast('Perangkat ' + id + ' berhasil diblokir/dihapus.', 'success');
+                            if (this.selectedDevice === id) this.selectedDevice = null;
+                            this.fetchDevices();
+                            this.fetchLogs();
+                        } else {
+                            this.showToast('Gagal menghapus perangkat.', 'error');
+                        }
+                    } catch (e) { this.showToast('Gangguan jaringan saat menghapus.', 'error'); }
+                },
+
+                async clearLogs() {
+                    if(!confirm('Hati-hati! Ini akan membersihkan tabel system_logs. Lanjutkan?')) return;
+                    try {
+                        const res = await fetch('/admin/api/logs?days=' + this.clearLogDays, { method: 'DELETE' });
+                        if (res.ok) {
+                            this.showToast('Cakupan Log berhasil diringkas.', 'success');
+                            this.fetchLogs();
+                        } else {
+                            this.showToast('Gagal membersihkan log.', 'error');
+                        }
+                    } catch (e) { this.showToast('Gangguan jaringan saat membersihkan.', 'error'); }
                 },
 
                 async sendCommand() {

