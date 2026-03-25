@@ -1,8 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const { Telegraf } = require('telegraf');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const { Pool } = require('pg');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
@@ -20,10 +19,41 @@ const app = express();
 // --- DATABASE SETUP ---
 let db;
 (async () => {
-    db = await open({
-        filename: path.resolve(__dirname, 'data.db'),
-        driver: sqlite3.Database
+    const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
     });
+
+    // Wrapper agar spesifikasi DML SQLite yang ada tidak error menggunakan sintaks PostgreSQL ($1)
+    db = {
+        exec: async (query) => {
+            query = query.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY');
+            query = query.replace(/DATETIME/g, 'TIMESTAMP');
+            query = query.replace(/REAL/g, 'DOUBLE PRECISION');
+            return pool.query(query);
+        },
+        run: async (query, params = []) => {
+            if (query.includes('INSERT OR REPLACE INTO devices')) {
+                query = 'INSERT INTO devices (id, last_seen) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET last_seen = EXCLUDED.last_seen';
+            } else {
+                let i = 1;
+                query = query.replace(/\?/g, () => `$${i++}`);
+            }
+            return pool.query(query, params);
+        },
+        get: async (query, params = []) => {
+            let i = 1;
+            query = query.replace(/\?/g, () => `$${i++}`);
+            const res = await pool.query(query, params);
+            return res.rows[0];
+        },
+        all: async (query, params = []) => {
+            let i = 1;
+            query = query.replace(/\?/g, () => `$${i++}`);
+            const res = await pool.query(query, params);
+            return res.rows;
+        }
+    };
 
     // Buat Tabel jika belum ada
     await db.exec(`CREATE TABLE IF NOT EXISTS devices (

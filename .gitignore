@@ -6,3 +6,6 @@ server/.venv
 app/build
 *.zip
 *.db
+.agent
+*node_modules
+*package-lock.json
