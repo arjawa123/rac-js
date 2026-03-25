@@ -162,9 +162,19 @@ app.post('/response', async (req, res) => {
             const cmd = await db.get('SELECT chat_id FROM commands WHERE id = ?', [data.id]);
             if (cmd && cmd.chat_id && bot) {
                 const deviceResponse = data.data !== undefined ? data.data : data;
-                // Menggunakan parse_mode 'HTML' yang jauh lebih aman terhadap karakter aneh seperti underscore
-                const replyMessage = `✅ <b>Respon dari alat (${client_id}):</b>\n<pre><code class="language-json">${JSON.stringify(deviceResponse, null, 2)}</code></pre>`;
-                await bot.telegram.sendMessage(cmd.chat_id, replyMessage, { parse_mode: 'HTML' });
+                const jsonString = JSON.stringify(deviceResponse, null, 2);
+
+                // Jika ukuran pesan melebihi limit Telegram (4096 char), kirim sebagai file JSON
+                if (jsonString.length > 3500) {
+                    const buffer = Buffer.from(jsonString, 'utf-8');
+                    await bot.telegram.sendDocument(cmd.chat_id, {
+                        source: buffer,
+                        filename: `response_${data.id}.json`
+                    }, { caption: `✅ <b>Respon dari alat (${client_id}):</b> Payload terlalu besar, dikirim sebagai file.`, parse_mode: 'HTML' });
+                } else {
+                    const replyMessage = `✅ <b>Respon dari alat (${client_id}):</b>\n<pre><code class="language-json">${jsonString}</code></pre>`;
+                    await bot.telegram.sendMessage(cmd.chat_id, replyMessage, { parse_mode: 'HTML' });
+                }
             }
         } catch (err) {
             console.error('Gagal mengirim balasan ke Telegram:', err);
