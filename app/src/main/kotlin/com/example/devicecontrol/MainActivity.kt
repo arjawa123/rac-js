@@ -12,9 +12,9 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 
 class MainActivity : AppCompatActivity() {
 
@@ -50,40 +50,43 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
 
         // URL Input
-        val urlLayout = TextInputLayout(this).apply {
-            hint = "WebSocket Server URL"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            setPadding(0, 0, 0, 24)
+        val urlInput = EditText(this).apply {
+            hint = "Server URL"
+            setText(prefs.getString("ws_url", "https://pygram.xnv.biz.id"))
+            setPadding(24, 24, 24, 24)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 24) }
+            setBackgroundColor(0xFFFFFFFF.toInt())
         }
-        val urlInput = TextInputEditText(this).apply {
-            setText(prefs.getString("ws_url", "wss://bot-q7uitriv.b4a.run/"))
-        }
-        urlLayout.addView(urlInput)
-        rootLayout.addView(urlLayout)
+        rootLayout.addView(urlInput)
 
         // Auth Token Input
-        val authLayout = TextInputLayout(this).apply {
+        val authInput = EditText(this).apply {
             hint = "Auth Token"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            setPadding(0, 0, 0, 24)
+            setText(prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8"))
+            setPadding(24, 24, 24, 24)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 24) }
+            setBackgroundColor(0xFFFFFFFF.toInt())
         }
-        val authInput = TextInputEditText(this).apply {
-            setText(prefs.getString("auth_token", "my-secret-token"))
-        }
-        authLayout.addView(authInput)
-        rootLayout.addView(authLayout)
+        rootLayout.addView(authInput)
 
         // Device ID Input
-        val idLayout = TextInputLayout(this).apply {
+        val idInput = EditText(this).apply {
             hint = "Device ID (Optional)"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            setPadding(0, 0, 0, 48)
-        }
-        val idInput = TextInputEditText(this).apply {
             setText(prefs.getString("device_id", "my_phone"))
+            setPadding(24, 24, 24, 24)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 48) }
+            setBackgroundColor(0xFFFFFFFF.toInt())
         }
-        idLayout.addView(idInput)
-        rootLayout.addView(idLayout)
+        rootLayout.addView(idInput)
 
         // Status
         val statusText = TextView(this).apply {
@@ -95,9 +98,8 @@ class MainActivity : AppCompatActivity() {
         rootLayout.addView(statusText)
 
         // Start Button
-        val startButton = MaterialButton(this).apply {
+        val startButton = Button(this).apply {
             text = "START SYSTEM"
-            cornerRadius = 24
             setPadding(0, 40, 0, 40)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -143,6 +145,17 @@ class MainActivity : AppCompatActivity() {
 
         if (missingPermissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), REQUEST_CODE_PERMISSIONS)
+        }
+
+        // Meminta user mematikan optimasi baterai (Doze) untuk aplikasi ini
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
         }
     }
 

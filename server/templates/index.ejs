@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAC-JS Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { primary: '#4f46e5', }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .toast-enter {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        .toast-enter-active {
+            transform: translateY(0);
+            opacity: 1;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toast-leave {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast-leave-active {
+            transform: translateY(-100%);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-300 min-h-screen font-sans antialiased" x-data="dashboard()">
+    <!-- Toast Notification System -->
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2" x-cloak>
+        <template x-for="toast in toasts" :key="toast.id">
+            <div class="bg-gray-800 border-l-4 p-4 rounded-lg shadow-2xl flex items-center justify-between min-w-[280px] transform transition-all duration-300"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-[-1rem]"
+                x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-300"
+                x-transition:leave-start="opacity-100 translate-y-0"
+                x-transition:leave-end="opacity-0 translate-y-[-1rem]"
+                :class="{'border-green-500': toast.type === 'success', 'border-red-500': toast.type === 'error'}">
+                <div class="flex items-center gap-3">
+                    <!-- Icon -->
+                    <span x-show="toast.type === 'success'" class="text-green-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7">
+                            </path>
+                        </svg>
+                    </span>
+                    <span x-show="toast.type === 'error'" class="text-red-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </span>
+                    <span x-text="toast.message" class="text-sm font-medium text-gray-200"></span>
+                </div>
+                <button @click="dismissToast(toast.id)"
+                    class="text-gray-500 hover:text-gray-300 ml-4 focus:outline-none">&times;</button>
+            </div>
+        </template>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
+                    </path>
+                </svg>
+                RAC-JS <span class="text-primary font-normal">Monitor</span>
+            </h1>
+            <form action="/admin/logout" method="POST">
+                <button type="submit"
+                    class="text-sm bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors border border-gray-600 text-white font-medium flex items-center gap-2">
+                    Logout
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 flex flex-col lg:flex-row gap-6 mt-4">
+        <!-- Devices Panel Layout -->
+        <section class="w-full lg:w-1/3 flex flex-col gap-6">
+            <!-- Connected Devices Card -->
+            <div
+                class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg relative flex flex-col flex-1 max-h-[500px]">
+                <div class="flex justify-between items-center mb-5">
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        Perangkat Tersambung
+                    </h2>
+                    <button @click="fetchDevices"
+                        class="text-primary hover:text-indigo-400 p-1 bg-gray-900 rounded-md transition-colors"
+                        title="Refresh">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="flex flex-col gap-3 overflow-y-auto pr-1">
+                    <template x-for="device in devices" :key="device.id">
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 flex flex-col gap-2 cursor-pointer hover:border-primary/50 transition-all duration-200"
+                            @click="selectedDevice = device.id"
+                            :class="{'border-primary shadow-[0_0_15px_rgba(79,70,229,0.15)]': selectedDevice === device.id}">
+                            <div class="flex justify-between items-start">
+                                <div class="flex flex-col">
+                                    <span class="font-mono text-sm font-bold text-white tracking-wide"
+                                        x-text="device.id"></span>
+                                </div>
+                                <div
+                                    class="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">
+                                    <span class="w-2.5 h-2.5 rounded-full"
+                                        :class="device.is_online ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'"></span>
+                                    <span class="text-[10px] uppercase font-bold tracking-wider"
+                                        :class="device.is_online ? 'text-green-500' : 'text-red-500'"
+                                        x-text="device.is_online ? 'ONLINE' : 'OFFLINE'"></span>
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Terakhir aktif: <span x-text="formatDate(device.last_seen)"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="devices.length === 0"
+                        class="text-sm text-gray-500 flex flex-col items-center justify-center py-10 h-full gap-3 text-center">
+                        <svg class="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                            </path>
+                        </svg>
+                        Belum ada perangkat terhubung. Pastikan alat menyala dan melakukan polling.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Command Sender Card -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg transition-all duration-300"
+                x-show="selectedDevice" x-transition.opacity>
+                <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    Kirim Perintah
+                </h2>
+
+                <div class="flex flex-col gap-4">
+                    <div class="bg-gray-900 border border-gray-700 p-3 rounded-lg flex justify-between items-center">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider font-bold">Target Perangkat</span>
+                        <span class="font-mono text-sm text-primary font-bold bg-primary/10 px-2 py-0.5 rounded"
+                            x-text="selectedDevice"></span>
+                    </div>
+
+                    <div class="space-y-3 mt-1">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-400 block mb-1">Perintah (Command)</label>
+                            <input type="text" x-model="cmdInput" placeholder="Misal: restart, shutdown"
+                                class="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary text-white outline-none text-sm transition-all placeholder-gray-600">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-400 block mb-1">Payload Ekstra
+                                (Opsional)</label>
+                            <input type="text" x-model="textInput" placeholder="Argumen tambahan..."
+                                class="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary text-white outline-none text-sm transition-all placeholder-gray-600">
+                        </div>
+
+                        <button @click="sendCommand()"
+                            class="w-full bg-primary hover:bg-indigo-500 text-white text-sm font-bold py-3 px-4 rounded-lg transition-all disabled:opacity-50 mt-2 flex justify-center items-center gap-2 shadow-lg shadow-primary/30"
+                            :disabled="!cmdInput.trim() || isSending">
+                            <span x-show="!isSending">Kirim Eksekusi</span>
+                            <span x-show="isSending" class="flex items-center gap-2">
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                Mengirim...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- System Logs Panel -->
+        <section class="w-full lg:w-2/3">
+            <div
+                class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg h-full flex flex-col min-h-[500px]">
+                <div class="flex justify-between items-center mb-5">
+                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                        </svg>
+                        Log Sistem & Respons
+                    </h2>
+                    <div class="flex gap-2">
+                        <span
+                            class="text-xs text-gray-500 bg-gray-900 px-2 py-1 rounded border border-gray-700 self-center">Auto-refresh
+                            5s</span>
+                        <button @click="fetchLogs"
+                            class="text-primary hover:text-indigo-400 p-1.5 bg-gray-900 rounded-md transition-colors"
+                            title="Refresh Log">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto flex-1 border border-gray-700 rounded-xl bg-gray-900 shadow-inner">
+                    <table class="w-full text-sm text-left text-gray-400 whitespace-nowrap">
+                        <thead
+                            class="text-xs text-gray-300 uppercase bg-gray-800 border-b border-gray-700 sticky top-0">
+                            <tr>
+                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider">Timestamp</th>
+                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider">Device ID</th>
+                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider text-center">Level</th>
+                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider w-full">Message</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800">
+                            <template x-for="log in logs" :key="log.id">
+                                <tr class="hover:bg-gray-800/50 transition-colors">
+                                    <td class="px-5 py-3 text-xs tracking-tight text-gray-400" x-text="log.created_at">
+                                    </td>
+                                    <td class="px-5 py-3 font-mono text-xs text-primary font-semibold"
+                                        x-text="log.device_id || '-'"></td>
+                                    <td class="px-5 py-3 text-center">
+                                        <div class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border"
+                                            :class="{'bg-red-500/10 text-red-500 border-red-500/20': log.level === 'ERROR', 'bg-green-500/10 text-green-500 border-green-500/20': log.level === 'INFO', 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20': log.level === 'WARN'}">
+                                            <span x-text="log.level"></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-3 text-sm font-mono text-gray-300">
+                                        <div class="max-w-[300px] md:max-w-[400px] lg:max-w-[500px] truncate"
+                                            x-text="log.message" :title="log.message"></div>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="logs.length === 0">
+                                <td colspan="4" class="px-5 py-12 text-center text-gray-500">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                                            </path>
+                                        </svg>
+                                        Tidak ada catatan log ditemukan.
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('dashboard', () => ({
+                devices: [],
+                logs: [],
+                selectedDevice: null,
+                cmdInput: '',
+                textInput: '',
+                isSending: false,
+                toasts: [],
+                toastId: 0,
+
+                init() {
+                    this.fetchDevices();
+                    this.fetchLogs();
+                    setInterval(() => {
+                        this.fetchDevices();
+                        this.fetchLogs();
+                    }, 5000);
+                },
+
+                async fetchDevices() {
+                    try {
+                        const res = await fetch('/admin/api/devices');
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.devices = data.devices;
+                        } else if (res.status === 403) {
+                            window.location.reload(); // Auth expired
+                        }
+                    } catch (e) { console.error('Gagal memuat perangkat'); }
+                },
+
+                async fetchLogs() {
+                    try {
+                        const res = await fetch('/admin/api/logs');
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.logs = data.logs;
+                        }
+                    } catch (e) { console.error('Gagal memuat log'); }
+                },
+
+                async sendCommand() {
+                    if (!this.cmdInput.trim() || !this.selectedDevice) return;
+
+                    this.isSending = true;
+                    try {
+                        const res = await fetch('/admin/api/command', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                device_id: this.selectedDevice,
+                                command: this.cmdInput,
+                                text: this.textInput
+                            })
+                        });
+
+                        if (res.ok) {
+                            this.showToast('Perintah terkirim ke antrean database!', 'success');
+                            this.cmdInput = '';
+                            this.textInput = '';
+                            this.fetchLogs(); // Memaksa update log langsung
+                        } else {
+                            const err = await res.json();
+                            this.showToast('Gagal: ' + (err.error || 'Server error'), 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('Gangguan Jaringan!', 'error');
+                    } finally {
+                        this.isSending = false;
+                    }
+                },
+
+                formatDate(unixSeconds) {
+                    if (!unixSeconds || unixSeconds === 0) return 'Belum Aktif';
+                    const date = new Date(unixSeconds * 1000);
+                    return date.toLocaleString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' });
+                },
+
+                showToast(message, type = 'success') {
+                    const id = this.toastId++;
+                    this.toasts.push({ id, message, type });
+                    setTimeout(() => this.dismissToast(id), 4000);
+                },
+
+                dismissToast(id) {
+                    this.toasts = this.toasts.filter(t => t.id !== id);
+                }
+            }))
+        });
+    </script>
+</body>
+
+</html>

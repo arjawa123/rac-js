@@ -4,14 +4,13 @@ import android.app.*
 import android.content.*
 import android.os.*
 import android.util.Log
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
-import okhttp3.*
-import java.util.concurrent.TimeUnit
 
 class ControlService : LifecycleService() {
     private var wakeLock: PowerManager.WakeLock? = null
-    private lateinit var webSocketManager: WebSocketManager
+    private lateinit var pollingManager: PollingManager
     private lateinit var commandHandler: CommandHandler
 
     companion object {
@@ -22,27 +21,29 @@ class ControlService : LifecycleService() {
 
     override fun onCreate() {
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
+        if (Build.VERSION.SDK_INT >= 34) { // Android 14+ = UPSIDE_DOWN_CAKE
+            startForeground(NOTIFICATION_ID, createNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification())
+        }
         super.onCreate()
-        Log.d(TAG, "Service Created & Foreground Started")
+        Log.d(TAG, "Service Created & Polling Started")
 
         acquireWakeLock()
         
         // Read config
         val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
-        val wsUrl = prefs.getString("ws_url", "wss://bot-q7uitriv.b4a.run/") ?: ""
+        val serverUrl = prefs.getString("ws_url", "https://pygram.xnv.biz.id") ?: ""
         val devId = prefs.getString("device_id", "my_phone") ?: "unknown"
-        val authToken = prefs.getString("auth_token", "my-secret-token") ?: ""
+        val authToken = prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8") ?: ""
         
-        // Build URL with Query Params
-        val httpUrl = HttpUrl.get(wsUrl).newBuilder()
-            .addQueryParameter("client_id", devId)
-            .addQueryParameter("auth", authToken)
-            .build()
+        // Normalisasikan URL (hapus /ws jika ada, ganti wss:// ke https://)
+        var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
+        if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
 
         commandHandler = CommandHandler(this)
-        webSocketManager = WebSocketManager(httpUrl.toString(), commandHandler)
-        webSocketManager.connect()
+        pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler)
+        pollingManager.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -68,8 +69,8 @@ class ControlService : LifecycleService() {
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("System Active")
-            .setContentText("Listening for remote commands...")
+            .setContentTitle("System Active (Polling)")
+            .setContentText("Checking for remote commands every 5s...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
@@ -84,8 +85,8 @@ class ControlService : LifecycleService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::webSocketManager.isInitialized) {
-            webSocketManager.disconnect()
+        if (::pollingManager.isInitialized) {
+            pollingManager.stop()
         }
         wakeLock?.let { if (it.isHeld) it.release() }
         Log.d(TAG, "Service Destroyed")

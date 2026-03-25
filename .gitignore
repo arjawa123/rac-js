@@ -4,3 +4,5 @@ server/.venv
 *.env
 .env
 app/build
+*.zip
+*.db

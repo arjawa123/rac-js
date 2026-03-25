@@ -1,7 +1,0 @@
-fastapi==0.115.6
-uvicorn==0.34.0
-python-telegram-bot==21.10
-a2wsgi==1.10.8
-python-dotenv==1.0.1
-websockets==14.1
-asyncio
