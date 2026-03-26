@@ -69,8 +69,8 @@ class ControlService : LifecycleService() {
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Background checking")
-            .setContentText("Checking for available services...")
+            .setContentTitle("Background check status")
+            .setContentText("Service normal")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
