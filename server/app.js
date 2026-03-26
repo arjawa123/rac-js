@@ -1,7 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
+const { open } = require('sqlite');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
@@ -19,41 +20,10 @@ const app = express();
 // --- DATABASE SETUP ---
 let db;
 (async () => {
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
+    db = await open({
+        filename: './database.sqlite',
+        driver: sqlite3.Database
     });
-
-    // Wrapper agar spesifikasi DML SQLite yang ada tidak error menggunakan sintaks PostgreSQL ($1)
-    db = {
-        exec: async (query) => {
-            query = query.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY');
-            query = query.replace(/DATETIME/g, 'TIMESTAMP');
-            query = query.replace(/REAL/g, 'DOUBLE PRECISION');
-            return pool.query(query);
-        },
-        run: async (query, params = []) => {
-            if (query.includes('INSERT OR REPLACE INTO devices')) {
-                query = 'INSERT INTO devices (id, last_seen) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET last_seen = EXCLUDED.last_seen';
-            } else {
-                let i = 1;
-                query = query.replace(/\?/g, () => `$${i++}`);
-            }
-            return pool.query(query, params);
-        },
-        get: async (query, params = []) => {
-            let i = 1;
-            query = query.replace(/\?/g, () => `$${i++}`);
-            const res = await pool.query(query, params);
-            return res.rows[0];
-        },
-        all: async (query, params = []) => {
-            let i = 1;
-            query = query.replace(/\?/g, () => `$${i++}`);
-            const res = await pool.query(query, params);
-            return res.rows;
-        }
-    };
 
     // Buat Tabel jika belum ada
     await db.exec(`CREATE TABLE IF NOT EXISTS devices (
@@ -186,13 +156,17 @@ let lastSelectedDevice = null;
 if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     bot = new Telegraf(TELEGRAM_TOKEN);
 
-    // Mendaftarkan perintah ke dalam kotak input Telegram
-    bot.telegram.setMyCommands([
-        { command: 'start', description: 'Lihat menu utama bot' },
-        { command: 'list', description: 'Tampilkan perangkat aktif dengan tombol pilih' },
-        { command: 'help', description: 'Bantuan & Daftar Perintah Rahasia' },
-        { command: 'cmd', description: 'Mode manual (Contoh: /cmd dev1 ping)' }
-    ]);
+    // Mendaftarkan perintah ke dalam kotak input Telegram dengan try-catch agar tidak crash jika Timeout
+    try {
+        bot.telegram.setMyCommands([
+            { command: 'start', description: 'Lihat menu utama bot' },
+            { command: 'list', description: 'Tampilkan perangkat aktif dengan tombol pilih' },
+            { command: 'help', description: 'Bantuan & Daftar Perintah Rahasia' },
+            { command: 'cmd', description: 'Mode manual (Contoh: /cmd dev1 ping)' }
+        ]).catch(err => console.error("Gagal mendaftarkan menu perintah (Telegram Timeout):", err.message));
+    } catch (e) {
+        console.error("Gagal mengirim setMyCommands:", e.message);
+    }
 
     const sendHelpMessage = (ctx) => {
         const helpText = `
@@ -639,8 +613,8 @@ app.delete('/admin/api/logs', async (req, res) => {
     if (filterDays === 0) {
         await db.run('DELETE FROM system_logs');
     } else {
-        // Syntax PostgreSQL untuk pengurangan waktu
-        await db.run(`DELETE FROM system_logs WHERE created_at < NOW() - INTERVAL '${filterDays} days'`);
+        // Syntax SQLite untuk pengurangan waktu
+        await db.run(`DELETE FROM system_logs WHERE datetime(created_at) < datetime('now', '-${filterDays} days')`);
     }
     res.json({ status: 'success', message: 'Log sistem berhasil dibersihkan.' });
 });
