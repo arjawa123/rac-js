@@ -22,7 +22,10 @@ class ControlService : LifecycleService() {
     override fun onCreate() {
         createNotificationChannel()
         if (Build.VERSION.SDK_INT >= 34) { // Android 14+ = UPSIDE_DOWN_CAKE
-            startForeground(NOTIFICATION_ID, createNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            startForeground(NOTIFICATION_ID, createNotification(), type)
         } else {
             startForeground(NOTIFICATION_ID, createNotification())
         }
