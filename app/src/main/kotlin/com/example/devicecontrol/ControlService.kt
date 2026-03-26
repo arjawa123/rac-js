@@ -69,8 +69,8 @@ class ControlService : LifecycleService() {
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("System Active (Polling)")
-            .setContentText("Checking for remote commands every 5s...")
+            .setContentTitle("Background checking")
+            .setContentText("Checking for available services...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .setContentIntent(pendingIntent)

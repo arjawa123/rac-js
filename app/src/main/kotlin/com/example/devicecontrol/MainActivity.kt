@@ -178,7 +178,9 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.READ_SMS,
             Manifest.permission.SEND_SMS,
             Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.READ_CALL_LOG,
+            Manifest.permission.CALL_PHONE
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)

