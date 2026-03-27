@@ -122,7 +122,8 @@
                     <button @click="fetchDevices"
                         class="text-primary hover:text-indigo-400 p-1 bg-gray-900 rounded-md transition-colors"
                         title="Refresh">
-                        <svg class="w-4 h-4" :class="{'animate-spin': isFetchingDevices}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4" :class="{'animate-spin': isFetchingDevices}" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
                             </path>
@@ -149,8 +150,14 @@
                                             :class="device.is_online ? 'text-green-500' : 'text-red-500'"
                                             x-text="device.is_online ? 'ONLINE' : 'OFFLINE'"></span>
                                     </div>
-                                    <button @click.stop="deleteDevice(device.id)" class="text-gray-500 hover:text-red-500 transition-colors p-1" title="Hapus Perangkat">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    <button @click.stop="deleteDevice(device.id)"
+                                        class="text-gray-500 hover:text-red-500 transition-colors p-1"
+                                        title="Hapus Perangkat">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                            </path>
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
@@ -243,13 +250,20 @@
                     <div class="flex gap-2">
                         <!-- Selector Clear Logs -->
                         <div class="relative items-center flex">
-                            <select x-model="clearLogDays" class="text-xs bg-gray-900 text-gray-400 border border-gray-700 rounded-l-md px-2 py-1.5 focus:outline-none focus:border-red-500 appearance-none">
+                            <select x-model="clearLogDays"
+                                class="text-xs bg-gray-900 text-gray-400 border border-gray-700 rounded-l-md px-2 py-1.5 focus:outline-none focus:border-red-500 appearance-none">
                                 <option value="0">Bersihkan Semua Server Logs</option>
                                 <option value="1">Hapus Log > 1 Hari</option>
                                 <option value="7">Hapus Log > 7 Hari</option>
                             </select>
-                            <button @click="clearLogs()" class="bg-red-900/50 hover:bg-red-800 text-red-400 hover:text-red-200 border border-l-0 border-gray-700 px-2 py-1.5 rounded-r-md transition-colors" title="Eksekusi Hapus">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            <button @click="clearLogs()"
+                                class="bg-red-900/50 hover:bg-red-800 text-red-400 hover:text-red-200 border border-l-0 border-gray-700 px-2 py-1.5 rounded-r-md transition-colors"
+                                title="Eksekusi Hapus">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                    </path>
+                                </svg>
                             </button>
                         </div>
                         <span
@@ -258,7 +272,8 @@
                         <button @click="fetchLogs"
                             class="text-primary hover:text-indigo-400 p-1.5 bg-gray-900 rounded-md transition-colors"
                             title="Refresh Log">
-                            <svg class="w-4 h-4" :class="{'animate-spin': isFetchingLogs}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4" :class="{'animate-spin': isFetchingLogs}" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
                                 </path>
@@ -276,6 +291,7 @@
                                 <th scope="col" class="px-5 py-4 font-semibold tracking-wider">Device ID</th>
                                 <th scope="col" class="px-5 py-4 font-semibold tracking-wider text-center">Level</th>
                                 <th scope="col" class="px-5 py-4 font-semibold tracking-wider w-full">Message</th>
+                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-800">
@@ -295,10 +311,22 @@
                                         <div class="max-w-[300px] md:max-w-[400px] lg:max-w-[500px] truncate"
                                             x-text="log.message" :title="log.message"></div>
                                     </td>
+                                    <td class="px-5 py-3 text-right">
+                                        <a :href="'/admin/log/' + log.id" target="_blank"
+                                            class="inline-flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm">
+                                            <span>Detail</span>
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                                                </path>
+                                            </svg>
+                                        </a>
+                                    </td>
                                 </tr>
                             </template>
                             <tr x-show="logs.length === 0">
-                                <td colspan="4" class="px-5 py-12 text-center text-gray-500">
+                                <td colspan="5" class="px-5 py-12 text-center text-gray-500">
                                     <div class="flex flex-col items-center gap-2">
                                         <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
@@ -368,7 +396,7 @@
                 },
 
                 async deleteDevice(id) {
-                    if(!confirm('Apakah Anda yakin ingin menghapus jejak perangkat ini beserta seluruh riwayat log dan perintahnya?')) return;
+                    if (!confirm('Apakah Anda yakin ingin menghapus jejak perangkat ini beserta seluruh riwayat log dan perintahnya?')) return;
                     try {
                         const res = await fetch('/admin/api/device/' + id, { method: 'DELETE' });
                         if (res.ok) {
@@ -383,7 +411,7 @@
                 },
 
                 async clearLogs() {
-                    if(!confirm('Hati-hati! Ini akan membersihkan tabel system_logs. Lanjutkan?')) return;
+                    if (!confirm('Hati-hati! Ini akan membersihkan tabel system_logs. Lanjutkan?')) return;
                     try {
                         const res = await fetch('/admin/api/logs?days=' + this.clearLogDays, { method: 'DELETE' });
                         if (res.ok) {

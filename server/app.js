@@ -694,8 +694,39 @@ app.get('/admin/api/devices', async (req, res) => {
 
 app.get('/admin/api/logs', async (req, res) => {
     if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-    const logs = await db.all('SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50');
-    res.json({ logs });
+
+    // Potong teks MESSAGE hingga max 300 char langsung di level SQLite agar tidak membebani memori server/klien dengan file Base64
+    const logs = await db.all('SELECT id, device_id, command_id, level, created_at, SUBSTR(message, 1, 300) AS message_preview FROM system_logs ORDER BY created_at DESC LIMIT 50');
+
+    // Konversi message_preview menjadi format data message kembali untuk EJS
+    const formattedLogs = logs.map(l => {
+        let preview = l.message_preview;
+        if (preview && preview.length >= 300) preview += '... [Lihat Detail untuk Full JSON/Media]';
+        return {
+            id: l.id,
+            device_id: l.device_id,
+            command_id: l.command_id,
+            level: l.level,
+            created_at: l.created_at,
+            message: preview
+        };
+    });
+
+    res.json({ logs: formattedLogs });
+});
+
+app.get('/admin/log/:id', async (req, res) => {
+    if (!verifyAdmin(req)) return res.redirect('/admin');
+    const logId = req.params.id;
+    const log = await db.get('SELECT * FROM system_logs WHERE id = ?', [logId]);
+    if (!log) return res.status(404).send('Log tidak ditemukan di database.');
+
+    let parsedBody = {};
+    try {
+        parsedBody = JSON.parse(log.message);
+    } catch (e) { }
+
+    res.render('log_detail', { log, parsedBody });
 });
 
 app.post('/admin/api/command', async (req, res) => {
