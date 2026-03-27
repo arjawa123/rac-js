@@ -517,6 +517,11 @@ app.post('/response', async (req, res) => {
                         preview = formatDeviceResponse(sub);
                         if (Object.keys(d).length > 10) preview += `\n  ... <i>dan properti lainnya.</i>`;
                     }
+
+                    // Batasi panjang caption total 1024 char, kita batasi preview 750 saja
+                    if (preview.length > 750) {
+                        preview = preview.substring(0, 750) + '\n... (terpotong, lihat Dokumen JSON)';
+                    }
                     return preview;
                 };
 

