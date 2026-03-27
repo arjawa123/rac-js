@@ -8,3 +8,4 @@ app/build
 .agent
 *node_modules
 *package-lock.json
+*.sqlite
