@@ -1,5 +1,4 @@
 .gradle/
-gradle/
 server/.venv
 *.env
 .env
