@@ -8,6 +8,9 @@ on:
   pull_request:
     branches: [ "main", "develop" ]
 
+permissions:
+  contents: write # Diperlukan untuk membuat halaman Release
+
 jobs:
   build:
     runs-on: ubuntu-latest
