@@ -484,6 +484,8 @@ Format Eksekusi Manual:
 
             await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [cmdId, devId, command, ctx.message.text, 'pending', chatId.toString(), sentMsg.message_id.toString()]);
+            
+            notifyClient(devId, { id: cmdId, command: command, text: ctx.message.text });
             return;
         }
         return next();
@@ -567,13 +569,28 @@ app.post('/webhook', (req, res) => {
     }
 });
 
+// Untuk Long-Polling: Simpan referensi ke client yang sedang menunggu (devId -> res)
+const waitingClients = {};
+
+// Helper untuk mengirim command ke client yang sedang menunggu
+const notifyClient = (devId, cmd) => {
+    if (waitingClients[devId]) {
+        const res = waitingClients[devId];
+        delete waitingClients[devId];
+        res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
+        return true;
+    }
+    return false;
+};
+
+// ... (di dalam endpoint /poll)
 app.get('/poll', async (req, res) => {
     const { client_id, auth } = req.query;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
 
     await updateDeviceSeen(client_id);
 
-    // Mekanisme Short-Polling (Ramah Background Android Doze)
+    // Cek apakah ada command pending
     const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
         [client_id, 'pending']);
 
@@ -582,8 +599,26 @@ app.get('/poll', async (req, res) => {
         return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
     }
 
-    res.json({ command: 'none' }); // Jawaban langsung 'none'
+    // Jika tidak ada, tunggu (Long-Polling)
+    if (waitingClients[client_id]) {
+        try { waitingClients[client_id].json({ command: 'none' }); } catch(e) {}
+    }
+    waitingClients[client_id] = res;
+
+    // Timeout setelah 30 detik
+    setTimeout(() => {
+        if (waitingClients[client_id] === res) {
+            delete waitingClients[client_id];
+            res.json({ command: 'none' });
+        }
+    }, 30000);
 });
+
+// ... (PENTING: Di setiap tempat di mana db.run('INSERT INTO commands...') dipanggil, tambahkan pemanggilan notifyClient)
+// Contoh di bot.action runcmd:
+// await db.run('INSERT INTO commands...', [...]);
+// notifyClient(devId, { command: realCmdName, text: cmdText, id: cmdId });
+
 
 app.post('/response', async (req, res) => {
     const { client_id, auth } = req.query;
