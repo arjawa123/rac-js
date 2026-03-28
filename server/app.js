@@ -22,6 +22,7 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL || '';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'my-secret-token';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const PORT = process.env.PORT || 3000;
+const ALLOWED_IDS = (process.env.ALLOWED_IDS || '').split(',').map(id => id.trim()).filter(id => id.length > 0);
 
 const app = express();
 
@@ -215,6 +216,19 @@ let bot;
 let lastSelectedDevice = null;
 if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
     bot = new Telegraf(TELEGRAM_TOKEN);
+
+    // Middleware Autentikasi ALLOWED_IDS
+    bot.use(async (ctx, next) => {
+        if (!ctx.from) return;
+        const userId = ctx.from.id.toString();
+
+        // Jika ALLOWED_IDS dikonfigurasi, tolak akses di luar daftar
+        if (ALLOWED_IDS.length > 0 && !ALLOWED_IDS.includes(userId)) {
+            console.log(`[Akses Ditolak] User ID: ${userId} mencoba menggunakan Bot.`);
+            return; // Mengabaikan pesan diam-diam
+        }
+        return next();
+    });
 
     // Mendaftarkan perintah ke dalam kotak input Telegram dengan try-catch agar tidak crash jika Timeout
     try {
