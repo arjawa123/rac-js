@@ -674,11 +674,11 @@
                 },
 
                 async clearLogs() {
-                    if (!confirm('Hati-hati! Ini akan membersihkan tabel system_logs. Lanjutkan?')) return;
+                    if (!confirm('Hati-hati! Ini akan membersihkan riwayat log dan perintah di sistem. Lanjutkan?')) return;
                     try {
                         const res = await fetch('/admin/api/logs?days=' + this.clearLogDays, { method: 'DELETE' });
                         if (res.ok) {
-                            this.showToast('Cakupan Log berhasil diringkas.', 'success');
+                            this.showToast('Log dan riwayat perintah berhasil dibersihkan.', 'success');
                             this.fetchLogs();
                         } else {
                             this.showToast('Gagal membersihkan log.', 'error');

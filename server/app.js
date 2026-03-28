@@ -923,10 +923,13 @@ app.delete('/admin/api/logs', async (req, res) => {
 
         if (filterDays === 0) {
             await db.run('DELETE FROM system_logs');
+            await db.run('DELETE FROM commands');
         } else {
-            await db.run(`DELETE FROM system_logs WHERE datetime(created_at) < datetime('now', '-${filterDays} days')`);
+            const timeFilter = `datetime(created_at) < datetime('now', '-${filterDays} days')`;
+            await db.run(`DELETE FROM system_logs WHERE ${timeFilter}`);
+            await db.run(`DELETE FROM commands WHERE ${timeFilter}`);
         }
-        res.json({ status: 'success', message: 'Log sistem berhasil dibersihkan.' });
+        res.json({ status: 'success', message: 'Log sistem dan riwayat perintah berhasil dibersihkan.' });
     } catch (e) {
         res.status(500).json({ error: 'Internal Server Error', details: e.message });
     }
