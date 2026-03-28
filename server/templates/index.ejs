@@ -9,6 +9,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -684,33 +686,47 @@
                 <div x-show="!isLoadingDetail && detailLog" class="space-y-4">
                     <!-- General Info Card -->
                     <div
-                        class="bg-gray-800 p-4 rounded-xl border border-gray-700 grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <span class="block text-xs text-gray-500 font-semibold mb-1">Device ID</span>
-                            <span class="text-sm font-mono text-white break-words"
+                        class="bg-gray-800 p-4 rounded-xl border border-gray-700 grid grid-cols-2 md:grid-cols-5 gap-4 shadow-inner">
+                        <div class="md:col-span-1">
+                            <span class="block text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Device ID</span>
+                            <span class="text-sm font-mono text-primary font-bold truncate block"
                                 x-text="detailLog?.log?.device_id || '-'"></span>
                         </div>
                         <div>
-                            <span class="block text-xs text-gray-500 font-semibold mb-1">Status</span>
-                            <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                            <span class="block text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Status</span>
+                            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight"
                                 :class="{'bg-red-500/20 text-red-500': detailLog?.log?.level === 'ERROR', 'bg-green-500/20 text-green-500': detailLog?.log?.level === 'INFO', 'bg-yellow-500/20 text-yellow-500': detailLog?.log?.level === 'WARN'}"
                                 x-text="detailLog?.log?.level || '-'"></span>
                         </div>
                         <div>
-                            <span class="block text-xs text-gray-500 font-semibold mb-1">Waktu</span>
-                            <span class="text-sm text-gray-300 break-words"
-                                x-text="detailLog?.log?.created_at || '-'"></span>
+                            <span class="block text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Waktu (WITA)</span>
+                            <span class="text-xs text-gray-300 font-mono block"
+                                x-text="formatDate(detailLog?.log?.created_at, true) || '-'"></span>
+                        </div>
+                        <div>
+                            <span class="block text-[10px] text-indigo-400 font-black uppercase tracking-widest mb-1">Durasi Proses</span>
+                            <span class="text-xs text-white font-mono font-bold block"
+                                x-text="calculateDuration(detailLog?.command)"></span>
                         </div>
                         <div class="truncate">
-                            <span class="block text-xs text-gray-500 font-semibold mb-1">Command ID</span>
-                            <span class="text-sm font-mono text-gray-300"
-                                x-text="detailLog?.log?.command_id || 'Otomatis Server'"></span>
+                            <span class="block text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Command ID</span>
+                            <span class="text-[11px] font-mono text-gray-400 block"
+                                x-text="detailLog?.log?.command_id || 'Otomatis'"></span>
                         </div>
                     </div>
 
+                    <!-- Map Container for Location Logs -->
+                    <template x-if="detailLog?.parsedBody?.type === 'location' || detailLog?.parsedBody?.type === 'location_data'">
+                        <div class="w-full h-64 rounded-xl border border-gray-700 overflow-hidden shadow-lg relative z-0" id="detail-map">
+                        </div>
+                    </template>
+
                     <!-- JSON Viewer -->
                     <div>
-                        <span class="block text-sm font-semibold text-gray-300 mb-2 mt-2">Payload (Raw JSON)</span>
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="block text-sm font-semibold text-gray-300">Payload (Raw JSON)</span>
+                            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest" x-text="'Type: ' + (detailLog?.parsedBody?.type || 'UNKNOWN')"></span>
+                        </div>
                         <div
                             class="bg-[#1e1e1e] rounded-xl border border-gray-700 overflow-hidden text-sm relative group">
                             <button @click="copyToClipboard(JSON.stringify(detailLog?.parsedBody, null, 2))"
@@ -1090,9 +1106,24 @@
                     }
                 },
 
-                formatDate(unixSeconds) {
-                    if (!unixSeconds || unixSeconds === 0) return 'Belum Aktif';
-                    const date = new Date(unixSeconds * 1000);
+                calculateDuration(cmd) {
+                    if (!cmd || !cmd.created_at || !cmd.completed_at) return 'Otomatis';
+                    const start = new Date(cmd.created_at + ' Z');
+                    const end = new Date(cmd.completed_at + ' Z');
+                    const diffMs = end - start;
+                    const diffSec = Math.floor(diffMs / 1000);
+                    if (diffSec < 60) return diffSec + ' detik';
+                    return Math.floor(diffSec / 60) + 'm ' + (diffSec % 60) + 's';
+                },
+
+                formatDate(val, isSqlTimestamp = false) {
+                    if (!val || val === 0) return 'Belum Aktif';
+                    let date;
+                    if (isSqlTimestamp) {
+                        date = new Date(val + ' Z');
+                    } else {
+                        date = new Date(val * 1000);
+                    }
                     return date.toLocaleString('id-ID', { 
                         timeZone: 'Asia/Makassar', 
                         hour12: false, 
@@ -1123,6 +1154,9 @@
                         const res = await fetch('/admin/api/log/' + id);
                         if (res.ok) {
                             this.detailLog = await res.json();
+                            this.$nextTick(() => {
+                                this.initDetailMap();
+                            });
                         } else {
                             this.showToast('Gagal memuat detail log (404)', 'error');
                             this.closeDetailModal();
@@ -1132,6 +1166,28 @@
                         this.closeDetailModal();
                     } finally {
                         this.isLoadingDetail = false;
+                    }
+                },
+
+                initDetailMap() {
+                    const type = this.detailLog?.parsedBody?.type;
+                    const data = this.detailLog?.parsedBody?.data;
+                    if ((type === 'location' || type === 'location_data') && data) {
+                        const lat = parseFloat(data.lat);
+                        const lon = parseFloat(data.lon || data.lng);
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            setTimeout(() => {
+                                const mapContainer = document.getElementById('detail-map');
+                                if (!mapContainer) return;
+                                const map = L.map('detail-map').setView([lat, lon], 16);
+                                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                                    attribution: '&copy; OpenStreetMap &copy; CARTO'
+                                }).addTo(map);
+                                L.marker([lat, lon]).addTo(map)
+                                    .bindPopup('Lokasi Target (' + (data.accuracy || '?') + 'm)')
+                                    .openPopup();
+                            }, 100);
+                        }
                     }
                 },
 
