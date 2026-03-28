@@ -50,13 +50,15 @@ let db;
             text TEXT,
             status TEXT DEFAULT 'pending',
             chat_id TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME
         )`);
 
         // Tambah kolom jika dari versi sebelumnya belum ada
         try { await db.exec(`ALTER TABLE devices ADD COLUMN polling_mode TEXT DEFAULT 'turbo'`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN chat_id TEXT`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN message_id TEXT`); } catch (e) { }
+        try { await db.exec(`ALTER TABLE commands ADD COLUMN completed_at DATETIME`); } catch (e) { }
 
         await db.exec(`CREATE TABLE IF NOT EXISTS system_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -663,7 +665,7 @@ app.post('/response', async (req, res) => {
         [client_id, data.id || null, data.level || 'INFO', JSON.stringify(logData)]);
 
     if (data.id) {
-        await db.run('UPDATE commands SET status = ? WHERE id = ?', ['completed', data.id]);
+        await db.run('UPDATE commands SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', ['completed', data.id]);
 
         // Membalas ke Telegram jika perintah ini dari Telegram
         try {
@@ -926,6 +928,63 @@ app.get('/admin/api/logs', async (req, res) => {
     }
 });
 
+app.get('/admin/api/stats', async (req, res) => {
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        if (!db) return res.status(503).json({ error: 'Database belum siap' });
+
+        // Command paling sering digunakan
+        const topCommands = await db.all(`
+            SELECT command, COUNT(*) as count 
+            FROM commands 
+            GROUP BY command 
+            ORDER BY count DESC 
+            LIMIT 5
+        `);
+
+        // Command paling cepat response-nya (rata-rata durasi)
+        // SQLite doesn't have direct duration subtraction for DATETIME easily in seconds, 
+        // but we can use strftime('%s', completed_at) - strftime('%s', created_at)
+        const fastestCommands = await db.all(`
+            SELECT command, 
+                   AVG(strftime('%s', completed_at) - strftime('%s', created_at)) as avg_duration
+            FROM commands 
+            WHERE status = 'completed' AND completed_at IS NOT NULL
+            GROUP BY command 
+            ORDER BY avg_duration ASC 
+            LIMIT 5
+        `);
+
+        // Statistik Status Device
+        const devices = await db.all('SELECT last_seen FROM devices');
+        const now = Date.now() / 1000;
+        let online = 0;
+        let offline = 0;
+        devices.forEach(d => {
+            if ((now - d.last_seen) < 90) online++;
+            else offline++;
+        });
+
+        // Aktivitas Command 7 hari terakhir
+        const dailyActivity = await db.all(`
+            SELECT DATE(created_at) as date, COUNT(*) as count 
+            FROM commands 
+            WHERE created_at > DATE('now', '-7 days')
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        `);
+
+        res.json({
+            topCommands,
+            fastestCommands,
+            deviceStatus: { online, offline },
+            dailyActivity
+        });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+    }
+});
+
 app.get('/admin/api/log/:id', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
@@ -935,6 +994,11 @@ app.get('/admin/api/log/:id', async (req, res) => {
         const log = await db.get('SELECT * FROM system_logs WHERE id = ?', [logId]);
         if (!log) return res.status(404).json({ error: 'Log tidak ditemukan di database.' });
 
+        let cmd = null;
+        if (log.command_id) {
+            cmd = await db.get('SELECT * FROM commands WHERE id = ?', [log.command_id]);
+        }
+
         let parsedBody = {};
         try {
             parsedBody = JSON.parse(log.message);
@@ -942,7 +1006,7 @@ app.get('/admin/api/log/:id', async (req, res) => {
             parsedBody = { raw_data: log.message };
         }
 
-        res.json({ log, parsedBody });
+        res.json({ log, parsedBody, command: cmd });
     } catch (e) {
         res.status(500).json({ error: 'Internal Server Error', details: e.message });
     }
@@ -954,12 +1018,17 @@ app.get('/admin/log/:id', async (req, res) => {
     const log = await db.get('SELECT * FROM system_logs WHERE id = ?', [logId]);
     if (!log) return res.status(404).send('Log tidak ditemukan di database.');
 
+    let cmd = null;
+    if (log.command_id) {
+        cmd = await db.get('SELECT * FROM commands WHERE id = ?', [log.command_id]);
+    }
+
     let parsedBody = {};
     try {
         parsedBody = JSON.parse(log.message);
     } catch (e) { }
 
-    res.render('log_detail', { log, parsedBody });
+    res.render('log_detail', { log, parsedBody, command: cmd });
 });
 
 app.post('/admin/api/command', async (req, res) => {
