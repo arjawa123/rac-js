@@ -820,7 +820,7 @@ app.get('/admin/api/logs', async (req, res) => {
             try {
                 const fileContent = fs.readFileSync(stderrPath, 'utf8');
                 // Pisahkan per blok unit error jika diawali path absolut, nama Error, Unhandled Rejection, atau pesan "Failed to"
-                const blocks = fileContent.split(/(?<=^|\n)(?=\/[a-zA-Z0-9_\-\/]+\.js:\d+|[a-zA-Z]+Error:|UnhandledPromiseRejection|Failed to [a-z]+)/i);
+                const blocks = fileContent.split(/\n(?=\/[a-zA-Z0-9_\-\/]+\.js:\d+|[a-zA-Z]+Error:|UnhandledPromiseRejection|Failed to [a-z]+)/i);
 
                 hostLogs = blocks.map((b, idx) => {
                     const text = b.trim();
@@ -831,11 +831,9 @@ app.get('/admin/api/logs', async (req, res) => {
                     const errMatch = text.match(/(?:[a-zA-Z]+Error|Exception|UnhandledPromiseRejection): .+/i);
                     if (errMatch) title = errMatch[0];
 
-                    // ID stabil berdasarkan hash dari konten (agar state Alpine tidak reset)
-                    const hash = crypto.createHash('md5').update(text).digest('hex').substring(0, 10);
-
+                    // ID stabil berdasarkan urutan blok (ini aman jika log hanya bertambah di akhir)
                     return {
-                        id: 'err_' + hash,
+                        id: `err_${idx}`,
                         title: title.length > 150 ? title.substring(0, 150) + '...' : title,
                         full: text
                     };

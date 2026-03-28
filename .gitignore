@@ -10,3 +10,4 @@ app/build
 *package-lock.json
 *.sqlite
 GEMINI.md
+server/stderr.log
