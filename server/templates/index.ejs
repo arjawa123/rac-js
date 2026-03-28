@@ -149,6 +149,16 @@
                                         x-text="device.id"></span>
                                 </div>
                                 <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">
+                                        <span class="text-[9px] font-bold tracking-tighter" :class="device.polling_mode === 'short' ? 'text-yellow-400' : 'text-blue-400'" x-text="device.polling_mode === 'short' ? 'TURBO' : 'LONG'"></span>
+                                    </div>
+                                    <button @click.stop="togglePollingMode(device.id, device.polling_mode)" 
+                                        class="bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white p-1 rounded-md border border-gray-700 transition-colors"
+                                        :title="'Switch to ' + (device.polling_mode === 'short' ? 'Normal' : 'Turbo') + ' mode'">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                        </svg>
+                                    </button>
                                     <div
                                         class="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">
                                         <span class="w-2.5 h-2.5 rounded-full"
@@ -778,6 +788,30 @@
                         this.showToast('Gangguan koneksi saat memuat log.', 'error');
                     } finally {
                         setTimeout(() => this.isFetchingLogs = false, 500);
+                    }
+                },
+
+                async togglePollingMode(devId, currentMode) {
+                    const nextMode = currentMode === 'short' ? 'long' : 'short';
+                    const label = nextMode === 'short' ? 'Turbo' : 'Normal';
+                    try {
+                        const res = await fetch('/admin/api/command', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                device_id: devId,
+                                command: 'set_polling_mode',
+                                text: nextMode
+                            })
+                        });
+                        if (res.ok) {
+                            this.showToast('Berhasil mengirim perintah ganti ke mode ' + label, 'success');
+                            this.fetchDevices();
+                        } else {
+                            this.showToast('Gagal mengubah mode polling.', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('Gangguan jaringan saat mengubah mode.', 'error');
                     }
                 },
 

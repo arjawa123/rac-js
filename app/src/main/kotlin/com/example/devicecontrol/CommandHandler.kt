@@ -159,6 +159,22 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         sendResponse(createResponse(cmdId, "error", "Torch err: ${e.message}"))
                     }
                 }
+                "set_polling_mode" -> {
+                    val mode = textArg.lowercase()
+                    val isTurbo = mode == "short" || mode == "turbo"
+                    val prefs = context.getSharedPreferences("config", Context.MODE_PRIVATE)
+                    prefs.edit().putBoolean("turbo_mode", isTurbo).apply()
+                    
+                    val restartIntent = Intent(context, ControlService::class.java).apply {
+                        action = "RESTART_POLLING"
+                    }
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        context.startForegroundService(restartIntent)
+                    } else {
+                        context.startService(restartIntent)
+                    }
+                    sendResponse(createResponse(cmdId, "success", "Mode: ${if (isTurbo) "Turbo" else "Normal"}"))
+                }
                 "tts" -> {
                     tts?.speak(textArg, TextToSpeech.QUEUE_ADD, null, null)
                     sendResponse(createResponse(cmdId, "success", "Speaking..."))

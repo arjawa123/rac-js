@@ -87,6 +87,26 @@ class ControlService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "RESTART_POLLING") {
+            Log.d(TAG, "Restarting Polling Manager with new config")
+            if (::pollingManager.isInitialized) {
+                pollingManager.stop()
+            }
+            
+            val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
+            val serverUrl = prefs.getString("ws_url", "") ?: ""
+            val devId = prefs.getString("device_id", "") ?: ""
+            val authToken = prefs.getString("auth_token", "") ?: ""
+            val isTurbo = prefs.getBoolean("turbo_mode", true)
+
+            var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
+            if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
+
+            if (cleanUrl.isNotEmpty()) {
+                pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler, isTurbo)
+                pollingManager.start()
+            }
+        }
         return START_STICKY
     }
 

