@@ -371,7 +371,8 @@ Format Eksekusi Manual:
         }
 
         const isResult = ctx.callbackQuery.message.text && (ctx.callbackQuery.message.text.includes('Respon') || ctx.callbackQuery.message.text.includes('Data'));
-        const caption = isResult ? ctx.callbackQuery.message.text.replace('⏳ Menunggu Respon...', '') : `🎯 <b>Menu ${isSecret ? 'Lanjutan' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
+        const rawText = isResult ? ctx.callbackQuery.message.text.replace('⏳ Menunggu Respon...', '') : '';
+        const caption = isResult ? escapeHTML(rawText) : `🎯 <b>Menu ${isSecret ? 'Lanjutan' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
 
         menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }]);
         const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } };

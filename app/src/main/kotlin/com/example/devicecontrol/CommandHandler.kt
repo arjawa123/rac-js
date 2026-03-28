@@ -317,16 +317,19 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             arr.put(obj)
                         }
                         
-                        // Fallback ke connected wifi jika hasil list kosong pada FGS Android 14
+                        // Fallback jika hasil list kosong pada sistem Android modern (throttle/limit OS)
                         if (arr.length() == 0) {
+                            val obj = JSONObject()
+                            obj.put("Pesan Sistem", "OS mencegah background WiFi Scan. Pastikan GPS/Location ON dan Izin Location di set ke 'Allow all the time'.")
+                            
                             val currentWifi = wm.connectionInfo
-                            if (currentWifi != null && currentWifi.bssid != null) {
-                                val obj = JSONObject()
-                                obj.put("ssid", currentWifi.ssid)
+                            if (currentWifi != null && currentWifi.networkId != -1) {
+                                obj.put("status", "Hanya deteksi WiFi terhubung:")
+                                obj.put("ssid", currentWifi.ssid?.replace("\"", ""))
                                 obj.put("bssid", currentWifi.bssid)
                                 obj.put("level", currentWifi.rssi)
-                                arr.put(obj)
                             }
+                            arr.put(obj)
                         }
                         
                         sendResponse(createResponse(cmdId, "wifi_networks", arr))
