@@ -298,13 +298,13 @@
                         <!-- Selector Clear Logs System -->
                         <div class="relative items-center flex" x-show="activeTab === 'system'">
                             <select x-model="clearLogDays"
-                                class="text-xs bg-gray-900 text-gray-400 border border-gray-700 rounded-l-md px-2 py-1.5 focus:outline-none focus:border-red-500 appearance-none">
+                                class="text-xs bg-gray-900 text-gray-400 border border-red-500/30 rounded-l-md px-2 py-1.5 focus:outline-none focus:border-red-500 appearance-none">
                                 <option value="0">Bersihkan Semua Server Logs</option>
                                 <option value="1">Hapus Log > 1 Hari</option>
                                 <option value="7">Hapus Log > 7 Hari</option>
                             </select>
                             <button @click="clearLogs()"
-                                class="bg-red-900/50 hover:bg-red-800 text-red-400 hover:text-red-200 border border-l-0 border-gray-700 px-2 py-1.5 rounded-r-md transition-colors active:scale-95"
+                                class="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-l-0 border-red-500/30 px-3 py-1.5 rounded-r-md transition-colors active:scale-95 flex items-center justify-center"
                                 title="Eksekusi Hapus Log Sistem">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -425,9 +425,9 @@
                     x-transition:enter-end="opacity-100 translate-y-0" class="flex flex-col flex-1 min-h-0" x-cloak>
                     <div class="flex flex-col gap-4 overflow-y-auto pr-1">
                         <template x-for="(err, index) in hostLogs" :key="err.id">
-                            <div class="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-500/30"
-                                x-data="{ expanded: false }">
-                                <div @click="expanded = !expanded"
+                            <div
+                                class="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-500/30">
+                                <div @click="expandedLogs[err.id] = !expandedLogs[err.id]"
                                     class="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-800/50 transition-colors gap-4">
                                     <div class="flex items-center gap-3 min-w-0">
                                         <div class="p-2 bg-red-500/10 rounded-lg shrink-0">
@@ -454,14 +454,14 @@
                                             </svg>
                                         </button>
                                         <svg class="w-5 h-5 text-gray-600 transform transition-transform duration-200"
-                                            :class="expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
+                                            :class="expandedLogs[err.id] ? 'rotate-180' : ''" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M19 9l-7 7-7-7"></path>
                                         </svg>
                                     </div>
                                 </div>
-                                <div x-show="expanded" x-collapse x-cloak
+                                <div x-show="expandedLogs[err.id]" x-collapse x-cloak
                                     class="border-t border-gray-800 bg-black/30 p-4">
                                     <div class="relative group">
                                         <pre class="text-[11px] font-mono text-red-300 leading-relaxed overflow-x-auto whitespace-pre-wrap rounded-lg bg-black/40 p-3 border border-red-900/20"
@@ -650,6 +650,7 @@
                 filteredCommands: [],
                 showAutocomplete: false,
                 hoverIndex: 0,
+                expandedLogs: {},
 
                 init() {
                     this.fetchDevices();
