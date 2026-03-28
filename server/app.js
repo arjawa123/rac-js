@@ -932,5 +932,20 @@ app.delete('/admin/api/logs', async (req, res) => {
     }
 });
 
+app.delete('/admin/api/host-logs', async (req, res) => {
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        const stderrPath = path.join(__dirname, 'stderr.log');
+        if (fs.existsSync(stderrPath)) {
+            fs.writeFileSync(stderrPath, '');
+            res.json({ status: 'success', message: 'Log hosting (stderr.log) berhasil dikosongkan.' });
+        } else {
+            res.status(404).json({ error: 'File stderr.log tidak ditemukan.' });
+        }
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+    }
+});
+
 // app.listen dipindahkan ke inisialisasi DB di awal file
 

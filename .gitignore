@@ -9,3 +9,4 @@ app/build
 *node_modules
 *package-lock.json
 *.sqlite
+GEMINI.md
