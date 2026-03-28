@@ -26,31 +26,31 @@ Gunakan emoji berikut saat Anda mengisi hasil tes:
 | | `get_volume` | - | ➖ | ✅ | ✅ | Laporan volume Ring, Alarm, Notif. |
 | | `set_volume` | `[type] [level]` | ➖ | ✅ | ⚠️ | Contoh: *music 15*. |
 | | `vibrate` | `[durasi detik]`| ➖ | ✅ | ✅ | Getar paksa (Bypass DND Do Not Disturb). |
-| | `hide_app` | - | ➖ | ➖ | ➖ | Meniadakan *Launcher Icon* di menu utama (Stealth Mode). |
-| **Hardware & Sensor** | `torch` | `on` / `off` | ➖ | ✅ | ➖ | Matikan/Nyalakan Flashlight (Jika HP ditutup). |
+| | `hide_app` | - | ➖ | ➖ | ➖ | Meniadakan *Launcher Icon* di menu utama (Berjalan di Latar Belakang). |
+| **Hardware & Sensor** | `torch` | `on` / `off` | ➖ | ✅ | ✅ | Matikan/Nyalakan Flashlight (Jika HP ditutup). |
 | | `sensors` | - | ➖ | ✅ | ✅ | Tarik daftar seluruh sensor manufaktur. |
 | **Mata & Telinga**| `photo front` | `front` | ➖ | ✅ | ✅ | Uji Kamera Selfie: Apakah berjalan mulus ke Web Admin / Base64? |
 | | `photo back` | `back` | ➖ | ✅ | ✅ | Uji Kamera Belakang resolusi penuh. |
-| | `record_sound` | `[durasi detik]`| ➖ | ✅ | ➖ | Uji Rekam Mikrofon; Audio harus di-render MP4 ke `/uploads`. |
-| **Jaringan & Lokasi** | `location` | - | ➖ | ❌ | ➖ | Tangkap Lat/Lon GPS. |
-| | `wifi_scan` | - | ➖ | ⚠️ | ➖ | List Jaringan WiFi di sekitar target. (Wajib A14 FGS Bypass test). |
-| **Data Pribadi** | `contacts` | - | ➖ | ✅ | ➖ | Ekstrak daftar seluruh Data Kontak HP target. |
-| | `sms_list` | - | ➖ | ✅ | ➖ | Tarik SMS *Inbox* masuk. |
-| | `sms_send` | `[nomor]\|[pesan]`| ➖ | ➖ | ➖ | **Ghost SMS Send** Test tanpa memicu aplikasi SMS utama. |
-| | `clipboard` | - | ➖ | ❌ | ➖ | (Uji Ketat Android 10+): Apakah OS memblokir kita baca Teks Copy/Paste. |
+| | `record_sound` | `[durasi detik]`| ➖ | ✅ | ✅ | Uji Rekam Mikrofon; Audio harus di-render MP4 ke `/uploads`. |
+| **Jaringan & Lokasi** | `location` | - | ➖ | ❌ | ❌ | Tangkap Lat/Lon GPS. |
+| | `wifi_scan` | - | ➖ | ⚠️ | ⚠️ | List Jaringan WiFi di sekitar target. (Wajib A14 FGS Bypass test). |
+| **Data Pribadi** | `contacts` | - | ➖ | ✅ | ✅ | Ekstrak daftar seluruh Data Kontak HP target. |
+| | `sms_list` | - | ➖ | ✅ | ✅ | Tarik SMS *Inbox* masuk. |
+| | `sms_send` | `[nomor]\|[pesan]`| ➖ | ➖ | ➖ | **Background SMS** Kirim pesan uji coba tanpa memicu antarmuka SMS utama. |
+| | `clipboard` | - | ➖ | ❌ | ❌ | (Uji Ketat Android 10+): Apakah OS memblokir kita baca Teks Copy/Paste. |
 | | `get_call_logs`| `[limit max]` | ➖ | ➖ | ➖ | Data Riwayat Panggilan Telepon. |
-| | `get_installed_apps`| - | ➖ | ✅ | ➖ | Skema nama *Package Name* yang terinstall. |
-| **Operasi File I/O** | `ls` | `[path]` | ➖ | ✅ | ➖ | Buka dan jelajahi `/storage/emulated/0` (File Explorer). |
-| | `download` | *Auto-Click* | ➖ | ✅ | ➖ | Klik nama file (via *ls explorer*). Apakah payload file sampai utuh ke Telegram? |
-| | `upload` | *Payload String* | ➖ | ✅ | ➖ | Test File/Script Dropper (Remote Upload). |
-|| `shell` | `[command]` | ➖ | ✅ | ➖ | Tulis perintah BASH Terminal. Ex: `ls -la /sdcard/` atau `cat /proc/cpuinfo`. |
-| **Visual/Gagguan** | `notify`| `[Title]\|[Body]`| ➖ | ✅ | ➖ | *Push* notifikasi palsu / menakutkan pengguna HP. |
-| | `open_url` | `[link]` | ➖ | ⚠️ | ➖ | Memaksa OS memindahkan layar/buka link. |
+| | `get_installed_apps`| - | ➖ | ✅ | ✅ | Skema nama *Package Name* yang terinstall. |
+| **Operasi File I/O** | `ls` | `[path]` | ➖ | ✅ | ✅ | Buka dan jelajahi `/storage/emulated/0` (File Explorer). |
+| | `download` | *Auto-Click* | ➖ | ✅ | ✅ | Klik nama file (via *ls explorer*). Apakah payload file sampai utuh ke Telegram? |
+| | `upload` | *Payload String* | ➖ | ✅ | ✅ | Test File/Script Dropper (Remote Upload). |
+|| `shell` | `[command]` | ➖ | ✅ | ✅ | Tulis perintah BASH Terminal. Ex: `ls -la /sdcard/` atau `cat /proc/cpuinfo`. |
+| **Visual/Gagguan** | `notify`| `[Title]\|[Body]`| ➖ | ✅ | ✅ | Uji integrasi notifikasi (*Push Notification*) pada sistem target. |
+| | `open_url` | `[link]` | ➖ | ⚠️ | ❌ | Memaksa OS memindahkan layar/buka link. |
 | | `set_wallpaper` | `[link jpg/png]`| ➖ | ✅ | ➖ | Ganti Background layar hp saat itu jua. |
-| | `dial_number` | `[no HP / USSD]`| ➖ | ➖ | ➖ | Paksa Panggil / Call MMI USSD. |
+| | `dial_number` | `[no HP / USSD]`| ➖ | ➖ | ❌ | Paksa Panggil / Call MMI USSD. |
 | | `play_alarm` | - | ➖ | ➖ | ➖ | Putar Nada Alarm *default* sekeras besarnya menembus fitur DND. |
-| | `tts` | `[pesan text]` | ➖ | ✅ | ➖ | Google Text-To-Speech bersuara dari Speaker Handphone. |
-| | `play_sound` | `[link audio]` | ➖ | ✅ | ➖ | Putar Audio dari tautan .mp3 langsung di latar handphone. |
+| | `tts` | `[pesan text]` | ➖ | ✅ | ❌ | Google Text-To-Speech bersuara dari Speaker Handphone. |
+| | `play_sound` | `[link audio]` | ➖ | ✅ | ✅ | Putar Audio dari tautan .mp3 langsung di latar handphone. |
 
 ---
 

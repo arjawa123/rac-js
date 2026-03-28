@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAC-JS Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script>
         tailwind.config = {
@@ -239,14 +240,34 @@
         <section class="w-full lg:w-2/3">
             <div
                 class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg h-full flex flex-col min-h-[500px]">
-                <div class="flex justify-between items-center mb-5">
-                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
-                        </svg>
-                        Log Sistem & Respons
-                    </h2>
+                <div class="flex justify-between items-center mb-5 flex-wrap gap-3">
+                    <div class="flex items-center bg-gray-900 p-1 rounded-xl border border-gray-700">
+                        <button @click="activeTab = 'system'"
+                            :class="activeTab === 'system' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-gray-200'"
+                            class="px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                            Log Sistem
+                        </button>
+                        <button @click="activeTab = 'hosting'"
+                            :class="activeTab === 'hosting' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-gray-400 hover:text-gray-200'"
+                            class="px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 relative">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                                </path>
+                            </svg>
+                            Log Hosting
+                            <span x-show="hostLogs.length > 0" class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                <span
+                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                            </span>
+                        </button>
+                    </div>
+
                     <div class="flex gap-2">
                         <!-- Selector Clear Logs -->
                         <div class="relative items-center flex">
@@ -282,81 +303,280 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto flex-1 border border-gray-700 rounded-xl bg-gray-900 shadow-inner">
-                    <table class="w-full text-sm text-left text-gray-400 whitespace-nowrap">
-                        <thead
-                            class="text-xs text-gray-300 uppercase bg-gray-800 border-b border-gray-700 sticky top-0">
-                            <tr>
-                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider">Timestamp</th>
-                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider">Device ID</th>
-                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider text-center">Level</th>
-                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider w-full">Message</th>
-                                <th scope="col" class="px-5 py-4 font-semibold tracking-wider text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-800">
-                            <template x-for="log in logs" :key="log.id">
-                                <tr class="hover:bg-gray-800/50 transition-colors">
-                                    <td class="px-5 py-3 text-xs tracking-tight text-gray-400" x-text="log.created_at">
-                                    </td>
-                                    <td class="px-5 py-3 font-mono text-xs text-primary font-semibold"
-                                        x-text="log.device_id || '-'"></td>
-                                    <td class="px-5 py-3 text-center">
-                                        <div class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border"
-                                            :class="{
+                <!-- System Logs Tab Content -->
+                <div x-show="activeTab === 'system'" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 translate-y-2"
+                    x-transition:enter-end="opacity-100 translate-y-0" class="flex flex-col flex-1 min-h-0">
+                    <div class="overflow-x-auto flex-1 border border-gray-700 rounded-xl bg-gray-900 shadow-inner">
+                        <table class="w-full text-sm text-left text-gray-400 whitespace-nowrap">
+                            <thead
+                                class="text-xs text-gray-300 uppercase bg-gray-800 border-b border-gray-700 sticky top-0">
+                                <tr>
+                                    <th scope="col" class="px-5 py-4 font-semibold tracking-wider">Timestamp</th>
+                                    <th scope="col" class="px-5 py-4 font-semibold tracking-wider">Device ID</th>
+                                    <th scope="col" class="px-5 py-4 font-semibold tracking-wider text-center">Level
+                                    </th>
+                                    <th scope="col" class="px-5 py-4 font-semibold tracking-wider w-full">Message</th>
+                                    <th scope="col" class="px-5 py-4 font-semibold tracking-wider text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-800">
+                                <template x-for="log in logs" :key="log.id">
+                                    <tr class="hover:bg-gray-800/50 transition-colors">
+                                        <td class="px-5 py-3 text-xs tracking-tight text-gray-400"
+                                            x-text="log.created_at">
+                                        </td>
+                                        <td class="px-5 py-3 font-mono text-xs text-primary font-semibold"
+                                            x-text="log.device_id || '-'"></td>
+                                        <td class="px-5 py-3 text-center">
+                                            <div class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border"
+                                                :class="{
                                                 'bg-red-500/10 text-red-500 border-red-500/20': ['ERROR', 'failed'].includes(log.level), 
                                                 'bg-green-500/10 text-green-500 border-green-500/20': ['INFO', 'completed'].includes(log.level), 
                                                 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20': ['WARN', 'pending'].includes(log.level),
                                                 'bg-blue-500/10 text-blue-500 border-blue-500/20': log.level === 'sent'
                                             }">
-                                            <span x-text="log.level"></span>
-                                        </div>
-                                    </td>
-                                    <td class="px-5 py-3 text-sm font-mono text-gray-300">
-                                        <div class="max-w-[300px] md:max-w-[400px] lg:max-w-[500px] truncate"
-                                            x-text="log.message" :title="log.message"></div>
-                                    </td>
-                                    <td class="px-5 py-3 text-right">
-                                        <a x-show="log.type !== 'cmd'" :href="'/admin/log/' + log.id" target="_blank"
-                                            class="inline-flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm">
-                                            <span>Detail</span>
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                <span x-text="log.level"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-5 py-3 text-sm font-mono text-gray-300">
+                                            <div class="max-w-[300px] md:max-w-[400px] lg:max-w-[500px] truncate"
+                                                x-text="log.message" :title="log.message"></div>
+                                        </td>
+                                        <td class="px-5 py-3 text-right">
+                                            <button x-show="log.type !== 'cmd'" @click="openDetailModal(log.id)"
+                                                class="inline-flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm">
+                                                <span>Detail</span>
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                            <span x-show="log.type === 'cmd'"
+                                                class="text-[10px] text-gray-500 italic block py-1.5 px-3">No
+                                                Detail</span>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <tr x-show="logs.length === 0">
+                                    <td colspan="5" class="px-5 py-12 text-center text-gray-500">
+                                        <div class="flex flex-col items-center gap-2">
+                                            <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor"
                                                 viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
                                                 </path>
                                             </svg>
-                                        </a>
-                                        <span x-show="log.type === 'cmd'"
-                                            class="text-[10px] text-gray-500 italic block py-1.5 px-3">No Detail</span>
+                                            Tidak ada catatan log ditemukan.
+                                        </div>
                                     </td>
                                 </tr>
-                            </template>
-                            <tr x-show="logs.length === 0">
-                                <td colspan="5" class="px-5 py-12 text-center text-gray-500">
-                                    <div class="flex flex-col items-center gap-2">
-                                        <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
-                                            </path>
-                                        </svg>
-                                        Tidak ada catatan log ditemukan.
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Hosting Logs Tab Content -->
+                <div x-show="activeTab === 'hosting'" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 translate-y-2"
+                    x-transition:enter-end="opacity-100 translate-y-0" class="flex flex-col flex-1 min-h-0" x-cloak>
+                    <div class="flex flex-col gap-4 overflow-y-auto pr-1">
+                        <template x-for="(err, index) in hostLogs" :key="err.id">
+                            <div class="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden shadow-sm transition-all hover:border-red-500/30"
+                                x-data="{ expanded: false }">
+                                <div @click="expanded = !expanded"
+                                    class="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-800/50 transition-colors gap-4">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="p-2 bg-red-500/10 rounded-lg shrink-0">
+                                            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="truncate">
+                                            <p class="text-sm font-bold text-gray-200 truncate" x-text="err.title"></p>
+                                            <p class="text-[10px] text-gray-500 mt-0.5 font-mono"
+                                                x-text="'UNIT ERROR #' + (hostLogs.length - index)"></p>
+                                        </div>
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <button @click.stop="copyToClipboard(err.full)"
+                                            class="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700 rounded-md transition-all"
+                                            title="Salin Full Log">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
+                                                </path>
+                                            </svg>
+                                        </button>
+                                        <svg class="w-5 h-5 text-gray-600 transform transition-transform duration-200"
+                                            :class="expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div x-show="expanded" x-collapse x-cloak
+                                    class="border-t border-gray-800 bg-black/30 p-4">
+                                    <div class="relative group">
+                                        <pre class="text-[11px] font-mono text-red-300 leading-relaxed overflow-x-auto whitespace-pre-wrap rounded-lg bg-black/40 p-3 border border-red-900/20"
+                                            x-text="err.full"></pre>
+                                        <div class="absolute top-2 right-2 flex gap-2">
+                                            <span
+                                                class="text-[9px] font-bold text-red-500/50 uppercase tracking-tighter">Raw
+                                                Stack Trace</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="hostLogs.length === 0" class="text-center py-20 flex flex-col items-center gap-4">
+                            <div
+                                class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center text-gray-600">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-gray-300 font-bold">Semua Aman!</h3>
+                                <p class="text-sm text-gray-500">Tidak ada Error Hosting yang terekam pada stderr.log.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
     </main>
+
+    <!-- Detail Modal -->
+    <div x-show="isDetailModalOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" x-cloak
+        x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden transform transition-all"
+            @click.away="closeDetailModal()">
+            <div class="p-4 md:p-5 border-b border-gray-700 flex justify-between items-center bg-gray-800/80">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    Data Transmisi Sistem
+                </h3>
+                <button @click="closeDetailModal()"
+                    class="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-4 md:p-5 overflow-y-auto flex-1 bg-gray-900 pointer-events-auto">
+                <div x-show="isLoadingDetail" class="flex flex-col items-center justify-center py-12 gap-3">
+                    <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <span class="text-gray-400 text-sm">Menyelaraskan data log...</span>
+                </div>
+
+                <div x-show="!isLoadingDetail && detailLog" class="space-y-4">
+                    <!-- General Info Card -->
+                    <div
+                        class="bg-gray-800 p-4 rounded-xl border border-gray-700 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <span class="block text-xs text-gray-500 font-semibold mb-1">Device ID</span>
+                            <span class="text-sm font-mono text-white break-words"
+                                x-text="detailLog?.log?.device_id || '-'"></span>
+                        </div>
+                        <div>
+                            <span class="block text-xs text-gray-500 font-semibold mb-1">Status</span>
+                            <span class="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                                :class="{'bg-red-500/20 text-red-500': detailLog?.log?.level === 'ERROR', 'bg-green-500/20 text-green-500': detailLog?.log?.level === 'INFO', 'bg-yellow-500/20 text-yellow-500': detailLog?.log?.level === 'WARN'}"
+                                x-text="detailLog?.log?.level || '-'"></span>
+                        </div>
+                        <div>
+                            <span class="block text-xs text-gray-500 font-semibold mb-1">Waktu</span>
+                            <span class="text-sm text-gray-300 break-words"
+                                x-text="detailLog?.log?.created_at || '-'"></span>
+                        </div>
+                        <div class="truncate">
+                            <span class="block text-xs text-gray-500 font-semibold mb-1">Command ID</span>
+                            <span class="text-sm font-mono text-gray-300"
+                                x-text="detailLog?.log?.command_id || 'Otomatis Server'"></span>
+                        </div>
+                    </div>
+
+                    <!-- JSON Viewer -->
+                    <div>
+                        <span class="block text-sm font-semibold text-gray-300 mb-2 mt-2">Payload (Raw JSON)</span>
+                        <div
+                            class="bg-[#1e1e1e] rounded-xl border border-gray-700 overflow-hidden text-sm relative group">
+                            <button @click="copyToClipboard(JSON.stringify(detailLog?.parsedBody, null, 2))"
+                                class="absolute top-2 right-2 bg-gray-700/50 hover:bg-gray-600 text-gray-300 p-1.5 rounded opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                title="Salin JSON">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                            </button>
+                            <pre class="p-3 md:p-4 overflow-x-auto text-blue-300 font-mono text-xs leading-relaxed"
+                                x-text="JSON.stringify(detailLog?.parsedBody, null, 2)"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Media Render if applicable -->
+                    <div x-show="detailLog?.parsedBody?.type === 'photo_url' || detailLog?.parsedBody?.type === 'audio_url'"
+                        class="pt-2 border-t border-gray-800">
+                        <span class="block text-sm font-semibold text-gray-300 mb-2"
+                            x-text="detailLog?.parsedBody?.type === 'photo_url' ? 'Pratinjau Media Visual' : 'Pemutar Audio'"></span>
+                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex justify-center">
+                            <template x-if="detailLog?.parsedBody?.type === 'photo_url'">
+                                <img :src="detailLog?.parsedBody?.data"
+                                    class="max-w-full h-auto max-h-[400px] rounded-lg shadow-lg border border-gray-600 object-contain"
+                                    alt="Media Viewer" />
+                            </template>
+                            <template x-if="detailLog?.parsedBody?.type === 'audio_url'">
+                                <audio :src="detailLog?.parsedBody?.data" controls
+                                    class="w-full max-w-full md:max-w-md"></audio>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-700 bg-gray-800 flex justify-end">
+                <button @click="closeDetailModal()"
+                    class="w-full md:w-auto bg-gray-700 hover:bg-gray-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors focus:ring-2 focus:ring-gray-500 focus:outline-none">Tutup
+                    Detail</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('dashboard', () => ({
                 devices: [],
                 logs: [],
+                hostLogs: [],
+                activeTab: 'system',
                 selectedDevice: null,
                 cmdInput: '',
                 textInput: '',
@@ -366,6 +586,9 @@
                 clearLogDays: 0,
                 toasts: [],
                 toastId: 0,
+                isDetailModalOpen: false,
+                isLoadingDetail: false,
+                detailLog: null,
 
                 init() {
                     this.fetchDevices();
@@ -383,11 +606,20 @@
                         if (res.ok) {
                             const data = await res.json();
                             this.devices = data.devices;
-                        } else if (res.status === 403) {
-                            window.location.reload(); // Auth expired
+                        } else {
+                            if (res.status === 403) {
+                                window.location.reload();
+                            } else {
+                                const errData = await res.json().catch(() => ({}));
+                                this.showToast('Gagal memuat perangkat: ' + (errData.error || res.statusText), 'error');
+                            }
                         }
-                    } catch (e) { console.error('Gagal memuat perangkat'); }
-                    finally { setTimeout(() => this.isFetchingDevices = false, 500); }
+                    } catch (e) {
+                        console.error('Gagal memuat perangkat', e);
+                        this.showToast('Gangguan koneksi saat memuat perangkat.', 'error');
+                    } finally {
+                        setTimeout(() => this.isFetchingDevices = false, 500);
+                    }
                 },
 
                 async fetchLogs() {
@@ -397,9 +629,19 @@
                         if (res.ok) {
                             const data = await res.json();
                             this.logs = data.logs;
+                            this.hostLogs = data.hostLogs || [];
+                        } else {
+                            if (res.status !== 403) {
+                                const errData = await res.json().catch(() => ({}));
+                                this.showToast('Gagal memuat log: ' + (errData.error || res.statusText), 'error');
+                            }
                         }
-                    } catch (e) { console.error('Gagal memuat log'); }
-                    finally { setTimeout(() => this.isFetchingLogs = false, 500); }
+                    } catch (e) {
+                        console.error('Gagal memuat log', e);
+                        this.showToast('Gangguan koneksi saat memuat log.', 'error');
+                    } finally {
+                        setTimeout(() => this.isFetchingLogs = false, 500);
+                    }
                 },
 
                 async deleteDevice(id) {
@@ -414,7 +656,9 @@
                         } else {
                             this.showToast('Gagal menghapus perangkat.', 'error');
                         }
-                    } catch (e) { this.showToast('Gangguan jaringan saat menghapus.', 'error'); }
+                    } catch (e) {
+                        this.showToast('Gangguan jaringan saat menghapus.', 'error');
+                    }
                 },
 
                 async clearLogs() {
@@ -427,12 +671,13 @@
                         } else {
                             this.showToast('Gagal membersihkan log.', 'error');
                         }
-                    } catch (e) { this.showToast('Gangguan jaringan saat membersihkan.', 'error'); }
+                    } catch (e) {
+                        this.showToast('Gangguan jaringan saat membersihkan.', 'error');
+                    }
                 },
 
                 async sendCommand() {
                     if (!this.cmdInput.trim() || !this.selectedDevice) return;
-
                     this.isSending = true;
                     try {
                         const res = await fetch('/admin/api/command', {
@@ -444,12 +689,11 @@
                                 text: this.textInput
                             })
                         });
-
                         if (res.ok) {
                             this.showToast('Perintah terkirim ke antrean database!', 'success');
                             this.cmdInput = '';
                             this.textInput = '';
-                            this.fetchLogs(); // Memaksa update log langsung
+                            this.fetchLogs();
                         } else {
                             const err = await res.json();
                             this.showToast('Gagal: ' + (err.error || 'Server error'), 'error');
@@ -475,6 +719,39 @@
 
                 dismissToast(id) {
                     this.toasts = this.toasts.filter(t => t.id !== id);
+                },
+
+                async openDetailModal(id) {
+                    this.isDetailModalOpen = true;
+                    this.isLoadingDetail = true;
+                    this.detailLog = null;
+                    try {
+                        const res = await fetch('/admin/api/log/' + id);
+                        if (res.ok) {
+                            this.detailLog = await res.json();
+                        } else {
+                            this.showToast('Gagal memuat detail log (404)', 'error');
+                            this.closeDetailModal();
+                        }
+                    } catch (e) {
+                        this.showToast('Gangguan koneksi memuat detail', 'error');
+                        this.closeDetailModal();
+                    } finally {
+                        this.isLoadingDetail = false;
+                    }
+                },
+
+                closeDetailModal() {
+                    this.isDetailModalOpen = false;
+                    setTimeout(() => { this.detailLog = null; }, 300);
+                },
+
+                copyToClipboard(text) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        this.showToast('Data Disalin!', 'success');
+                    }).catch(err => {
+                        this.showToast('Gagal menyalin', 'error');
+                    });
                 }
             }))
         });

