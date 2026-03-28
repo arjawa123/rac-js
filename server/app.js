@@ -54,6 +54,7 @@ let db;
         )`);
 
         // Tambah kolom jika dari versi sebelumnya belum ada
+        try { await db.exec(`ALTER TABLE devices ADD COLUMN polling_mode TEXT DEFAULT 'turbo'`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN chat_id TEXT`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN message_id TEXT`); } catch (e) { }
 
