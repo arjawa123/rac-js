@@ -1,0 +1,25 @@
+# .cpanel.yml - Auto Deployment Template
+# Letakkan file ini di ROOT direktori repositori (sejajar dengan folder 'server' dan 'app')
+
+deployment:
+  tasks:
+    # 1. Tentukan path tujuan (Ganti USERNAME_CPANEL dan FOLDER_APLIKASI)
+    - export DEPLOYPATH=/home/arjawamy/pygram.xnv.biz.id
+
+    # 2. Buat direktori jika belum ada
+    - /bin/mkdir -p $DEPLOYPATH
+
+    # 3. Salin isi folder server ke direktori tujuan
+    # Menggunakan -u (update) agar hanya menyalin file yang berubah
+    - /bin/cp -R server/* $DEPLOYPATH/
+
+    # 4. Pastikan file package.json dan app.js berada di root DEPLOYPATH
+    - /bin/cp server/package.json $DEPLOYPATH/
+    - /bin/cp server/app.js $DEPLOYPATH/
+
+    # 5. Opsional: Berikan izin akses (Permission) jika diperlukan
+    # - /bin/chmod 755 $DEPLOYPATH
+    # - /bin/chmod 644 $DEPLOYPATH/database.sqlite (Jika database sudah ada)
+
+    # Catatan: Setelah deploy, Anda harus masuk ke menu "Setup Node.js App" 
+    # di cPanel untuk menjalankan "Run NPM Install" dan "Restart Application".
