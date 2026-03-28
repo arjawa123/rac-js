@@ -5,6 +5,7 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // Direktori Upload Statik untuk Media
 const uploadsDir = path.join(__dirname, 'public/uploads');
@@ -827,12 +828,14 @@ app.get('/admin/api/logs', async (req, res) => {
                     const lines = text.split('\n');
                     let title = lines[0];
 
-                    // Cari bentuk error standar seperti Exception, TelegramError, atau Unhandled Rejection
                     const errMatch = text.match(/(?:[a-zA-Z]+Error|Exception|UnhandledPromiseRejection): .+/i);
                     if (errMatch) title = errMatch[0];
 
+                    // ID stabil berdasarkan hash dari konten (agar state Alpine tidak reset)
+                    const hash = crypto.createHash('md5').update(text).digest('hex').substring(0, 10);
+
                     return {
-                        id: 'err_' + Date.now() + '_' + idx,
+                        id: 'err_' + hash,
                         title: title.length > 150 ? title.substring(0, 150) + '...' : title,
                         full: text
                     };

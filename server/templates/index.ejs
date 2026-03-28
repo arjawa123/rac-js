@@ -298,19 +298,20 @@
                         <!-- Selector Clear Logs System -->
                         <div class="relative items-center flex" x-show="activeTab === 'system'">
                             <select x-model="clearLogDays"
-                                class="text-xs bg-gray-900 text-gray-400 border border-red-500/30 rounded-l-md px-2 py-1.5 focus:outline-none focus:border-red-500 appearance-none">
-                                <option value="0">Bersihkan Semua Server Logs</option>
-                                <option value="1">Hapus Log > 1 Hari</option>
-                                <option value="7">Hapus Log > 7 Hari</option>
+                                class="text-[10px] md:text-xs bg-gray-900 text-gray-400 border border-red-500/30 rounded-l-md px-2 py-1.5 h-full focus:outline-none focus:border-red-500 appearance-none border-r-0">
+                                <option value="0">Semua</option>
+                                <option value="1">> 1 Hari</option>
+                                <option value="7">> 7 Hari</option>
                             </select>
                             <button @click="clearLogs()"
-                                class="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-l-0 border-red-500/30 px-3 py-1.5 rounded-r-md transition-colors active:scale-95 flex items-center justify-center"
+                                class="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-r-md transition-colors active:scale-95 flex items-center justify-center gap-1.5 h-full"
                                 title="Eksekusi Hapus Log Sistem">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
                                     </path>
                                 </svg>
+                                <span class="text-xs font-bold hidden lg:inline-block">Clear Logs</span>
                             </button>
                         </div>
 
@@ -323,7 +324,7 @@
                                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
                                 </path>
                             </svg>
-                            <span>Clear stderr.log</span>
+                            <span class="hidden md:inline-block">Clear stderr.log</span>
                         </button>
                         <span
                             class="text-xs text-gray-500 bg-gray-900 px-2 py-1 rounded border border-gray-700 self-center hidden md:inline-block">Auto-refresh
