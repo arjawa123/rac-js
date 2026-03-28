@@ -49,10 +49,7 @@ class PollingManager(
                 .addPathSegment("poll")
                 .addQueryParameter("client_id", clientId)
                 .addQueryParameter("auth", authToken)
-            
-            if (isTurbo) {
-                urlBuilder.addQueryParameter("mode", "short")
-            }
+                .addQueryParameter("mode", if (isTurbo) "short" else "long")
 
             val request = Request.Builder()
                 .url(urlBuilder.build())

@@ -87,13 +87,11 @@ app.set('views', path.join(__dirname, 'templates'));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Helper function
-const updateDeviceSeen = async (deviceId, mode = null) => {
+const updateDeviceSeen = async (deviceId, mode = 'long') => {
     const timestamp = Date.now() / 1000;
-    if (mode) {
-        await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode', [deviceId, timestamp, mode]);
-    } else {
-        await db.run('INSERT INTO devices (id, last_seen) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen', [deviceId, timestamp]);
-    }
+    const finalMode = mode || 'long';
+    await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode', 
+        [deviceId, timestamp, finalMode]);
 };
 
 // Helper: Format Output JSON ke teks yang mudah dibaca (List Mode)
