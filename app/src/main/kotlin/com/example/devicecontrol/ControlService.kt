@@ -21,7 +21,7 @@ class ControlService : LifecycleService() {
 
     override fun onCreate() {
         createNotificationChannel()
-        if (Build.VERSION.SDK_INT >= 34) { // Android 14+ = UPSIDE_DOWN_CAKE
+        if (Build.VERSION.SDK_INT >= 34) { 
             val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
@@ -39,13 +39,14 @@ class ControlService : LifecycleService() {
         val serverUrl = prefs.getString("ws_url", "https://pygram.xnv.biz.id") ?: ""
         val devId = prefs.getString("device_id", "my_phone") ?: "unknown"
         val authToken = prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8") ?: ""
+        val isTurbo = prefs.getBoolean("turbo_mode", true)
         
-        // Normalisasikan URL (hapus /ws jika ada, ganti wss:// ke https://)
+        // Normalisasikan URL
         var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
         if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
 
         commandHandler = CommandHandler(this)
-        pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler)
+        pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler, isTurbo)
         pollingManager.start()
     }
 
@@ -55,7 +56,7 @@ class ControlService : LifecycleService() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= 26) {
             val serviceChannel = NotificationChannel(
                 CHANNEL_ID,
                 "Device Control Background Service",

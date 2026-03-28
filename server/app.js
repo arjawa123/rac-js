@@ -585,12 +585,11 @@ const notifyClient = (devId, cmd) => {
 
 // ... (di dalam endpoint /poll)
 app.get('/poll', async (req, res) => {
-    const { client_id, auth } = req.query;
+    const { client_id, auth, mode } = req.query;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
 
     await updateDeviceSeen(client_id);
 
-    // Cek apakah ada command pending
     const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
         [client_id, 'pending']);
 
@@ -599,19 +598,23 @@ app.get('/poll', async (req, res) => {
         return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
     }
 
+    // Jika mode=short, langsung jawab 'none' tanpa menunggu
+    if (mode === 'short') {
+        return res.json({ command: 'none' });
+    }
+
     // Jika tidak ada, tunggu (Long-Polling)
     if (waitingClients[client_id]) {
         try { waitingClients[client_id].json({ command: 'none' }); } catch(e) {}
     }
     waitingClients[client_id] = res;
 
-    // Timeout setelah 30 detik
     setTimeout(() => {
         if (waitingClients[client_id] === res) {
             delete waitingClients[client_id];
             res.json({ command: 'none' });
         }
-    }, 30000);
+    }, 25000); // Turunkan sedikit ke 25s agar lebih aman dari timeout proxy
 });
 
 // ... (PENTING: Di setiap tempat di mana db.run('INSERT INTO commands...') dipanggil, tambahkan pemanggilan notifyClient)

