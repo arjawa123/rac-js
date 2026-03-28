@@ -303,7 +303,12 @@
                                         x-text="log.device_id || '-'"></td>
                                     <td class="px-5 py-3 text-center">
                                         <div class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border"
-                                            :class="{'bg-red-500/10 text-red-500 border-red-500/20': log.level === 'ERROR', 'bg-green-500/10 text-green-500 border-green-500/20': log.level === 'INFO', 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20': log.level === 'WARN'}">
+                                            :class="{
+                                                'bg-red-500/10 text-red-500 border-red-500/20': ['ERROR', 'failed'].includes(log.level), 
+                                                'bg-green-500/10 text-green-500 border-green-500/20': ['INFO', 'completed'].includes(log.level), 
+                                                'bg-yellow-500/10 text-yellow-500 border-yellow-500/20': ['WARN', 'pending'].includes(log.level),
+                                                'bg-blue-500/10 text-blue-500 border-blue-500/20': log.level === 'sent'
+                                            }">
                                             <span x-text="log.level"></span>
                                         </div>
                                     </td>
@@ -312,7 +317,7 @@
                                             x-text="log.message" :title="log.message"></div>
                                     </td>
                                     <td class="px-5 py-3 text-right">
-                                        <a :href="'/admin/log/' + log.id" target="_blank"
+                                        <a x-show="log.type !== 'cmd'" :href="'/admin/log/' + log.id" target="_blank"
                                             class="inline-flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm">
                                             <span>Detail</span>
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
@@ -322,6 +327,8 @@
                                                 </path>
                                             </svg>
                                         </a>
+                                        <span x-show="log.type === 'cmd'"
+                                            class="text-[10px] text-gray-500 italic block py-1.5 px-3">No Detail</span>
                                     </td>
                                 </tr>
                             </template>

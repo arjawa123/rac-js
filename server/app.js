@@ -724,15 +724,44 @@ app.get('/admin/api/devices', async (req, res) => {
 app.get('/admin/api/logs', async (req, res) => {
     if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
 
-    // Potong teks MESSAGE hingga max 300 char langsung di level SQLite agar tidak membebani memori server/klien dengan file Base64
-    const logs = await db.all('SELECT id, device_id, command_id, level, created_at, SUBSTR(message, 1, 300) AS message_preview FROM system_logs ORDER BY created_at DESC LIMIT 50');
+    const query = `
+        SELECT 
+            id,
+            'log' as type,
+            device_id, 
+            command_id, 
+            level, 
+            created_at, 
+            SUBSTR(message, 1, 300) AS message_preview 
+        FROM system_logs 
+        WHERE command_id IS NULL
+        
+        UNION ALL 
+        
+        SELECT 
+            COALESCE(l.id, c.id) as id,
+            CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type,
+            c.device_id, 
+            c.id AS command_id, 
+            CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, 
+            COALESCE(l.created_at, c.created_at) as created_at, 
+            SUBSTR('Cmd: ' || c.command || ' ' || c.text || COALESCE(' ➔ ' || l.message, ''), 1, 300) AS message_preview 
+        FROM commands c
+        LEFT JOIN system_logs l ON c.id = l.command_id
+        
+        ORDER BY created_at DESC LIMIT 100
+    `;
 
-    // Konversi message_preview menjadi format data message kembali untuk EJS
+    const logs = await db.all(query);
+
     const formattedLogs = logs.map(l => {
         let preview = l.message_preview;
-        if (preview && preview.length >= 300) preview += '... [Lihat Detail untuk Full JSON/Media]';
+        if (preview && preview.length >= 300 && l.type === 'log') {
+            preview += '... [Lihat Detail untuk Full JSON/Media]';
+        }
         return {
             id: l.id,
+            type: l.type,
             device_id: l.device_id,
             command_id: l.command_id,
             level: l.level,

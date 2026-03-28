@@ -19,18 +19,18 @@ Gunakan emoji berikut saat Anda mengisi hasil tes:
 
 | Kategori | Nama Command | Parameter (Input) | Android 15 (Pova 6) | Android 14 (Megapad 11) | Android 12 (Oppo A53) | Catatan Khusus |
 | :--- | :--- | :--- | :---: | :---: | :---: | :--- |
-| **Utilitas Dasar** | `ping` | - | ➖ | ✅ | ➖ | Harus merespon "pong" dalam detik yang sama (Cek Long-Polling). |
-| | `get_device_info` | - | ➖ | ✅ | ➖ | Tarik Merk, OS Version. |
-| | `get_battery` | - | ➖ | ✅ | ➖ | Cek persentasi baterai tanpa nyalakan layar ponsel. |
+| **Utilitas Dasar** | `ping` | - | ➖ | ✅ | ✅ | Harus merespon "pong" dalam detik yang sama (Cek Long-Polling). |
+| | `get_device_info` | - | ➖ | ✅ | ✅ | Tarik Merk, OS Version. |
+| | `get_battery` | - | ➖ | ✅ | ✅ | Cek persentasi baterai tanpa nyalakan layar ponsel. |
 | | `show_toast` | `[text]` | ➖ | ➖ | ➖ | Menampilkan Toast pop-up meski aplikasi ditutup. |
-| | `get_volume` | - | ➖ | ✅ | ➖ | Laporan volume Ring, Alarm, Notif. |
-| | `set_volume` | `[type] [level]` | ➖ | ✅ | ➖ | Contoh: *music 15*. |
-| | `vibrate` | `[durasi detik]`| ➖ | ✅ | ➖ | Getar paksa (Bypass DND Do Not Disturb). |
+| | `get_volume` | - | ➖ | ✅ | ✅ | Laporan volume Ring, Alarm, Notif. |
+| | `set_volume` | `[type] [level]` | ➖ | ✅ | ⚠️ | Contoh: *music 15*. |
+| | `vibrate` | `[durasi detik]`| ➖ | ✅ | ✅ | Getar paksa (Bypass DND Do Not Disturb). |
 | | `hide_app` | - | ➖ | ➖ | ➖ | Meniadakan *Launcher Icon* di menu utama (Stealth Mode). |
 | **Hardware & Sensor** | `torch` | `on` / `off` | ➖ | ✅ | ➖ | Matikan/Nyalakan Flashlight (Jika HP ditutup). |
-| | `sensors` | - | ➖ | ✅ | ➖ | Tarik daftar seluruh sensor manufaktur. |
-| **Mata & Telinga**| `photo front` | `front` | ➖ | ✅ | ➖ | Uji Kamera Selfie: Apakah berjalan mulus ke Web Admin / Base64? |
-| | `photo back` | `back` | ➖ | ✅ | ➖ | Uji Kamera Belakang resolusi penuh. |
+| | `sensors` | - | ➖ | ✅ | ✅ | Tarik daftar seluruh sensor manufaktur. |
+| **Mata & Telinga**| `photo front` | `front` | ➖ | ✅ | ✅ | Uji Kamera Selfie: Apakah berjalan mulus ke Web Admin / Base64? |
+| | `photo back` | `back` | ➖ | ✅ | ✅ | Uji Kamera Belakang resolusi penuh. |
 | | `record_sound` | `[durasi detik]`| ➖ | ✅ | ➖ | Uji Rekam Mikrofon; Audio harus di-render MP4 ke `/uploads`. |
 | **Jaringan & Lokasi** | `location` | - | ➖ | ❌ | ➖ | Tangkap Lat/Lon GPS. |
 | | `wifi_scan` | - | ➖ | ⚠️ | ➖ | List Jaringan WiFi di sekitar target. (Wajib A14 FGS Bypass test). |
