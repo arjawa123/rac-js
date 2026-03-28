@@ -17,9 +17,9 @@ class PollingManager(
     private val handler: CommandHandler
 ) {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(35, TimeUnit.SECONDS)
-        .readTimeout(35, TimeUnit.SECONDS)
-        .writeTimeout(35, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
         .build()
 
     private val executor = Executors.newSingleThreadScheduledExecutor()

