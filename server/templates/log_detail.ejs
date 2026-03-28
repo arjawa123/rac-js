@@ -23,6 +23,37 @@
 </head>
 
 <body class="bg-gray-900 text-gray-300 min-h-screen font-sans antialiased p-6">
+    <% 
+        // Helper untuk format WITA
+        const formatWITA = (dateStr) => {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + ' Z');
+            return date.toLocaleString('id-ID', { 
+                timeZone: 'Asia/Makassar', 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit', 
+                day: '2-digit', 
+                month: 'short'
+            });
+        };
+
+        let durationText = '-';
+        if (command && command.created_at && command.completed_at) {
+            const start = new Date(command.created_at + ' Z');
+            const end = new Date(command.completed_at + ' Z');
+            const diffMs = end - start;
+            const diffSec = Math.floor(diffMs / 1000);
+            if (diffSec < 60) {
+                durationText = `${diffSec} detik`;
+            } else {
+                const mins = Math.floor(diffSec / 60);
+                const secs = diffSec % 60;
+                durationText = `${mins} menit ${secs} detik`;
+            }
+        }
+    %>
     <div class="max-w-4xl mx-auto flex flex-col gap-6">
 
         <!-- Header / Navigasi -->
@@ -51,23 +82,29 @@
         </div>
 
         <!-- Metadata Kartu -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl flex flex-col gap-1">
-                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Device ID</span>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl flex flex-col gap-1 shadow-md">
+                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Device ID</span>
                 <span class="text-primary font-mono text-sm font-semibold truncate">
                     <%= log.device_id || '-' %>
                 </span>
             </div>
-            <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl flex flex-col gap-1">
-                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Waktu Eksekusi</span>
+            <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl flex flex-col gap-1 shadow-md">
+                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Waktu (WITA)</span>
                 <span class="text-gray-300 font-mono text-sm truncate">
-                    <%= log.created_at %>
+                    <%= formatWITA(log.created_at) %>
                 </span>
             </div>
-            <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl flex flex-col gap-1">
-                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Tipe Payload</span>
+            <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl flex flex-col gap-1 shadow-md">
+                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Durasi</span>
+                <span class="text-indigo-400 font-mono text-sm truncate font-bold">
+                    <%= durationText %>
+                </span>
+            </div>
+            <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl flex flex-col gap-1 shadow-md">
+                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Tipe Payload</span>
                 <span class="text-gray-300 font-mono text-sm truncate uppercase font-bold text-indigo-400">
-                    <%= parsedBody.type ? parsedBody.type : 'RAW JSON / TEXT' %>
+                    <%= parsedBody.type ? parsedBody.type : 'RAW JSON' %>
                 </span>
             </div>
         </div>

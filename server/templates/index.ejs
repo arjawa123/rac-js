@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -111,7 +112,88 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto p-4 flex flex-col lg:flex-row gap-6 mt-4">
+    <!-- Statistics Section -->
+    <div class="max-w-7xl mx-auto p-4 mt-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Online Status Card -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg flex items-center gap-4">
+                <div class="p-3 bg-green-500/10 rounded-xl">
+                    <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Device Online</h3>
+                    <p class="text-2xl font-bold text-white" x-text="stats.deviceStatus?.online || 0"></p>
+                </div>
+            </div>
+            <!-- Offline Status Card -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg flex items-center gap-4">
+                <div class="p-3 bg-red-500/10 rounded-xl">
+                    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Device Offline</h3>
+                    <p class="text-2xl font-bold text-white" x-text="stats.deviceStatus?.offline || 0"></p>
+                </div>
+            </div>
+            <!-- Most Used Command -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg flex items-center gap-4">
+                <div class="p-3 bg-primary/10 rounded-xl">
+                    <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Top Command</h3>
+                    <p class="text-lg font-bold text-white truncate max-w-[150px]" x-text="stats.topCommands?.[0]?.command || '-'"></p>
+                </div>
+            </div>
+            <!-- Fastest Response -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg flex items-center gap-4">
+                <div class="p-3 bg-indigo-500/10 rounded-xl">
+                    <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Fastest Avg</h3>
+                    <p class="text-lg font-bold text-white" x-text="stats.fastestCommands?.[0] ? stats.fastestCommands[0].avg_duration.toFixed(1) + 's' : '-'"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                    </svg>
+                    Distribusi Perintah
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="commandsChart"></canvas>
+                </div>
+            </div>
+            <div class="lg:col-span-2 bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                    </svg>
+                    Aktivitas 7 Hari Terakhir
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto p-4 flex flex-col lg:flex-row gap-6">
         <!-- Devices Panel Layout -->
         <section class="w-full lg:w-1/3 flex flex-col gap-6">
             <!-- Connected Devices Card -->
@@ -692,6 +774,9 @@
                 isDetailModalOpen: false,
                 isLoadingDetail: false,
                 detailLog: null,
+                stats: { topCommands: [], fastestCommands: [], deviceStatus: { online: 0, offline: 0 }, dailyActivity: [] },
+                commandsChart: null,
+                activityChart: null,
 
                 isConfirmOpen: false,
                 confirmTitle: '',
@@ -740,10 +825,82 @@
                 init() {
                     this.fetchDevices();
                     this.fetchLogs();
+                    this.fetchStats();
                     setInterval(() => {
                         this.fetchDevices();
                         this.fetchLogs();
-                    }, 5000);
+                        this.fetchStats();
+                    }, 30000);
+                },
+
+                async fetchStats() {
+                    try {
+                        const res = await fetch('/admin/api/stats');
+                        if (res.ok) {
+                            this.stats = await res.json();
+                            this.$nextTick(() => this.renderCharts());
+                        }
+                    } catch (e) {
+                        console.error('Gagal memuat statistik', e);
+                    }
+                },
+
+                renderCharts() {
+                    const cmdCtx = document.getElementById('commandsChart')?.getContext('2d');
+                    if (cmdCtx && this.stats.topCommands?.length > 0) {
+                        if (this.commandsChart) this.commandsChart.destroy();
+                        this.commandsChart = new Chart(cmdCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: this.stats.topCommands.map(c => c.command),
+                                datasets: [{
+                                    data: this.stats.topCommands.map(c => c.count),
+                                    backgroundColor: ['#4f46e5', '#818cf8', '#6366f1', '#a5b4fc', '#c7d2fe'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { 
+                                    legend: { 
+                                        position: 'right', 
+                                        labels: { color: '#9ca3af', font: { size: 10 }, usePointStyle: true, padding: 10 } 
+                                    } 
+                                }
+                            }
+                        });
+                    }
+
+                    const actCtx = document.getElementById('activityChart')?.getContext('2d');
+                    if (actCtx && this.stats.dailyActivity?.length > 0) {
+                        if (this.activityChart) this.activityChart.destroy();
+                        this.activityChart = new Chart(actCtx, {
+                            type: 'line',
+                            data: {
+                                labels: this.stats.dailyActivity.map(a => a.date),
+                                datasets: [{
+                                    label: 'Perintah',
+                                    data: this.stats.dailyActivity.map(a => a.count),
+                                    borderColor: '#4f46e5',
+                                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 4,
+                                    pointBackgroundColor: '#4f46e5'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: 'rgba(75, 85, 99, 0.2)' }, ticks: { color: '#9ca3af', stepSize: 1 } },
+                                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                                }
+                            }
+                        });
+                    }
                 },
 
                 async fetchDevices() {
@@ -936,7 +1093,15 @@
                 formatDate(unixSeconds) {
                     if (!unixSeconds || unixSeconds === 0) return 'Belum Aktif';
                     const date = new Date(unixSeconds * 1000);
-                    return date.toLocaleString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short' });
+                    return date.toLocaleString('id-ID', { 
+                        timeZone: 'Asia/Makassar', 
+                        hour12: false, 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit', 
+                        day: '2-digit', 
+                        month: 'short' 
+                    });
                 },
 
                 showToast(message, type = 'success') {
