@@ -18,6 +18,7 @@ import android.provider.Settings
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Environment
+import androidx.appcompat.app.AlertDialog
 
 class MainActivity : AppCompatActivity() {
 
@@ -183,6 +184,12 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.READ_CALL_LOG,
             Manifest.permission.CALL_PHONE
         )
+
+        // Tambahkan Background Location untuk Android 10 (API 29)
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            permissions.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
             permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -197,16 +204,21 @@ class MainActivity : AppCompatActivity() {
 
         if (missingPermissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), REQUEST_CODE_PERMISSIONS)
+        } else {
+            // Jika semua izin awal sudah ada, cek Background Location untuk Android 11+
+            checkBackgroundLocationPermission()
         }
 
-        // Meminta user mematikan optimasi baterai (Doze) untuk aplikasi ini
+        // Meminta user mematikan optimasi baterai (Doze)
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-                startActivity(intent)
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {}
             }
         }
 
@@ -223,6 +235,33 @@ class MainActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
             }
+        }
+    }
+
+    private fun checkBackgroundLocationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val hasForegroundLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val hasBackgroundLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+            if (hasForegroundLocation && !hasBackgroundLocation) {
+                // Tampilkan dialog penjelasan karena Android 11+ mewajibkan user memilih di Settings
+                AlertDialog.Builder(this)
+                    .setTitle("Izin Lokasi Sepanjang Waktu")
+                    .setMessage("Untuk melacak perangkat secara real-time di latar belakang, silakan pilih 'Izinkan sepanjang waktu' (Allow all the time) pada halaman pengaturan berikut.")
+                    .setPositiveButton("Buka Pengaturan") { _, _ ->
+                        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 1002)
+                    }
+                    .setNegativeButton("Nanti", null)
+                    .show()
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            // Setelah permintaan izin massal, cek apakah perlu meminta Background Location (Android 11+)
+            checkBackgroundLocationPermission()
         }
     }
 
