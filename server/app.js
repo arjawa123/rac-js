@@ -98,7 +98,7 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 const updateDeviceSeen = async (deviceId, mode = 'long') => {
     const timestamp = Date.now() / 1000;
     const finalMode = mode || 'long';
-    await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode', 
+    await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode',
         [deviceId, timestamp, finalMode]);
 };
 
@@ -509,7 +509,7 @@ Format Eksekusi Manual:
 
             await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [cmdId, devId, command, ctx.message.text, 'pending', chatId.toString(), sentMsg.message_id.toString()]);
-            
+
             notifyClient(devId, { id: cmdId, command: command, text: ctx.message.text });
             return;
         }
@@ -633,7 +633,7 @@ app.get('/poll', async (req, res) => {
 
     // Jika tidak ada, tunggu (Long-Polling)
     if (waitingClients[client_id]) {
-        try { waitingClients[client_id].json({ command: 'none' }); } catch(e) {}
+        try { waitingClients[client_id].json({ command: 'none' }); } catch (e) { }
     }
     waitingClients[client_id] = res;
 
@@ -857,6 +857,23 @@ app.get('/admin/api/devices', async (req, res) => {
     }
 });
 
+// Helper function to format UTC date string to a local readable format
+const formatUtcToLocal = (utcDateString) => {
+    if (!utcDateString) return '-';
+    // Append 'Z' to treat the string as UTC
+    const date = new Date(utcDateString + 'Z');
+    // Format to a readable local string (e.g., 'id-ID' for Indonesian locale)
+    return date.toLocaleString('id-ID', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false // Use 24-hour format
+    });
+};
+
 app.get('/admin/api/logs', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
@@ -903,7 +920,7 @@ app.get('/admin/api/logs', async (req, res) => {
                 device_id: l.device_id,
                 command_id: l.command_id,
                 level: l.level,
-                created_at: l.created_at,
+                created_at: formatUtcToLocal(l.created_at), // Apply formatting here
                 message: preview
             };
         });
@@ -958,16 +975,31 @@ app.get('/admin/api/stats', async (req, res) => {
         `);
 
         // Command paling cepat response-nya (rata-rata durasi)
-        // SQLite doesn't have direct duration subtraction for DATETIME easily in seconds, 
-        // but we can use strftime('%s', completed_at) - strftime('%s', created_at)
-        const fastestCommands = await db.all(`
+        // Menggunakan julianday untuk presisi yang lebih baik jika format timestamp mendukung ms
+        const responseTimes = await db.all(`
             SELECT command, 
-                   AVG(strftime('%s', completed_at) - strftime('%s', created_at)) as avg_duration
+                   AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_duration
             FROM commands 
             WHERE status = 'completed' AND completed_at IS NOT NULL
             GROUP BY command 
             ORDER BY avg_duration ASC 
             LIMIT 5
+        `);
+
+        const slowestCommands = await db.all(`
+            SELECT command, 
+                   AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_duration
+            FROM commands 
+            WHERE status = 'completed' AND completed_at IS NOT NULL
+            GROUP BY command 
+            ORDER BY avg_duration DESC 
+            LIMIT 10
+        `);
+
+        const overallAvgRes = await db.get(`
+            SELECT AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg
+            FROM commands 
+            WHERE status = 'completed' AND completed_at IS NOT NULL
         `);
 
         // Statistik Status Device
@@ -991,7 +1023,9 @@ app.get('/admin/api/stats', async (req, res) => {
 
         res.json({
             topCommands,
-            fastestCommands,
+            fastestCommands: responseTimes,
+            slowestCommands,
+            avgResponse: overallAvgRes?.avg || 0,
             deviceStatus: { online, offline },
             dailyActivity
         });
@@ -1021,30 +1055,19 @@ app.get('/admin/api/log/:id', async (req, res) => {
             parsedBody = { raw_data: log.message };
         }
 
-        res.json({ log, parsedBody, command: cmd });
+        // Format created_at before sending
+        const formattedLog = {
+            ...log,
+            created_at: formatUtcToLocal(log.created_at)
+        };
+
+        res.json({ log: formattedLog, parsedBody, command: cmd });
     } catch (e) {
         res.status(500).json({ error: 'Internal Server Error', details: e.message });
     }
 });
 
-app.get('/admin/log/:id', async (req, res) => {
-    if (!verifyAdmin(req)) return res.redirect('/admin');
-    const logId = req.params.id;
-    const log = await db.get('SELECT * FROM system_logs WHERE id = ?', [logId]);
-    if (!log) return res.status(404).send('Log tidak ditemukan di database.');
 
-    let cmd = null;
-    if (log.command_id) {
-        cmd = await db.get('SELECT * FROM commands WHERE id = ?', [log.command_id]);
-    }
-
-    let parsedBody = {};
-    try {
-        parsedBody = JSON.parse(log.message);
-    } catch (e) { }
-
-    res.render('log_detail', { log, parsedBody, command: cmd });
-});
 
 app.post('/admin/api/command', async (req, res) => {
     try {

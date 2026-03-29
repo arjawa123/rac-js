@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -23,29 +24,79 @@
         }
     </script>
     <style>
-        [x-cloak] { display: none !important; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-        .glass-panel { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .glass-panel-hover:hover { background: rgba(31, 41, 55, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); }
-        body { background: radial-gradient(circle at top right, #1e1b4b, #0f1117 40%, #030712 100%); }
+        [x-cloak] {
+            display: none !important;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-panel-hover:hover {
+            background: rgba(31, 41, 55, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background: radial-gradient(circle at top right, #1e1b4b, #0f1117 40%, #030712 100%);
+        }
     </style>
 </head>
-<body class="text-gray-300 min-h-screen font-sans antialiased flex flex-col lg:flex-row overflow-x-hidden" x-data="dashboard()">
+
+<body class="text-gray-300 min-h-screen font-sans antialiased flex flex-col lg:flex-row overflow-x-hidden"
+    x-data="dashboard()">
     <!-- Toast Notifications -->
     <div class="fixed top-4 right-4 z-[100] flex flex-col gap-3" x-cloak>
         <template x-for="toast in toasts" :key="toast.id">
             <div class="glass-panel p-4 rounded-2xl shadow-2xl flex items-center justify-between min-w-[300px] border-l-[4px] transform transition-all duration-300"
-                x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-[-1rem] scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100 translate-y-0 scale-100" x-transition:leave-end="opacity-0 translate-y-[-1rem] scale-95"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-[-1rem] scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                x-transition:leave="transition ease-in duration-300"
+                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                x-transition:leave-end="opacity-0 translate-y-[-1rem] scale-95"
                 :class="{'border-l-emerald-500': toast.type === 'success', 'border-l-rose-500': toast.type === 'error'}">
                 <div class="flex items-center gap-3">
-                    <span x-show="toast.type === 'success'" class="text-emerald-400 bg-emerald-500/10 p-2 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>
-                    <span x-show="toast.type === 'error'" class="text-rose-400 bg-rose-500/10 p-2 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></span>
+                    <span x-show="toast.type === 'success'"
+                        class="text-emerald-400 bg-emerald-500/10 p-2 rounded-xl"><svg class="w-5 h-5" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7">
+                            </path>
+                        </svg></span>
+                    <span x-show="toast.type === 'error'" class="text-rose-400 bg-rose-500/10 p-2 rounded-xl"><svg
+                            class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg></span>
                     <span x-text="toast.message" class="text-sm font-semibold text-white tracking-wide"></span>
                 </div>
-                <button @click="dismissToast(toast.id)" class="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                <button @click="dismissToast(toast.id)"
+                    class="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none"><svg
+                        class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
             </div>
         </template>
     </div>
@@ -54,25 +105,53 @@
     <aside class="hidden lg:flex flex-col w-72 h-screen glass-panel flex-shrink-0 z-40 border-r border-white/5">
         <div class="p-6 md:p-8 flex items-center gap-3">
             <div class="bg-gradient-to-br from-primary to-secondary p-2.5 rounded-xl shadow-lg shadow-indigo-500/20">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
+                    </path>
+                </svg>
             </div>
-            <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-100 to-gray-400 tracking-tight">RAC-JS</h1>
+            <h1
+                class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-100 to-gray-400 tracking-tight">
+                RAC-JS</h1>
         </div>
         <nav class="flex-1 px-4 space-y-2 mt-4">
-            <button @click="currentMobileTab = 'stats'" :class="currentMobileTab === 'stats' ? 'bg-primary/10 text-primary border border-primary/20 shadow-inner' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'" class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold active:scale-[0.98]">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg> Dashboard
+            <button @click="currentMobileTab = 'stats'"
+                :class="currentMobileTab === 'stats' ? 'bg-primary/10 text-primary border border-primary/20 shadow-inner' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'"
+                class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold active:scale-[0.98]">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                        d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                        d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                </svg> Dashboard
             </button>
-            <button @click="currentMobileTab = 'devices'" :class="currentMobileTab === 'devices' ? 'bg-primary/10 text-primary border border-primary/20 shadow-inner' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'" class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold active:scale-[0.98]">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> Perangkat
+            <button @click="currentMobileTab = 'devices'"
+                :class="currentMobileTab === 'devices' ? 'bg-primary/10 text-primary border border-primary/20 shadow-inner' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'"
+                class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold active:scale-[0.98]">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg> Perangkat
             </button>
-            <button @click="currentMobileTab = 'logs'" :class="currentMobileTab === 'logs' ? 'bg-primary/10 text-primary border border-primary/20 shadow-inner' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'" class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold active:scale-[0.98]">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg> Aktivitas Log
+            <button @click="currentMobileTab = 'logs'"
+                :class="currentMobileTab === 'logs' ? 'bg-primary/10 text-primary border border-primary/20 shadow-inner' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'"
+                class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-semibold active:scale-[0.98]">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                        d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                </svg> Aktivitas Log
             </button>
         </nav>
         <div class="p-4 mt-auto">
             <form action="/admin/logout" method="POST">
-                <button type="submit" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 py-3.5 rounded-2xl transition-all font-bold text-sm flex items-center justify-center gap-2 hover:shadow-[0_0_20px_rgba(244,63,94,0.1)] active:scale-95">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> Keluar Sistem
+                <button type="submit"
+                    class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 py-3.5 rounded-2xl transition-all font-bold text-sm flex items-center justify-center gap-2 hover:shadow-[0_0_20px_rgba(244,63,94,0.1)] active:scale-95">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg> Keluar Sistem
                 </button>
             </form>
         </div>
@@ -84,95 +163,193 @@
         <header class="lg:hidden glass-panel sticky top-0 z-40 px-5 py-4 flex justify-between items-center shadow-lg">
             <div class="flex items-center gap-3">
                 <div class="bg-gradient-to-br from-primary to-secondary p-1.5 rounded-lg shadow-lg">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
+                        </path>
+                    </svg>
                 </div>
                 <h1 class="text-lg font-black text-white tracking-tight">RAC-JS</h1>
             </div>
             <form action="/admin/logout" method="POST">
-                <button type="submit" class="bg-rose-500/10 p-2 rounded-xl text-rose-400 active:scale-95 transition-transform"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg></button>
+                <button type="submit"
+                    class="bg-rose-500/10 p-2 rounded-xl text-rose-400 active:scale-95 transition-transform"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg></button>
             </form>
         </header>
 
         <div class="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-full">
             <!-- TAB: STATISTIK -->
-            <div x-show="currentMobileTab === 'stats'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6">
+            <div x-show="currentMobileTab === 'stats'" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+                class="space-y-6">
                 <h2 class="text-2xl font-bold text-white mb-2 hidden lg:block">Ringkasan Sistem</h2>
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                     <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group">
-                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
+                        <div
+                            class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all">
+                        </div>
                         <div class="flex flex-col gap-3 relative z-10">
-                            <span class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl w-fit"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
-                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Device Online</h3>
-                            <p class="text-3xl font-black text-white leading-none" x-text="stats.deviceStatus?.online || 0"></p>
+                            <span class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl w-fit"><svg class="w-6 h-6"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg></span>
+                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Device
+                                Online</h3>
+                            <p class="text-3xl font-black text-white leading-none"
+                                x-text="stats.deviceStatus?.online || 0"></p>
                         </div>
                     </div>
                     <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group">
-                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all"></div>
+                        <div
+                            class="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all">
+                        </div>
                         <div class="flex flex-col gap-3 relative z-10">
-                            <span class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl w-fit"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
-                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Device Offline</h3>
-                            <p class="text-3xl font-black text-white leading-none" x-text="stats.deviceStatus?.offline || 0"></p>
+                            <span class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl w-fit"><svg class="w-6 h-6"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg></span>
+                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Device
+                                Offline</h3>
+                            <p class="text-3xl font-black text-white leading-none"
+                                x-text="stats.deviceStatus?.offline || 0"></p>
                         </div>
                     </div>
                     <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group">
-                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
+                        <div
+                            class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all">
+                        </div>
                         <div class="flex flex-col gap-3 relative z-10">
-                            <span class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl w-fit"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></span>
-                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Top Perintah</h3>
-                            <p class="text-xl md:text-2xl font-black text-white truncate leading-none pt-1" x-text="(stats.topCommands && stats.topCommands[0] && stats.topCommands[0].command) || '-'"></p>
+                            <span class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl w-fit"><svg class="w-6 h-6"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg></span>
+                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Top Perintah
+                            </h3>
+                            <p class="text-xl md:text-2xl font-black text-white truncate leading-none pt-1"
+                                x-text="(stats.topCommands && stats.topCommands[0] && stats.topCommands[0].command) || '-'">
+                            </p>
                         </div>
                     </div>
                     <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group">
-                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
+                        <div
+                            class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all">
+                        </div>
                         <div class="flex flex-col gap-3 relative z-10">
-                            <span class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl w-fit"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
-                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Waktu Respon</h3>
-                            <p class="text-xl md:text-2xl font-black text-white leading-none pt-1" x-text="(stats.fastestCommands && stats.fastestCommands[0]) ? stats.fastestCommands[0].avg_duration.toFixed(1) + 's' : '-'"></p>
+                            <span class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl w-fit"><svg class="w-6 h-6"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg></span>
+                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Waktu Respon
+                            </h3>
+                            <p class="text-xl md:text-2xl font-black text-white leading-none pt-1"
+                                x-text="stats.avgResponse ? stats.avgResponse.toFixed(2) + 's' : '-'">
+                            </p>
                         </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="glass-panel rounded-3xl p-6">
-                        <h3 class="text-sm font-bold text-white mb-6 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_#6366f1]"></div>Distribusi Perintah</h3>
+                        <h3 class="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_#6366f1]"></div>Distribusi
+                            Perintah
+                        </h3>
                         <div class="h-[240px] relative"><canvas id="commandsChart"></canvas></div>
                     </div>
                     <div class="glass-panel rounded-3xl p-6 lg:col-span-2">
-                        <h3 class="text-sm font-bold text-white mb-6 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_10px_#8b5cf6]"></div>Tren Aktivitas 7 Hari</h3>
+                        <h3 class="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_10px_#8b5cf6]"></div>Tren
+                            Aktivitas 7 Hari
+                        </h3>
                         <div class="h-[240px] relative"><canvas id="activityChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 mt-6">
+                    <div class="glass-panel rounded-3xl p-6">
+                        <h3 class="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_10px_#f43f5e]"></div>Rata-rata
+                            Waktu Respons Perintah Terlama (detik)
+                        </h3>
+                        <div class="h-[320px] relative"><canvas id="durationChart"></canvas></div>
                     </div>
                 </div>
             </div>
 
             <!-- TAB: PERANGKAT -->
-            <div x-show="currentMobileTab === 'devices'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="h-full flex flex-col lg:flex-row gap-6">
+            <div x-show="currentMobileTab === 'devices'" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+                class="h-full flex flex-col lg:flex-row gap-6">
                 <!-- List Panel -->
                 <div class="w-full lg:w-[400px] flex-shrink-0 flex flex-col gap-4">
                     <div class="glass-panel rounded-3xl p-5 flex-1 flex flex-col max-h-[85vh]">
                         <div class="flex justify-between items-center mb-5">
                             <h2 class="text-lg font-bold text-white">Target Perangkat</h2>
-                            <button @click="fetchDevices" class="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-primary transition-colors active:scale-95">
-                                <svg class="w-5 h-5" :class="{'animate-spin': isFetchingDevices}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <button @click="fetchDevices"
+                                class="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-primary transition-colors active:scale-95">
+                                <svg class="w-5 h-5" :class="{'animate-spin': isFetchingDevices}" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                    </path>
+                                </svg>
                             </button>
                         </div>
                         <div class="flex-1 overflow-y-auto pr-2 space-y-3">
                             <template x-for="device in devices" :key="device.id">
-                                <div class="glass-panel-hover p-4 rounded-2xl cursor-pointer transition-all border border-white/5" @click="selectedDevice = device.id" :class="{'bg-primary/5 border-primary/30 ring-1 ring-primary/20': selectedDevice === device.id}">
+                                <div class="glass-panel-hover p-4 rounded-2xl cursor-pointer transition-all border border-white/5"
+                                    @click="selectedDevice = device.id"
+                                    :class="{'bg-primary/5 border-primary/30 ring-1 ring-primary/20': selectedDevice === device.id}">
                                     <div class="flex justify-between items-start mb-2">
                                         <div class="font-mono text-sm font-bold text-gray-200" x-text="device.id"></div>
                                         <div class="flex items-center gap-2">
-                                            <button @click.stop="togglePollingMode(device.id, device.polling_mode)" class="px-2 py-1 text-[10px] uppercase font-black tracking-widest rounded-lg transition-colors border" :class="device.polling_mode === 'short' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20'" x-text="device.polling_mode === 'short' ? 'TURBO' : 'NORM'"></button>
-                                            <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg border bg-black/20" :class="device.is_online ? 'border-emerald-500/30 text-emerald-400' : 'border-rose-500/30 text-rose-400'">
-                                                <div class="w-2 h-2 rounded-full" :class="device.is_online ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-rose-500 shadow-[0_0_8px_#f43f5e]'"></div>
-                                                <span class="text-[10px] font-black tracking-widest uppercase" x-text="device.is_online ? 'ON' : 'OFF'"></span>
+                                            <button @click.stop="togglePollingMode(device.id, device.polling_mode)"
+                                                class="px-2 py-1 text-[10px] uppercase font-black tracking-widest rounded-lg transition-colors border"
+                                                :class="device.polling_mode === 'short' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20'"
+                                                x-text="device.polling_mode === 'short' ? 'TURBO' : 'NORM'"></button>
+                                            <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg border bg-black/20"
+                                                :class="device.is_online ? 'border-emerald-500/30 text-emerald-400' : 'border-rose-500/30 text-rose-400'">
+                                                <div class="w-2 h-2 rounded-full"
+                                                    :class="device.is_online ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-rose-500 shadow-[0_0_8px_#f43f5e]'">
+                                                </div>
+                                                <span class="text-[10px] font-black tracking-widest uppercase"
+                                                    x-text="device.is_online ? 'ON' : 'OFF'"></span>
                                             </div>
-                                            <button @click.stop="deleteDevice(device.id)" class="text-gray-500 hover:text-rose-400 p-1 rounded-lg hover:bg-rose-500/10 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                            <button @click.stop="deleteDevice(device.id)"
+                                                class="text-gray-500 hover:text-rose-400 p-1 rounded-lg hover:bg-rose-500/10 transition-colors"><svg
+                                                    class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                                    </path>
+                                                </svg></button>
                                         </div>
                                     </div>
-                                    <div class="text-[11px] font-medium text-gray-500 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Aktif: <span x-text="formatDate(device.last_seen)"></span></div>
+                                    <div class="text-[11px] font-medium text-gray-500 flex items-center gap-1.5"><svg
+                                            class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg> Aktif: <span x-text="formatDate(device.last_seen)"></span></div>
                                 </div>
                             </template>
-                            <div x-show="devices.length === 0" class="text-center py-12 flex flex-col items-center gap-3">
-                                <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-gray-600"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>
+                            <div x-show="devices.length === 0"
+                                class="text-center py-12 flex flex-col items-center gap-3">
+                                <div
+                                    class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-gray-600">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                            d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                </div>
                                 <span class="text-sm font-semibold text-gray-500">Belum ada perangkat.</span>
                             </div>
                         </div>
@@ -181,30 +358,59 @@
 
                 <!-- Command Sender -->
                 <div class="flex-1">
-                    <div x-show="selectedDevice" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="glass-panel rounded-3xl p-6 md:p-8 h-full flex flex-col">
+                    <div x-show="selectedDevice" x-transition:enter="transition ease-out duration-300"
+                        x-transition:enter-start="opacity-0 translate-y-4"
+                        x-transition:enter-end="opacity-100 translate-y-0"
+                        class="glass-panel rounded-3xl p-6 md:p-8 h-full flex flex-col">
                         <div class="flex items-center gap-4 mb-8">
-                            <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex flex-center items-center justify-center border border-indigo-500/30">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex flex-center items-center justify-center border border-indigo-500/30">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                    </path>
+                                </svg>
                             </div>
                             <div>
                                 <h2 class="text-xl font-bold text-white">Eksekusi Perintah</h2>
-                                <p class="text-sm text-gray-400">Target: <span class="font-mono text-primary font-bold" x-text="selectedDevice"></span></p>
+                                <p class="text-sm text-gray-400">Target: <span class="font-mono text-primary font-bold"
+                                        x-text="selectedDevice"></span></p>
                             </div>
                         </div>
 
                         <div class="space-y-5 flex-1 max-w-2xl">
                             <div class="relative" @click.away="showAutocomplete = false">
-                                <label class="text-[11px] font-black text-gray-500 uppercase tracking-widest block mb-2">Pilih Perintah (Command)</label>
+                                <label
+                                    class="text-[11px] font-black text-gray-500 uppercase tracking-widest block mb-2">Pilih
+                                    Perintah (Command)</label>
                                 <div class="relative">
-                                    <input type="text" x-model="cmdInput" @input="filterCommands(); showAutocomplete = true" @focus="filterCommands(); showAutocomplete = true" @keydown.arrow-down.prevent="if(showAutocomplete) hoverIndex = Math.min(hoverIndex + 1, filteredCommands.length - 1)" @keydown.arrow-up.prevent="if(showAutocomplete) hoverIndex = Math.max(hoverIndex - 1, 0)" @keydown.enter.prevent="if(showAutocomplete && filteredCommands[hoverIndex]) selectCommand(filteredCommands[hoverIndex])" @keydown.escape="showAutocomplete = false" placeholder="Ketik perintah (cth: ping)..." class="w-full pl-5 pr-12 py-4 rounded-2xl bg-black/40 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary text-gray-200 text-sm font-medium transition-all placeholder-gray-600 outline-none shadow-inner">
-                                    <svg class="absolute right-4 top-4 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    <input type="text" x-model="cmdInput"
+                                        @input="filterCommands(); showAutocomplete = true"
+                                        @focus="filterCommands(); showAutocomplete = true"
+                                        @keydown.arrow-down.prevent="if(showAutocomplete) hoverIndex = Math.min(hoverIndex + 1, filteredCommands.length - 1)"
+                                        @keydown.arrow-up.prevent="if(showAutocomplete) hoverIndex = Math.max(hoverIndex - 1, 0)"
+                                        @keydown.enter.prevent="if(showAutocomplete && filteredCommands[hoverIndex]) selectCommand(filteredCommands[hoverIndex])"
+                                        @keydown.escape="showAutocomplete = false"
+                                        placeholder="Ketik perintah (cth: ping)..."
+                                        class="w-full pl-5 pr-12 py-4 rounded-2xl bg-black/40 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary text-gray-200 text-sm font-medium transition-all placeholder-gray-600 outline-none shadow-inner">
+                                    <svg class="absolute right-4 top-4 w-5 h-5 text-gray-500" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7"></path>
+                                    </svg>
                                 </div>
-                                <div x-show="showAutocomplete && filteredCommands.length > 0" x-transition class="absolute z-50 w-full mt-2 bg-[#1f2937] border border-gray-700 rounded-2xl shadow-2xl max-h-64 overflow-y-auto outline outline-1 outline-white/5">
+                                <div x-show="showAutocomplete && filteredCommands.length > 0" x-transition
+                                    class="absolute z-[120] w-full mt-2 bg-[#1f2937] border border-gray-700 rounded-2xl shadow-2xl max-h-64 overflow-y-auto outline outline-1 outline-white/5">
                                     <template x-for="(cmd, index) in filteredCommands" :key="cmd.name">
-                                        <div @click="selectCommand(cmd)" @mouseenter="hoverIndex = index" :class="{'bg-[#374151] border-l-[3px] border-primary': hoverIndex === index, 'border-l-[3px] border-transparent': hoverIndex !== index}" class="px-5 py-3 cursor-pointer transition-colors flex flex-col gap-1 border-b border-gray-800 last:border-0">
+                                        <div @click="selectCommand(cmd)" @mouseenter="hoverIndex = index"
+                                            :class="{'bg-[#374151] border-l-[3px] border-primary': hoverIndex === index, 'border-l-[3px] border-transparent': hoverIndex !== index}"
+                                            class="px-5 py-3 cursor-pointer transition-colors flex flex-col gap-1 border-b border-gray-800 last:border-0">
                                             <div class="flex items-center gap-2">
-                                                <span class="text-sm font-bold text-gray-200 font-mono" x-text="cmd.name"></span>
-                                                <span x-show="cmd.needsPayload" class="text-[9px] bg-primary/20 text-indigo-300 px-1.5 py-0.5 rounded font-black tracking-widest uppercase border border-primary/30">Needs Payload</span>
+                                                <span class="text-sm font-bold text-gray-200 font-mono"
+                                                    x-text="cmd.name"></span>
+                                                <span x-show="cmd.needsPayload"
+                                                    class="text-[9px] bg-primary/20 text-indigo-300 px-1.5 py-0.5 rounded font-black tracking-widest uppercase border border-primary/30">Needs
+                                                    Payload</span>
                                             </div>
                                             <span class="text-xs text-gray-500 font-medium" x-text="cmd.desc"></span>
                                         </div>
@@ -213,207 +419,447 @@
                             </div>
 
                             <div>
-                                <label class="text-[11px] font-black text-gray-500 uppercase tracking-widest block mb-2">Payload Khusus (Opsional)</label>
-                                <input type="text" x-model="textInput" x-ref="payloadInput" placeholder="Masukkan argumen target..." class="w-full px-5 py-4 rounded-2xl bg-black/40 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary text-gray-200 text-sm font-medium transition-all placeholder-gray-600 outline-none shadow-inner">
+                                <label
+                                    class="text-[11px] font-black text-gray-500 uppercase tracking-widest block mb-2">Payload
+                                    Khusus (Opsional)</label>
+                                <input type="text" x-model="textInput" x-ref="payloadInput"
+                                    placeholder="Masukkan argumen target..."
+                                    class="w-full px-5 py-4 rounded-2xl bg-black/40 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary text-gray-200 text-sm font-medium transition-all placeholder-gray-600 outline-none shadow-inner">
                             </div>
 
-                            <button @click="sendCommand()" class="w-full bg-gradient-to-r from-primary to-secondary hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 px-6 rounded-2xl transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(99,102,241,0.3)] disabled:opacity-50 disabled:active:scale-100 group" :disabled="!cmdInput.trim() || isSending">
-                                <span x-show="!isSending" class="flex items-center gap-2 tracking-wide"><svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Eksekusi Sekarang</span>
-                                <span x-show="isSending" class="flex items-center gap-2"><svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Mengirim Transmisi...</span>
+                            <button @click="sendCommand()"
+                                class="w-full bg-gradient-to-r from-primary to-secondary hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 px-6 rounded-2xl transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(99,102,241,0.3)] disabled:opacity-50 disabled:active:scale-100 group"
+                                :disabled="!cmdInput.trim() || isSending">
+                                <span x-show="!isSending" class="flex items-center gap-2 tracking-wide"><svg
+                                        class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg> Eksekusi Sekarang</span>
+                                <span x-show="isSending" class="flex items-center gap-2"><svg
+                                        class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg"
+                                        fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        </path>
+                                    </svg> Mengirim Transmisi...</span>
                             </button>
                         </div>
                     </div>
-                    <div x-show="!selectedDevice" class="glass-panel rounded-3xl p-6 h-full flex flex-col items-center justify-center text-center gap-4 border-dashed border-2 border-white/10">
-                        <div class="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center text-gray-600 mb-2"><svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg></div>
+                    <div x-show="!selectedDevice"
+                        class="glass-panel rounded-3xl p-6 h-full flex flex-col items-center justify-center text-center gap-4 border-dashed border-2 border-white/10">
+                        <div
+                            class="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center text-gray-600 mb-2">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122">
+                                </path>
+                            </svg>
+                        </div>
                         <div>
                             <h3 class="text-xl font-bold text-white mb-2">Area C2 Kosong</h3>
-                            <p class="text-sm text-gray-500 max-w-sm">Mohon pilih perangkat di panel sebelah kiri untuk membuka instrumen injeksi perintah.</p>
+                            <p class="text-sm text-gray-500 max-w-sm">Mohon pilih perangkat di panel sebelah kiri untuk
+                                membuka instrumen injeksi perintah.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- TAB: AKTIVITAS & LOG -->
-            <div x-show="currentMobileTab === 'logs'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="h-[calc(100vh-8rem)] flex flex-col">
-                <div class="glass-panel rounded-3xl p-5 md:p-6 lg:p-8 flex-1 flex flex-col relative overflow-hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 z-10">
+            <div x-show="currentMobileTab === 'logs'" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+                class="h-[calc(100vh-8rem)] flex flex-col">
+                <div class="glass-panel rounded-3xl p-5 md:p-6 lg:p-8 flex-1 flex flex-col relative overflow-visible">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 z-30 relative">
                         <div class="flex items-center gap-1 bg-black/40 p-1.5 rounded-xl border border-white/5 w-fit">
-                            <button @click="activeTab = 'system'" :class="activeTab === 'system' ? 'bg-primary text-white shadow-md shadow-primary/30' : 'text-gray-400 hover:text-gray-200'" class="px-5 py-2 rounded-lg text-sm font-bold transition-all">Log Sistem</button>
-                            <button @click="activeTab = 'hosting'" :class="activeTab === 'hosting' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' : 'text-gray-400 hover:text-gray-200'" class="px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">Log Server <span x-show="hostLogs.length > 0" class="w-2 h-2 rounded-full bg-white animate-pulse"></span></button>
+                            <button @click="activeTab = 'system'"
+                                :class="activeTab === 'system' ? 'bg-primary text-white shadow-md shadow-primary/30' : 'text-gray-400 hover:text-gray-200'"
+                                class="px-5 py-2 rounded-lg text-sm font-bold transition-all">Log Sistem</button>
+                            <button @click="activeTab = 'hosting'"
+                                :class="activeTab === 'hosting' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' : 'text-gray-400 hover:text-gray-200'"
+                                class="px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">Log
+                                Server <span x-show="hostLogs.length > 0"
+                                    class="w-2 h-2 rounded-full bg-white animate-pulse"></span></button>
                         </div>
                         <div class="flex items-center gap-3">
-                            <div class="relative" x-show="activeTab === 'system'" x-data="{ openOpts: false, opts: [{val:0, lbl:'Semua Log'}, {val:1, lbl:'> 1 Hari'}, {val:7, lbl:'> 7 Hari'}] }">
+                            <div class="relative" x-show="activeTab === 'system'"
+                                x-data="{ openOpts: false, opts: [{val:0, lbl:'Semua Log'}, {val:1, lbl:'> 1 Hari'}, {val:7, lbl:'> 7 Hari'}] }">
                                 <div class="flex items-stretch h-10">
-                                    <button @click="openOpts = !openOpts" @click.away="openOpts = false" class="bg-gray-800/80 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-l-xl px-4 text-xs font-semibold flex items-center justify-between gap-2 border-r-0 focus:outline-none transition-colors"><span x-text="opts.find(o => o.val == clearLogDays).lbl"></span><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg></button>
-                                    <button @click="clearLogs()" class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 px-4 rounded-r-xl transition-colors font-bold text-xs flex items-center gap-2 active:scale-95"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Clear</button>
+                                    <button @click="openOpts = !openOpts" @click.away="openOpts = false"
+                                        class="bg-gray-800/80 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-l-xl px-4 text-xs font-semibold flex items-center justify-between gap-2 border-r-0 focus:outline-none transition-colors"><span
+                                            x-text="opts.find(o => o.val == clearLogDays).lbl"></span><svg
+                                            class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                                d="M19 9l-7 7-7-7"></path>
+                                        </svg></button>
+                                    <button @click="clearLogs()"
+                                        class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 px-4 rounded-r-xl transition-colors font-bold text-xs flex items-center gap-2 active:scale-95"><svg
+                                            class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                            </path>
+                                        </svg> Clear</button>
                                 </div>
-                                <div x-show="openOpts" x-transition class="absolute top-full left-0 mt-2 w-36 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 py-1" x-cloak>
+                                <div x-show="openOpts" x-transition
+                                    class="absolute top-full left-0 mt-2 w-36 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-[120] py-1"
+                                    x-cloak>
                                     <template x-for="opt in opts" :key="opt.val">
-                                        <button @click="clearLogDays = opt.val; openOpts = false;" class="w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-700 transition-colors" :class="clearLogDays == opt.val ? 'text-primary' : 'text-gray-300'" x-text="opt.lbl"></button>
+                                        <button @click="clearLogDays = opt.val; openOpts = false;"
+                                            class="w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-700 transition-colors"
+                                            :class="clearLogDays == opt.val ? 'text-primary' : 'text-gray-300'"
+                                            x-text="opt.lbl"></button>
                                     </template>
                                 </div>
                             </div>
-                            <button x-show="activeTab === 'hosting'" @click="clearHostLogs()" class="h-10 px-4 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 transition-colors active:scale-95 flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Clear stderrr</button>
-                            <button @click="fetchLogs" class="h-10 w-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-primary transition-colors active:scale-95">
-                                <svg class="w-5 h-5" :class="{'animate-spin': isFetchingLogs}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <button x-show="activeTab === 'hosting'" @click="clearHostLogs()"
+                                class="h-10 px-4 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 transition-colors active:scale-95 flex items-center gap-2"><svg
+                                    class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                    </path>
+                                </svg> Clear stderrr</button>
+                            <button @click="fetchLogs"
+                                class="h-10 w-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-primary transition-colors active:scale-95">
+                                <svg class="w-5 h-5" :class="{'animate-spin': isFetchingLogs}" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                    </path>
+                                </svg>
                             </button>
                         </div>
                     </div>
 
-                    <div x-show="activeTab === 'system'" x-transition class="flex-1 overflow-auto rounded-2xl border border-white/5 bg-black/20 shadow-inner z-10">
-                        <table class="w-full text-left text-gray-300 text-sm whitespace-nowrap lg:whitespace-normal">
-                            <thead class="bg-gray-900/80 text-[10px] uppercase font-black tracking-widest text-gray-400 sticky top-0 backdrop-blur-md z-20 shadow-sm border-b border-white/5">
+                    <div x-show="activeTab === 'system'" x-transition
+                        class="flex-1 overflow-auto rounded-2xl border border-white/5 bg-black/20 shadow-inner z-10">
+                        <table class="w-full text-left text-gray-300 text-sm lg:whitespace-normal">
+                            <thead
+                                class="bg-gray-900/80 text-[10px] uppercase font-black tracking-widest text-gray-400 sticky top-0 backdrop-blur-md z-20 shadow-sm border-b border-white/5">
                                 <tr>
-                                    <th class="px-6 py-4">Waktu</th>
-                                    <th class="px-6 py-4">Target</th>
-                                    <th class="px-6 py-4 text-center">Status</th>
-                                    <th class="px-6 py-4 w-full">Payload Message</th>
-                                    <th class="px-6 py-4 text-right">Aksi</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4">Waktu</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4">Target</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-center">Status</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 w-full">Payload</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-right hidden md:table-cell">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5 font-mono text-xs">
+                            <tbody class="divide-y divide-white/5 font-mono text-[10px] md:text-xs">
                                 <template x-for="log in logs" :key="log.id">
-                                    <tr class="hover:bg-white/5 transition-colors group">
-                                        <td class="px-6 py-4 text-gray-500 font-medium" x-text="log.created_at"></td>
-                                        <td class="px-6 py-4 text-primary font-bold" x-text="log.device_id"></td>
-                                        <td class="px-6 py-4 text-center">
-                                            <span class="inline-block px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-current" :class="{'bg-rose-500/10 text-rose-400': ['ERROR'].includes(log.level), 'bg-emerald-500/10 text-emerald-400': ['INFO', 'completed'].includes(log.level), 'bg-amber-500/10 text-amber-400': ['WARN', 'pending'].includes(log.level), 'bg-blue-500/10 text-blue-400': log.level === 'sent'}"><span x-text="log.level"></span></span>
+                                    <tr @click="if(log.type !== 'cmd') openDetailModal(log.id)"
+                                        class="hover:bg-white/5 transition-colors group cursor-pointer">
+                                        <td class="px-3 md:px-6 py-3 md:py-4 text-gray-500 font-medium whitespace-nowrap"
+                                            x-text="log.created_at"></td>
+                                        <td class="px-3 md:px-6 py-3 md:py-4 text-primary font-bold truncate max-w-[60px] md:max-w-none"
+                                            x-text="log.device_id"></td>
+                                        <td class="px-3 md:px-6 py-3 md:py-4 text-center">
+                                            <span
+                                                class="inline-block px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-current"
+                                                :class="{'bg-rose-500/10 text-rose-400': ['ERROR'].includes(log.level), 'bg-emerald-500/10 text-emerald-400': ['INFO', 'completed'].includes(log.level), 'bg-amber-500/10 text-amber-400': ['WARN', 'pending'].includes(log.level), 'bg-blue-500/10 text-blue-400': log.level === 'sent'}"><span
+                                                    x-text="log.level"></span></span>
                                         </td>
-                                        <td class="px-6 py-4 opacity-80" x-text="log.message"></td>
-                                        <td class="px-6 py-4 text-right">
-                                            <button x-show="log.type !== 'cmd'" @click="openDetailModal(log.id)" class="px-4 py-2 rounded-xl text-primary bg-primary/10 hover:bg-primary/20 font-bold text-[11px] tracking-wide transition-colors active:scale-95 shadow-sm inline-flex gap-1.5 opacity-0 group-hover:opacity-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>Buka</button>
+                                        <td
+                                            class="px-3 md:px-6 py-3 md:py-4 opacity-80 overflow-hidden text-ellipsis whitespace-nowrap">
+                                            <div class="truncate max-w-[100px] md:max-w-none">
+                                                <span class="md:hidden"
+                                                    x-text="log.message.includes('➔') ? log.message.split('➔')[0] : log.message"></span>
+                                                <span class="hidden md:block" x-text="log.message"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 md:px-6 py-3 md:py-4 text-right hidden md:table-cell">
+                                            <button x-show="log.type !== 'cmd'" @click.stop="openDetailModal(log.id)"
+                                                class="px-4 py-2 rounded-xl text-primary bg-primary/10 hover:bg-primary/20 font-bold text-[11px] tracking-wide transition-colors active:scale-95 shadow-sm inline-flex gap-1.5 opacity-0 lg:group-hover:opacity-100"><svg
+                                                    class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2.5"
+                                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                                    </path>
+                                                </svg>Buka</button>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                     </div>
+
+                    <div x-show="activeTab === 'hosting'" x-transition
+                        class="flex-1 overflow-auto rounded-2xl border border-white/5 bg-black/20 shadow-inner z-10 flex flex-col p-4 space-y-3 custom-scrollbar">
+                        <template x-for="err in hostLogs" :key="err.id">
+                            <div x-data="{ open: false }"
+                                class="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-4 transition-all hover:bg-rose-500/10 group">
+                                <div class="flex items-start justify-between gap-4 cursor-pointer"
+                                    @click="open = !open">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]"></div>
+                                        <h4 class="text-xs font-black text-rose-400 uppercase tracking-widest truncate max-w-[200px] md:max-w-md"
+                                            x-text="err.title"></h4>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button @click.stop="copyToClipboard(err.full)"
+                                            class="text-[10px] font-bold text-gray-500 hover:text-white bg-white/5 px-2 py-1 rounded-lg transition-colors active:scale-90">Salin</button>
+                                        <svg class="w-4 h-4 text-gray-500 transition-transform duration-300"
+                                            :class="{'rotate-180': open}" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div x-show="open" x-collapse>
+                                    <pre class="mt-3 text-[11px] font-mono text-gray-400 bg-black/40 p-3 rounded-xl overflow-x-auto whitespace-pre-wrap leading-relaxed border border-white/5 group-hover:border-rose-500/20"
+                                        x-text="err.full"></pre>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="hostLogs.length === 0"
+                            class="flex-1 flex flex-col items-center justify-center py-20 opacity-40">
+                            <svg class="w-16 h-16 text-gray-600 mb-4" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-sm font-bold tracking-widest uppercase">Server Log Bersih</p>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
     </main>
 
     <!-- Bottom Nav Mobile -->
-    <nav class="lg:hidden fixed bottom-6 left-6 right-6 glass-panel rounded-3xl p-3 flex justify-between items-center z-50 shadow-2xl safe-area-pb">
-        <button @click="currentMobileTab = 'stats'" class="flex flex-col items-center justify-center p-3 flex-1 rounded-2xl transition-all" :class="currentMobileTab === 'stats' ? 'bg-primary/20 text-primary scale-105' : 'text-gray-500 hover:text-gray-300'">
-            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+    <nav
+        class="lg:hidden fixed bottom-6 left-6 right-6 glass-panel rounded-3xl p-3 flex justify-between items-center z-50 shadow-2xl safe-area-pb">
+        <button @click="currentMobileTab = 'stats'"
+            class="flex flex-col items-center justify-center p-3 flex-1 rounded-2xl transition-all"
+            :class="currentMobileTab === 'stats' ? 'bg-primary/20 text-primary scale-105' : 'text-gray-500 hover:text-gray-300'">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+            </svg>
             <span class="text-[9px] font-black uppercase tracking-widest">Stats</span>
         </button>
-        <button @click="currentMobileTab = 'devices'" class="flex flex-col items-center justify-center p-3 flex-1 rounded-2xl transition-all" :class="currentMobileTab === 'devices' ? 'bg-primary/20 text-primary scale-105' : 'text-gray-500 hover:text-gray-300'">
-            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+        <button @click="currentMobileTab = 'devices'"
+            class="flex flex-col items-center justify-center p-3 flex-1 rounded-2xl transition-all"
+            :class="currentMobileTab === 'devices' ? 'bg-primary/20 text-primary scale-105' : 'text-gray-500 hover:text-gray-300'">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
             <span class="text-[9px] font-black uppercase tracking-widest">Tools</span>
         </button>
-        <button @click="currentMobileTab = 'logs'" class="flex flex-col items-center justify-center p-3 flex-1 rounded-2xl transition-all" :class="currentMobileTab === 'logs' ? 'bg-primary/20 text-primary scale-105' : 'text-gray-500 hover:text-gray-300'">
-            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <button @click="currentMobileTab = 'logs'"
+            class="flex flex-col items-center justify-center p-3 flex-1 rounded-2xl transition-all"
+            :class="currentMobileTab === 'logs' ? 'bg-primary/20 text-primary scale-105' : 'text-gray-500 hover:text-gray-300'">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
             <span class="text-[9px] font-black uppercase tracking-widest">Logs</span>
         </button>
     </nav>
-    
-    
+
+
     <!-- Confirm Modal -->
     <div x-show="isConfirmOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-0" x-cloak>
-        <div x-show="isConfirmOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" @click="closeConfirm"></div>
-        <div x-show="isConfirmOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative glass-panel rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] transform transition-all sm:max-w-md w-full border border-white/10" @click.stop>
+        <div x-show="isConfirmOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" @click="closeConfirm"></div>
+        <div x-show="isConfirmOpen" x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            class="relative glass-panel rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] transform transition-all sm:max-w-md w-full border border-white/10"
+            @click.stop>
             <div class="px-6 py-8">
-                <div class="mx-auto flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-rose-500/10 mb-6">
-                    <svg class="h-8 w-8 text-rose-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <div
+                    class="mx-auto flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-rose-500/10 mb-6">
+                    <svg class="h-8 w-8 text-rose-400" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
                 </div>
                 <div class="text-center">
                     <h3 class="text-xl font-black leading-6 text-white mb-3" x-text="confirmTitle"></h3>
-                    <div class="mt-2"><p class="text-sm text-gray-400 leading-relaxed" x-text="confirmMessage"></p></div>
+                    <div class="mt-2">
+                        <p class="text-sm text-gray-400 leading-relaxed" x-text="confirmMessage"></p>
+                    </div>
                 </div>
             </div>
             <div class="bg-black/40 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 rounded-b-3xl">
-                <button type="button" @click="closeConfirm" class="mt-3 sm:mt-0 w-full sm:w-auto inline-flex justify-center rounded-xl bg-transparent px-5 py-2.5 text-sm font-bold text-gray-400 hover:text-white hover:bg-white/5 border border-transparent transition-all active:scale-95">Batal</button>
-                <button type="button" @click="if(onConfirm) onConfirm(); closeConfirm();" class="w-full sm:w-auto inline-flex justify-center rounded-xl bg-rose-500/20 px-5 py-2.5 text-sm font-bold text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)] active:scale-95">Ya, Lanjutkan</button>
+                <button type="button" @click="closeConfirm"
+                    class="mt-3 sm:mt-0 w-full sm:w-auto inline-flex justify-center rounded-xl bg-transparent px-5 py-2.5 text-sm font-bold text-gray-400 hover:text-white hover:bg-white/5 border border-transparent transition-all active:scale-95">Batal</button>
+                <button type="button" @click="if(onConfirm) onConfirm(); closeConfirm();"
+                    class="w-full sm:w-auto inline-flex justify-center rounded-xl bg-rose-500/20 px-5 py-2.5 text-sm font-bold text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-all shadow-[0_0_15px_rgba(244,63,94,0.1)] active:scale-95">Ya,
+                    Lanjutkan</button>
             </div>
         </div>
     </div>
 
     <!-- Detail Modal -->
     <div x-show="isDetailModalOpen" class="fixed inset-0 z-[90] flex items-center justify-center p-4 sm:p-6" x-cloak>
-        <div x-show="isDetailModalOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity" @click="closeDetailModal"></div>
-        <div x-show="isDetailModalOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" class="relative glass-panel rounded-3xl overflow-hidden shadow-2xl transform transition-all max-w-[95vw] w-full lg:max-w-4xl max-h-[90vh] flex flex-col border border-white/10" @click.stop>
-            <div class="bg-black/40 px-6 py-5 border-b border-white/5 flex justify-between items-center sticky top-0 z-10 backdrop-blur-xl">
+        <div x-show="isDetailModalOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100" class="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity"
+            @click="closeDetailModal"></div>
+        <div x-show="isDetailModalOpen" x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+            class="relative glass-panel rounded-3xl overflow-hidden shadow-2xl transform transition-all max-w-[95vw] w-full lg:max-w-4xl max-h-[90vh] flex flex-col border border-white/10"
+            @click.stop>
+            <div
+                class="bg-black/40 px-6 py-5 border-b border-white/5 flex justify-between items-center sticky top-0 z-10 backdrop-blur-xl">
                 <h3 class="text-lg font-black text-white flex items-center gap-3">
-                    <div class="p-2 bg-primary/20 rounded-lg text-primary"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div> Detail Transaksi
+                    <div class="p-2 bg-primary/20 rounded-lg text-primary"><svg class="w-5 h-5" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg></div> Detail Transaksi
                 </h3>
-                <button @click="closeDetailModal" class="rounded-xl p-2.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none bg-white/5">
-                    <span class="sr-only">Close</span><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                <button @click="closeDetailModal"
+                    class="rounded-xl p-2.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none bg-white/5">
+                    <span class="sr-only">Close</span><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                        stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                 </button>
             </div>
             <div class="px-6 py-6 overflow-y-auto flex-1 text-sm custom-scrollbar relative">
                 <div x-show="isLoadingDetail" class="flex flex-col justify-center items-center py-20 gap-4">
-                    <svg class="animate-spin h-10 w-10 text-primary" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                    <p class="text-gray-400 font-bold animate-pulse tracking-widest uppercase text-xs">Memuat Instrumen...</p>
+                    <svg class="animate-spin h-10 w-10 text-primary" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <p class="text-gray-400 font-bold animate-pulse tracking-widest uppercase text-xs">Memuat
+                        Instrumen...</p>
                 </div>
                 <div x-show="!isLoadingDetail && detailLog" class="space-y-6">
                     <!-- Meta Grid -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div class="bg-black/30 p-4 rounded-2xl border border-white/5">
-                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Waktu Tercatat</label>
-                            <div class="text-white font-mono break-words" x-text="formatDate(detailLog?.log?.created_at, true)"></div>
+                            <label
+                                class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Waktu
+                                Tercatat</label>
+                            <div class="text-white font-mono break-words"
+                                x-text="formatDate(detailLog?.log?.created_at, true)"></div>
                         </div>
                         <div class="bg-black/30 p-4 rounded-2xl border border-white/5">
-                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Target Node</label>
+                            <label
+                                class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Target
+                                Node</label>
                             <div class="text-primary font-bold break-words" x-text="detailLog?.log?.device_id"></div>
                         </div>
                         <div class="bg-black/30 p-4 rounded-2xl border border-white/5">
-                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Tipe Objek</label>
-                            <div class="text-amber-400 font-bold break-words capitalize flex items-center gap-1"><span x-text="detailLog?.parsedBody?.type || 'Sistem_Log'"></span></div>
+                            <label
+                                class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Tipe
+                                Objek</label>
+                            <div class="text-amber-400 font-bold break-words capitalize flex items-center gap-1"><span
+                                    x-text="detailLog?.parsedBody?.type || 'Sistem_Log'"></span></div>
                         </div>
                         <div class="bg-black/30 p-4 rounded-2xl border border-white/5">
-                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Status</label>
-                            <div class="inline-flex px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20 uppercase font-black tracking-widest text-[10px]" x-text="detailLog?.log?.level"></div>
+                            <label
+                                class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 block">Status</label>
+                            <div class="inline-flex px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20 uppercase font-black tracking-widest text-[10px]"
+                                x-text="detailLog?.log?.level"></div>
                         </div>
                     </div>
 
                     <!-- Command Block -->
-                    <div x-show="detailLog?.command" class="bg-black/30 rounded-2xl p-5 border border-white/5 relative overflow-hidden">
-                        <div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none"><svg class="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg></div>
-                        <h4 class="text-[11px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-3"><div class="w-2 h-2 rounded-full bg-primary"></div> Instruksi Eksekusi</h4>
+                    <div x-show="detailLog?.command"
+                        class="bg-black/30 rounded-2xl p-5 border border-white/5 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none"><svg class="w-24 h-24"
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                            </svg></div>
+                        <h4
+                            class="text-[11px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-3">
+                            <div class="w-2 h-2 rounded-full bg-primary"></div> Instruksi Eksekusi
+                        </h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                            <div><span class="text-gray-500 text-xs">Perintah:</span> <span class="text-white ml-2 font-mono font-bold px-2 py-1 bg-white/5 rounded" x-text="detailLog?.command?.command"></span></div>
-                            <div><span class="text-gray-500 text-xs">Argumen:</span> <span class="text-gray-300 ml-2" x-text="detailLog?.command?.text || '(Kosong)'"></span></div>
-                            <div class="md:col-span-2 flex items-center gap-2"><span class="text-gray-500 text-xs">Durasi Proses:</span> <span class="text-emerald-400 font-bold px-2 py-1 bg-emerald-500/10 rounded border border-emerald-500/20" x-text="calculateDuration(detailLog?.command)"></span></div>
+                            <div><span class="text-gray-500 text-xs">Perintah:</span> <span
+                                    class="text-white ml-2 font-mono font-bold px-2 py-1 bg-white/5 rounded"
+                                    x-text="detailLog?.command?.command"></span></div>
+                            <div><span class="text-gray-500 text-xs">Argumen:</span> <span class="text-gray-300 ml-2"
+                                    x-text="detailLog?.command?.text || '(Kosong)'"></span></div>
+                            <div class="md:col-span-2 flex items-center gap-2"><span
+                                    class="text-gray-500 text-xs">Durasi Proses:</span> <span
+                                    class="text-emerald-400 font-bold px-2 py-1 bg-emerald-500/10 rounded border border-emerald-500/20"
+                                    x-text="calculateDuration(detailLog?.command)"></span></div>
                         </div>
                     </div>
 
                     <!-- Response Payload -->
                     <div>
                         <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-[11px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-secondary"></div> Respon Payload Mentah</h4>
-                            <button @click="copyToClipboard(JSON.stringify(detailLog?.parsedBody, null, 2))" class="text-xs text-primary hover:text-indigo-300 font-bold flex items-center gap-1 active:scale-95 transition-all bg-primary/10 px-3 py-1.5 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> Salin Data</button>
+                            <h4
+                                class="text-[11px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-secondary"></div> Respon Payload Mentah
+                            </h4>
+                            <button @click="copyToClipboard(JSON.stringify(detailLog?.parsedBody, null, 2))"
+                                class="text-xs text-primary hover:text-indigo-300 font-bold flex items-center gap-1 active:scale-95 transition-all bg-primary/10 px-3 py-1.5 rounded-lg"><svg
+                                    class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
+                                    </path>
+                                </svg> Salin Data</button>
                         </div>
                         <div class="bg-[#0f1117] rounded-2xl p-4 overflow-x-auto shadow-inner border border-white/5">
-                            <pre class="text-xs text-gray-300 font-mono" x-html="JSON.stringify(detailLog?.parsedBody, null, 2)"></pre>
+                            <pre class="text-xs text-gray-300 font-mono"
+                                x-html="JSON.stringify(detailLog?.parsedBody, null, 2)"></pre>
                         </div>
                     </div>
 
                     <!-- Media Audio -->
                     <div x-show="detailLog?.parsedBody?.type === 'audio_url'">
-                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pemutar Audio Rekaman</h4>
+                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pemutar Audio
+                            Rekaman</h4>
                         <audio controls class="w-full mt-2" :src="detailLog?.parsedBody?.data"></audio>
                     </div>
 
                     <!-- Media Photo -->
                     <div x-show="detailLog?.parsedBody?.type === 'photo_url'">
-                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pratinjau Foto Lensa Kamera</h4>
-                        <img :src="detailLog?.parsedBody?.data" class="w-full max-w-2xl mt-2 rounded-2xl border-4 border-white/10 shadow-2xl" alt="Foto Kamera" />
+                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pratinjau Foto
+                            Lensa Kamera</h4>
+                        <img :src="detailLog?.parsedBody?.data"
+                            class="w-full max-w-2xl mt-2 rounded-2xl border-4 border-white/10 shadow-2xl"
+                            alt="Foto Kamera" />
                     </div>
 
                     <!-- Location GPS Map -->
                     <div x-show="['location', 'location_data'].includes(detailLog?.parsedBody?.type)">
-                        <h4 class="text-[11px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-2"><div class="w-2 h-2 rounded-full bg-amber-400"></div> Peta Kordinat Target</h4>
-                        <div id="detail-map" class="w-full h-80 rounded-2xl mt-2 border border-white/10 shadow-2xl z-[5]"></div>
+                        <h4
+                            class="text-[11px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 mb-2">
+                            <div class="w-2 h-2 rounded-full bg-amber-400"></div> Peta Kordinat Target
+                        </h4>
+                        <div id="detail-map"
+                            class="w-full h-80 rounded-2xl mt-2 border border-white/10 shadow-2xl z-[5]"></div>
                         <div class="flex gap-4 mt-3">
-                            <a :href="'https://www.google.com/maps?q=' + (detailLog?.parsedBody?.data?.lat || detailLog?.parsedBody?.data?.latitude || 0) + ',' + (detailLog?.parsedBody?.data?.lon || detailLog?.parsedBody?.data?.lng || detailLog?.parsedBody?.data?.longitude || 0)" target="_blank" class="px-5 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold rounded-xl border border-blue-500/20 transition-all flex items-center gap-2 active:scale-95">Buka di Google Maps <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></a>
+                            <a :href="'https://www.google.com/maps?q=' + (detailLog?.parsedBody?.data?.lat || detailLog?.parsedBody?.data?.latitude || 0) + ',' + (detailLog?.parsedBody?.data?.lon || detailLog?.parsedBody?.data?.lng || detailLog?.parsedBody?.data?.longitude || 0)"
+                                target="_blank"
+                                class="px-5 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold rounded-xl border border-blue-500/20 transition-all flex items-center gap-2 active:scale-95">Buka
+                                di Google Maps <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                                    </path>
+                                </svg></a>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="bg-black/40 px-6 py-4 flex flex-row-reverse rounded-b-3xl border-t border-white/5">
-                <button type="button" class="inline-flex justify-center rounded-xl bg-primary/20 px-6 py-2.5 text-sm font-bold text-primary hover:bg-primary/30 border border-primary/30 transition-all active:scale-95" @click="closeDetailModal">Selesai</button>
+                <button type="button"
+                    class="inline-flex justify-center rounded-xl bg-primary/20 px-6 py-2.5 text-sm font-bold text-primary hover:bg-primary/30 border border-primary/30 transition-all active:scale-95"
+                    @click="closeDetailModal">Selesai</button>
             </div>
         </div>
     </div>
@@ -563,6 +1009,36 @@
                                 scales: {
                                     y: { beginAtZero: true, grid: { color: 'rgba(75, 85, 99, 0.2)' }, ticks: { color: '#9ca3af', stepSize: 1 } },
                                     x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                                }
+                            }
+                        });
+                    }
+
+                    const durCtx = document.getElementById('durationChart')?.getContext('2d');
+                    if (durCtx && this.stats.slowestCommands?.length > 0) {
+                        if (this.durationChart) this.durationChart.destroy();
+                        this.durationChart = new Chart(durCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: this.stats.slowestCommands.map(c => c.command),
+                                datasets: [{
+                                    label: 'Rata-rata Durasi (detik)',
+                                    data: this.stats.slowestCommands.map(c => c.avg_duration.toFixed(2)),
+                                    backgroundColor: 'rgba(244, 63, 94, 0.4)',
+                                    borderColor: '#f43f5e',
+                                    borderWidth: 2,
+                                    borderRadius: 8,
+                                    barThickness: 30
+                                }]
+                            },
+                            options: {
+                                indexAxis: 'y',
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.raw} detik` } } },
+                                scales: {
+                                    y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { weight: 'bold' } } },
+                                    x: { grid: { color: 'rgba(75, 85, 99, 0.2)' }, ticks: { color: '#9ca3af' }, title: { display: true, text: 'Detik', color: '#9ca3af' } }
                                 }
                             }
                         });
@@ -867,4 +1343,5 @@
 
     </script>
 </body>
+
 </html>
