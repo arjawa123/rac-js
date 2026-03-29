@@ -327,8 +327,8 @@
                                         <div class="flex items-center gap-2">
                                             <button @click.stop="togglePollingMode(device.id, device.polling_mode)"
                                                 class="px-2 py-1 text-[10px] uppercase font-black tracking-widest rounded-lg transition-colors border"
-                                                :class="device.polling_mode === 'short' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20'"
-                                                x-text="device.polling_mode === 'short' ? 'TURBO' : 'NORM'"></button>
+                                                :class="(device.polling_mode === 'turbo' || device.polling_mode === 'short') ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20'"
+                                                x-text="(device.polling_mode === 'turbo' || device.polling_mode === 'short') ? 'TURBO' : 'NORM'"></button>
                                             <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg border bg-black/20"
                                                 :class="device.is_online ? 'border-emerald-500/30 text-emerald-400' : 'border-rose-500/30 text-rose-400'">
                                                 <div class="w-2 h-2 rounded-full"
@@ -1037,7 +1037,7 @@
                                 datasets: [
                                     {
                                         label: 'Turbo Mode',
-                                        data: this.stats.slowestCommands.map(c => c.avg_turbo ? c.avg_turbo.toFixed(2) : 0),
+                                        data: this.stats.slowestCommands.map(c => Number(c.avg_turbo || 0).toFixed(2)),
                                         backgroundColor: 'rgba(16, 185, 129, 0.4)',
                                         borderColor: '#10b981',
                                         borderWidth: 2,
@@ -1046,7 +1046,7 @@
                                     },
                                     {
                                         label: 'Normal Mode',
-                                        data: this.stats.slowestCommands.map(c => c.avg_normal ? c.avg_normal.toFixed(2) : 0),
+                                        data: this.stats.slowestCommands.map(c => Number(c.avg_normal || 0).toFixed(2)),
                                         backgroundColor: 'rgba(245, 158, 11, 0.4)',
                                         borderColor: '#f59e0b',
                                         borderWidth: 2,
@@ -1124,8 +1124,8 @@
                 },
 
                 async togglePollingMode(devId, currentMode) {
-                    const nextMode = currentMode === 'short' ? 'long' : 'short';
-                    const label = nextMode === 'short' ? 'Turbo' : 'Normal';
+                    const nextMode = currentMode === 'turbo' ? 'normal' : 'turbo';
+                    const label = nextMode === 'turbo' ? 'Turbo' : 'Normal';
                     try {
                         const res = await fetch('/admin/api/command', {
                             method: 'POST',

@@ -97,9 +97,9 @@ app.set('views', path.join(__dirname, 'templates'));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Helper function
-const updateDeviceSeen = async (deviceId, mode = 'long') => {
+const updateDeviceSeen = async (deviceId, mode = 'normal') => {
     const timestamp = Date.now() / 1000;
-    const finalMode = mode || 'long';
+    const finalMode = (mode === 'short' || mode === 'turbo') ? 'turbo' : 'normal';
     await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode',
         [deviceId, timestamp, finalMode]);
 };
@@ -342,7 +342,7 @@ Format Eksekusi Manual:
         devices.forEach(d => {
             const isOnline = (Date.now() / 1000 - d.last_seen) < 90;
             const statusIcon = isOnline ? '🟢' : '🔴';
-            const modeIcon = d.polling_mode === 'short' ? '⚡' : '🔋';
+            const modeIcon = (d.polling_mode === 'short' || d.polling_mode === 'turbo') ? '⚡' : '🔋';
             buttons.push([{ text: `${statusIcon} ${d.id} [${modeIcon}]`, callback_data: `select_dev:${d.id}` }]);
         });
 
@@ -365,9 +365,9 @@ Format Eksekusi Manual:
     // Menangani klik dari tombol Device yang dipilih
     const sendDeviceMenu = async (ctx, devId, isSecret = false) => {
         const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
-        const currentMode = device?.polling_mode || 'long';
-        const modeLabel = currentMode === 'short' ? '⚡ TURBO' : '🔋 NORMAL';
-        const nextMode = currentMode === 'short' ? 'long' : 'short';
+        const currentMode = (device?.polling_mode === 'short' || device?.polling_mode === 'turbo') ? 'turbo' : 'normal';
+        const modeLabel = currentMode === 'turbo' ? '⚡ TURBO' : '🔋 NORMAL';
+        const nextMode = currentMode === 'turbo' ? 'normal' : 'turbo';
 
         const menuBtns = [
             [{ text: `📊 Mode: ${modeLabel} (Switch)`, callback_data: `runcmd:${devId}:set_polling_mode ${nextMode}` }],
@@ -638,7 +638,7 @@ app.get('/poll', async (req, res) => {
     }
 
     // Jika mode=short, langsung jawab 'none' tanpa menunggu
-    if (mode === 'short') {
+    if (mode === 'turbo' || mode === 'short') {
         return res.json({ command: 'none' });
     }
 
@@ -1001,8 +1001,8 @@ app.get('/admin/api/stats', async (req, res) => {
 
         const slowestCommands = await db.all(`
             SELECT command, 
-                   AVG(CASE WHEN polling_mode = 'turbo' THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_turbo,
-                   AVG(CASE WHEN polling_mode = 'normal' THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_normal,
+                   AVG(CASE WHEN polling_mode IN ('turbo', 'short') THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_turbo,
+                   AVG(CASE WHEN polling_mode IN ('normal', 'long') OR polling_mode IS NULL THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_normal,
                    AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_total
             FROM commands 
             WHERE status = 'completed' AND completed_at IS NOT NULL
@@ -1014,13 +1014,13 @@ app.get('/admin/api/stats', async (req, res) => {
         const turboAvgRes = await db.get(`
             SELECT AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg
             FROM commands 
-            WHERE status = 'completed' AND completed_at IS NOT NULL AND polling_mode = 'turbo'
+            WHERE status = 'completed' AND completed_at IS NOT NULL AND polling_mode IN ('turbo', 'short')
         `);
 
         const normalAvgRes = await db.get(`
             SELECT AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg
             FROM commands 
-            WHERE status = 'completed' AND completed_at IS NOT NULL AND polling_mode = 'normal'
+            WHERE status = 'completed' AND completed_at IS NOT NULL AND (polling_mode IN ('normal', 'long') OR polling_mode IS NULL)
         `);
 
         // Statistik Status Device
