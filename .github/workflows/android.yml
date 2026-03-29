@@ -2,11 +2,11 @@ name: Android CI/CD Build APK
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "develop", "rat" ]
     tags:
       - 'v*' # Trigger build & release saat push tag (cth: v1.0.0)
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "develop", "rat" ]
 
 permissions:
   contents: write # Diperlukan untuk membuat halaman Release
