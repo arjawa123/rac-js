@@ -39,15 +39,28 @@ class PollingManager(
         try {
             val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
             for (intf in interfaces) {
+                // Lewati interface yang mati atau loopback
+                if (!intf.isUp || intf.isLoopback) continue
+                
                 val addrs = Collections.list(intf.inetAddresses)
                 for (addr in addrs) {
-                    if (!addr.isLoopbackAddress && addr is Inet6Address) {
+                    if (addr is Inet6Address) {
+                        // Filter: Lewati Loopback, Link-Local (fe80::), Multicast (ff00::), dan Site-Local (fec0::)
+                        if (addr.isLoopbackAddress || addr.isLinkLocalAddress || 
+                            addr.isMulticastAddress || addr.isSiteLocalAddress) continue
+                        
                         val sAddr = addr.hostAddress
-                        val isIPv6 = sAddr.indexOf(':') >= 0
-                        if (isIPv6) {
-                            val delim = sAddr.indexOf('%') // drop zone index
-                            return if (delim < 0) sAddr.uppercase() else sAddr.substring(0, delim).uppercase()
+                        // Hilangkan zone index (misal: %wlan0 atau %eth0)
+                        val delim = sAddr.indexOf('%')
+                        val cleanAddr = if (delim < 0) sAddr.uppercase() else sAddr.substring(0, delim).uppercase()
+                        
+                        // Opsional: Pastikan ini adalah Global Unicast (biasanya dimulai dengan 2xxx: atau 3xxx:)
+                        if (cleanAddr.startsWith("2") || cleanAddr.startsWith("3")) {
+                            return cleanAddr
                         }
+                        
+                        // Fallback jika bukan 2xxx/3xxx tapi tetap bukan link-local (misal ULA fc00::/7)
+                        return cleanAddr
                     }
                 }
             }
