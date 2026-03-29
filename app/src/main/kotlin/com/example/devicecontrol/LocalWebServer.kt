@@ -70,14 +70,14 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(port) 
         } else {
             try {
                 val inputStream: InputStream = FileInputStream(file)
-                newFixedLengthResponse(Response.Status.OK, getMimeTypeForFile(file.name), inputStream, file.length())
+                newFixedLengthResponse(Response.Status.OK, resolveMimeType(file.name), inputStream, file.length())
             } catch (e: Exception) {
                 newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Error reading file")
             }
         }
     }
 
-    private fun getMimeTypeForFile(fileName: String): String {
+    private fun resolveMimeType(fileName: String): String {
         return when {
             fileName.endsWith(".html") -> "text/html"
             fileName.endsWith(".js") -> "application/javascript"
