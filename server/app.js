@@ -823,20 +823,33 @@ app.post('/response', async (req, res) => {
                 const generatePreview = (d) => {
                     let preview = '';
                     if (Array.isArray(d)) {
-                        const sub = d.slice(0, 5);
+                        const sub = d.slice(0, 3);
                         preview = formatDeviceResponse(sub);
-                        if (d.length > 5) preview += `\n  ... <i>dan ${d.length - 5} baris lainnya.</i>`;
+                        if (d.length > 3) preview += `\n  ... <i>dan ${d.length - 3} items lainnya.</i>`;
                     } else if (typeof d === 'object' && d !== null) {
-                        const keys = Object.keys(d).slice(0, 10);
+                        const keys = Object.keys(d).slice(0, 5);
                         const sub = {};
                         keys.forEach(k => sub[k] = d[k]);
                         preview = formatDeviceResponse(sub);
-                        if (Object.keys(d).length > 10) preview += `\n  ... <i>dan properti lainnya.</i>`;
+                        if (Object.keys(d).length > 5) preview += `\n  ... <i>dan properti lainnya.</i>`;
                     }
 
                     // Batasi panjang caption total 1024 char, kita batasi preview 750 saja
                     if (preview.length > 750) {
-                        preview = preview.substring(0, 750) + '\n... (terpotong, lihat Dokumen JSON)';
+                        preview = preview.substring(0, 750);
+                        // Safe closing tags for common tags used
+                        const openBold = (preview.match(/<b>/g) || []).length;
+                        const closeBold = (preview.match(/<\/b>/g) || []).length;
+                        if (openBold > closeBold) preview += '</b>';
+
+                        const openCode = (preview.match(/<code>/g) || []).length;
+                        const closeCode = (preview.match(/<\/code>/g) || []).length;
+                        if (openCode > closeCode) preview += '</code>';
+
+                        // Cek jika pemotongan terjadi di dalam tag yang hancur (misal ' </co')
+                        preview = preview.replace(/<[a-zA-Z\/]*$/, '');
+
+                        preview += '\n... (terpotong, lihat Dokumen JSON)';
                     }
                     return preview;
                 };
