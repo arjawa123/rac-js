@@ -993,11 +993,13 @@ app.get('/admin/api/stats', async (req, res) => {
 
         const slowestCommands = await db.all(`
             SELECT command, 
-                   AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_duration
+                   AVG(CASE WHEN polling_mode = 'turbo' THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_turbo,
+                   AVG(CASE WHEN polling_mode = 'normal' THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_normal,
+                   AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_total
             FROM commands 
             WHERE status = 'completed' AND completed_at IS NOT NULL
             GROUP BY command 
-            ORDER BY avg_duration DESC 
+            ORDER BY avg_total DESC 
             LIMIT 10
         `);
 

@@ -1034,24 +1034,42 @@
                             type: 'bar',
                             data: {
                                 labels: this.stats.slowestCommands.map(c => c.command),
-                                datasets: [{
-                                    label: 'Rata-rata Durasi (detik)',
-                                    data: this.stats.slowestCommands.map(c => c.avg_duration.toFixed(2)),
-                                    backgroundColor: 'rgba(244, 63, 94, 0.4)',
-                                    borderColor: '#f43f5e',
-                                    borderWidth: 2,
-                                    borderRadius: 8,
-                                    barThickness: 30
-                                }]
+                                datasets: [
+                                    {
+                                        label: 'Turbo Mode',
+                                        data: this.stats.slowestCommands.map(c => c.avg_turbo ? c.avg_turbo.toFixed(2) : 0),
+                                        backgroundColor: 'rgba(16, 185, 129, 0.4)',
+                                        borderColor: '#10b981',
+                                        borderWidth: 2,
+                                        borderRadius: 6,
+                                        barThickness: 15
+                                    },
+                                    {
+                                        label: 'Normal Mode',
+                                        data: this.stats.slowestCommands.map(c => c.avg_normal ? c.avg_normal.toFixed(2) : 0),
+                                        backgroundColor: 'rgba(245, 158, 11, 0.4)',
+                                        borderColor: '#f59e0b',
+                                        borderWidth: 2,
+                                        borderRadius: 6,
+                                        barThickness: 15
+                                    }
+                                ]
                             },
                             options: {
                                 indexAxis: 'y',
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.raw} detik` } } },
+                                plugins: {
+                                    legend: {
+                                        display: true,
+                                        position: 'top',
+                                        labels: { color: '#9ca3af', usePointStyle: true, padding: 15 }
+                                    },
+                                    tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} detik` } }
+                                },
                                 scales: {
                                     y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { weight: 'bold' } } },
-                                    x: { grid: { color: 'rgba(75, 85, 99, 0.2)' }, ticks: { color: '#9ca3af' }, title: { display: true, text: 'Detik', color: '#9ca3af' } }
+                                    x: { grid: { color: 'rgba(75, 85, 99, 0.2)' }, ticks: { color: '#9ca3af' }, title: { display: true, text: 'Detik (Avg)', color: '#9ca3af' } }
                                 }
                             }
                         });
