@@ -48,6 +48,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     
+    // Local Web Server (RavanRAT Style)
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-service:2.8.4")
 }

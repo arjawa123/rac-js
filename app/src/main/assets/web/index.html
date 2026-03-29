@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RAC-JS Direct Access</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h1 { color: #bb86fc; }
+        .btn { background: #03dac6; color: #000; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .file-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #333; }
+        #camera-feed { width: 100%; max-width: 640px; background: #000; min-height: 360px; }
+    </style>
+</head>
+<body>
+    <h1>RAC-JS Direct Control (IPv6)</h1>
+    <div class="card">
+        <h3>Device Info</h3>
+        <p id="device-info">Loading...</p>
+    </div>
+
+    <div class="card">
+        <h3>File Manager</h3>
+        <div id="file-list"></div>
+    </div>
+
+    <script>
+        fetch('/api/info')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('device-info').innerText = `${data.model} (Android ${data.android_version})`;
+            });
+
+        function loadFiles(path = '/') {
+            fetch(`/api/files?path=${encodeURIComponent(path)}`)
+                .then(r => r.json())
+                .then(files => {
+                    const list = document.getElementById('file-list');
+                    list.innerHTML = '';
+                    files.forEach(f => {
+                        const div = document.createElement('div');
+                        div.className = 'file-item';
+                        div.innerHTML = `<span>${f.is_dir ? '📁' : '📄'} ${f.name}</span> <button onclick="loadFiles('${f.path}')">Open</button>`;
+                        list.appendChild(div);
+                    });
+                });
+        }
+        loadFiles('/sdcard');
+    </script>
+</body>
+</html>

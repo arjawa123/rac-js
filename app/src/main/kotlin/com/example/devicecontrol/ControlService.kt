@@ -13,11 +13,13 @@ class ControlService : Service() {
     private var wifiLock: WifiManager.WifiLock? = null
     private lateinit var pollingManager: PollingManager
     private lateinit var commandHandler: CommandHandler
+    private var localWebServer: LocalWebServer? = null
 
     companion object {
         private const val CHANNEL_ID = "device_control_channel"
         private const val NOTIFICATION_ID = 101
         private const val TAG = "ControlService"
+        private const val WEB_SERVER_PORT = 8080
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -36,6 +38,15 @@ class ControlService : Service() {
         
         Log.d(TAG, "Service Created")
         acquireLocks()
+
+        // Start Local Web Server
+        try {
+            localWebServer = LocalWebServer(this, WEB_SERVER_PORT)
+            localWebServer?.start()
+            Log.d(TAG, "Local Web Server started on port $WEB_SERVER_PORT")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start Local Web Server: ${e.message}")
+        }
         
         val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("ws_url", "https://pygram.xnv.biz.id") ?: ""
@@ -113,6 +124,7 @@ class ControlService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         pollingManager.stop()
+        localWebServer?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         wifiLock?.let { if (it.isHeld) it.release() }
     }

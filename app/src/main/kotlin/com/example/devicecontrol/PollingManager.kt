@@ -10,6 +10,10 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.Executors
 
+import java.net.NetworkInterface
+import java.net.Inet6Address
+import java.util.Collections
+
 class PollingManager(
     private val baseUrl: String,
     private val clientId: String,
@@ -31,6 +35,28 @@ class PollingManager(
     private var currentInterval = if (isTurbo) 1000L else 5000L 
     private val maxInterval = 30000L
 
+    private fun getPublicIPv6(): String? {
+        try {
+            val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+            for (intf in interfaces) {
+                val addrs = Collections.list(intf.inetAddresses)
+                for (addr in addrs) {
+                    if (!addr.isLoopbackAddress && addr is Inet6Address) {
+                        val sAddr = addr.hostAddress
+                        val isIPv6 = sAddr.indexOf(':') >= 0
+                        if (isIPv6) {
+                            val delim = sAddr.indexOf('%') // drop zone index
+                            return if (delim < 0) sAddr.uppercase() else sAddr.substring(0, delim).uppercase()
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal ambil IPv6: ${e.message}")
+        }
+        return null
+    }
+
     fun start() {
         if (isRunning) return
         isRunning = true
@@ -45,11 +71,16 @@ class PollingManager(
         if (!isRunning) return
 
         try {
+            val ipv6 = getPublicIPv6() ?: ""
             val urlBuilder = baseUrl.toHttpUrl().newBuilder()
                 .addPathSegment("poll")
                 .addQueryParameter("client_id", clientId)
                 .addQueryParameter("auth", authToken)
                 .addQueryParameter("mode", if (isTurbo) "short" else "long")
+            
+            if (ipv6.isNotEmpty()) {
+                urlBuilder.addQueryParameter("ipv6", ipv6)
+            }
 
             val request = Request.Builder()
                 .url(urlBuilder.build())
