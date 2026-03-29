@@ -240,19 +240,33 @@
                     </div>
                     <div class="glass-panel p-5 rounded-3xl relative overflow-hidden group">
                         <div
-                            class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all">
+                            class="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all">
                         </div>
                         <div class="flex flex-col gap-3 relative z-10">
-                            <span class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl w-fit"><svg class="w-6 h-6"
-                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl w-fit">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg></span>
-                            <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Waktu Respon
-                            </h3>
-                            <p class="text-xl md:text-2xl font-black text-white leading-none pt-1"
-                                x-text="stats.avgResponse ? stats.avgResponse.toFixed(2) + 's' : '-'">
-                            </p>
+                                        d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </span>
+                            <div class="flex flex-col gap-1 mt-2">
+                                <div class="flex items-center justify-between">
+                                    <span
+                                        class="text-[9px] font-black text-emerald-500/70 uppercase tracking-widest">Turbo
+                                        Mode</span>
+                                    <span class="text-xs font-black text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                                        x-text="stats.avgResponseTurbo ? stats.avgResponseTurbo.toFixed(2) + 's' : '-'"></span>
+                                </div>
+                                <div class="flex items-center justify-between mt-1">
+                                    <span
+                                        class="text-[9px] font-black text-amber-500/70 uppercase tracking-widest">Normal
+                                        Mode</span>
+                                    <span class="text-xs font-black text-white shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                                        x-text="stats.avgResponseNormal ? stats.avgResponseNormal.toFixed(2) + 's' : '-'"></span>
+                                </div>
+                            </div>
+                            <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Waktu Respon
+                                (Avg)</h3>
                         </div>
                     </div>
                 </div>

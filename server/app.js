@@ -57,12 +57,14 @@ let db;
             status TEXT DEFAULT 'pending',
             chat_id TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            completed_at DATETIME
+            completed_at DATETIME,
+            polling_mode TEXT DEFAULT 'normal'
         )`);
 
         // Tambah kolom jika dari versi sebelumnya belum ada
         try { await db.exec(`ALTER TABLE devices ADD COLUMN polling_mode TEXT DEFAULT 'turbo'`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN chat_id TEXT`); } catch (e) { }
+        try { await db.exec(`ALTER TABLE commands ADD COLUMN polling_mode TEXT DEFAULT 'normal'`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN message_id TEXT`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN completed_at DATETIME`); } catch (e) { }
 
@@ -565,8 +567,11 @@ Format Eksekusi Manual:
         const cmdId = uuidv4().slice(0, 8);
         const chatId = ctx.chat.id.toString();
 
-        await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [cmdId, devId, cmdName, extraText, 'pending', chatId]);
+        const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
+        const currentMode = device?.polling_mode || 'normal';
+
+        await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [cmdId, devId, cmdName, extraText, 'pending', chatId, currentMode]);
 
         ctx.reply(`🗃️ <b>Manual Queued:</b> ${cmdName} ➡️ <code>${devId}</code>`, { parse_mode: 'HTML' });
     });
@@ -996,10 +1001,16 @@ app.get('/admin/api/stats', async (req, res) => {
             LIMIT 10
         `);
 
-        const overallAvgRes = await db.get(`
+        const turboAvgRes = await db.get(`
             SELECT AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg
             FROM commands 
-            WHERE status = 'completed' AND completed_at IS NOT NULL
+            WHERE status = 'completed' AND completed_at IS NOT NULL AND polling_mode = 'turbo'
+        `);
+
+        const normalAvgRes = await db.get(`
+            SELECT AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg
+            FROM commands 
+            WHERE status = 'completed' AND completed_at IS NOT NULL AND polling_mode = 'normal'
         `);
 
         // Statistik Status Device
@@ -1025,7 +1036,8 @@ app.get('/admin/api/stats', async (req, res) => {
             topCommands,
             fastestCommands: responseTimes,
             slowestCommands,
-            avgResponse: overallAvgRes?.avg || 0,
+            avgResponseTurbo: turboAvgRes?.avg || 0,
+            avgResponseNormal: normalAvgRes?.avg || 0,
             deviceStatus: { online, offline },
             dailyActivity
         });
