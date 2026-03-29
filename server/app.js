@@ -143,14 +143,24 @@ const formatDeviceResponse = (data) => {
             if (['INCOMING', '1'].includes(String(c.type))) icon = '📥';
             else if (['OUTGOING', '2'].includes(String(c.type))) icon = '📤';
             else if (['MISSED', '3'].includes(String(c.type))) icon = '❌';
-            return `${i + 1}. ${icon} <b>${escapeHTML(c.name || c.number || 'Unknown')}</b>\n   └ <code>${escapeHTML(c.number)}</code> | ⏳ <code>${c.duration || '0s'}</code>`;
+            return `${i + 1}. ${icon} <b>${escapeHTML(c.name || c.number || 'Unknown')}</b>\n   └ <code>${escapeHTML(c.number)}</code> | ⏳ <code>${c.duration_sec || c.duration || 0}s</code>`;
         }).join('\n\n');
     }
 
     // 📶 Khusus WiFi Scan (Mirip Web UI)
     if (data.type === 'wifi_networks' && Array.isArray(data.data)) {
-        const sorted = [...data.data].sort((a, b) => (b.level || b.signal || 0) - (a.level || a.signal || 0));
-        return '\n' + sorted.map((wifi, idx) => {
+        let sorted = [...data.data].sort((a, b) => (b.level || b.signal || 0) - (a.level || a.signal || 0));
+
+        // Filter agar tidak ada SSID duplikat (Ambil yang paling kuat saja)
+        const uniqueSsids = new Set();
+        const filtered = sorted.filter(wifi => {
+            const ssid = wifi.ssid || wifi.SSID || '[Hidden SSID]';
+            if (uniqueSsids.has(ssid)) return false;
+            uniqueSsids.add(ssid);
+            return true;
+        });
+
+        return '\n' + filtered.map((wifi, idx) => {
             const ss = (wifi.level || wifi.signal || 0);
             let icon = '📶🔴';
             if (ss >= -50) icon = '📶🔵';

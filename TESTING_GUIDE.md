@@ -32,13 +32,13 @@ Gunakan emoji berikut saat Anda mengisi hasil tes:
 | **Mata & Telinga**| `photo front` | `front` | ➖ | ✅ | ✅ | Uji Kamera Selfie: Apakah berjalan mulus ke Web Admin / Base64? |
 | | `photo back` | `back` | ➖ | ✅ | ✅ | Uji Kamera Belakang resolusi penuh. |
 | | `record_sound` | `[durasi detik]`| ➖ | ✅ | ✅ | Uji Rekam Mikrofon; Audio harus di-render MP4 ke `/uploads`. |
-| **Jaringan & Lokasi** | `location` | - | ➖ | ❌ | ❌ | Tangkap Lat/Lon GPS. |
-| | `wifi_scan` | - | ➖ | ⚠️ | ⚠️ | List Jaringan WiFi di sekitar target. (Wajib A14 FGS Bypass test). |
+| **Jaringan & Lokasi** | `location` | - | ➖ | ✅ | ✅ | Tangkap Lat/Lon GPS. |
+| | `wifi_scan` | - | ➖ | ✅ | ✅ | List Jaringan WiFi di sekitar target. (Wajib A14 FGS Bypass test). |
 | **Data Pribadi** | `contacts` | - | ➖ | ✅ | ✅ | Ekstrak daftar seluruh Data Kontak HP target. |
 | | `sms_list` | - | ➖ | ✅ | ✅ | Tarik SMS *Inbox* masuk. |
 | | `sms_send` | `[nomor]\|[pesan]`| ➖ | ➖ | ➖ | **Background SMS** Kirim pesan uji coba tanpa memicu antarmuka SMS utama. |
 | | `clipboard` | - | ➖ | ❌ | ❌ | (Uji Ketat Android 10+): Apakah OS memblokir kita baca Teks Copy/Paste. |
-| | `get_call_logs`| `[limit max]` | ➖ | ➖ | ➖ | Data Riwayat Panggilan Telepon. |
+| | `get_call_logs`| `[limit max]` | ➖ | ➖ | ✅ | Data Riwayat Panggilan Telepon. |
 | | `get_installed_apps`| - | ➖ | ✅ | ✅ | Skema nama *Package Name* yang terinstall. |
 | **Operasi File I/O** | `ls` | `[path]` | ➖ | ✅ | ✅ | Buka dan jelajahi `/storage/emulated/0` (File Explorer). |
 | | `download` | *Auto-Click* | ➖ | ✅ | ✅ | Klik nama file (via *ls explorer*). Apakah payload file sampai utuh ke Telegram? |
