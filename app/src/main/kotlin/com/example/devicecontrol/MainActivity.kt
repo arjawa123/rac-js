@@ -20,6 +20,8 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Environment
 import androidx.appcompat.app.AlertDialog
 import android.content.DialogInterface
+import java.net.Inet6Address
+import java.net.NetworkInterface
 
 class MainActivity : AppCompatActivity() {
 
@@ -106,6 +108,95 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // ── IPv6 Section ──────────────────────────────────────────
+        val ipv6Label = TextView(this).apply {
+            text = "IPv6 Remote Access"
+            textSize = 11f
+            setTextColor(Color.parseColor("#64748B"))
+            setPadding(4, 0, 0, 8)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 8, 0, 0) }
+        }
+        rootLayout.addView(ipv6Label)
+
+        val ipv6StatusText = TextView(this).apply {
+            text = "—"
+            textSize = 13f
+            setTextColor(Color.parseColor("#94A3B8"))
+            setPadding(28, 20, 28, 20)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 8) }
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#1E293B"))
+                cornerRadius = 20f
+                setStroke(2, Color.parseColor("#334155"))
+            }
+        }
+        rootLayout.addView(ipv6StatusText)
+
+        val checkIpv6Btn = createBtn("CHECK IPv6 ADDRESS", "#0F766E")
+        checkIpv6Btn.layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 8, 0, 32) }
+        checkIpv6Btn.setOnClickListener {
+            val ipv6 = getIpv6Address()
+            if (ipv6 != null) {
+                ipv6StatusText.text = "✅ IPv6: $ipv6"
+                ipv6StatusText.setTextColor(Color.parseColor("#34D399"))
+            } else {
+                ipv6StatusText.text = "❌ Tidak ada IPv6 global"
+                ipv6StatusText.setTextColor(Color.parseColor("#F87171"))
+            }
+        }
+        rootLayout.addView(checkIpv6Btn)
+
+        // ── Web Server Toggle Section ─────────────────────────────
+        val webServerLabel = TextView(this).apply {
+            text = "Web Server"
+            textSize = 11f
+            setTextColor(Color.parseColor("#64748B"))
+            setPadding(4, 0, 0, 8)
+        }
+        rootLayout.addView(webServerLabel)
+
+        val webServerEnabled = prefs.getBoolean("web_server_enabled", true)
+
+        val webStatusText = TextView(this).apply {
+            text = if (webServerEnabled) "🟢 Web server AKTIF (port 8080)" else "🔴 Web server NONAKTIF"
+            textSize = 13f
+            setTextColor(if (webServerEnabled) Color.parseColor("#34D399") else Color.parseColor("#F87171"))
+            setPadding(28, 20, 28, 20)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 8) }
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#1E293B"))
+                cornerRadius = 20f
+                setStroke(2, Color.parseColor("#334155"))
+            }
+        }
+        rootLayout.addView(webStatusText)
+
+        val webServerToggle = CheckBox(this).apply {
+            text = "ENABLE WEB SERVER (Port 8080)"
+            setTextColor(Color.parseColor("#94A3B8"))
+            isChecked = webServerEnabled
+            setPadding(20, 0, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 48) }
+            buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#38BDF8"))
+        }
+        webServerToggle.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("web_server_enabled", isChecked).apply()
+            val svcIntent = Intent(this@MainActivity, ControlService::class.java).apply {
+                action = "TOGGLE_WEB_SERVER"
+                putExtra("enabled", isChecked)
+            }
+            if (Build.VERSION.SDK_INT >= 26) {
+                startForegroundService(svcIntent)
+            } else {
+                startService(svcIntent)
+            }
+            webStatusText.text = if (isChecked) "🟢 Web server AKTIF (port 8080)" else "🔴 Web server NONAKTIF"
+            webStatusText.setTextColor(
+                if (isChecked) Color.parseColor("#34D399") else Color.parseColor("#F87171")
+            )
+        }
+        rootLayout.addView(webServerToggle)
 
         val startButton = createBtn("ACTIVATE SERVICE", "#0284C7")
         startButton.setOnClickListener {
@@ -246,4 +337,22 @@ class MainActivity : AppCompatActivity() {
             startService(intent)
         }
     }
+
+    private fun getIpv6Address(): String? {
+        return try {
+            NetworkInterface.getNetworkInterfaces()?.toList()
+                ?.flatMap { iface -> iface.inetAddresses.toList() }
+                ?.filterIsInstance<Inet6Address>()
+                ?.firstOrNull { addr ->
+                    !addr.isLoopbackAddress &&
+                    !addr.isLinkLocalAddress &&
+                    !addr.hostAddress.startsWith("fe80", ignoreCase = true)
+                }
+                ?.hostAddress
+                ?.replace("%.*".toRegex(), "") // strip scope id seperti %wlan0
+        } catch (e: Exception) {
+            null
+        }
+    }
 }
+

@@ -39,16 +39,16 @@ class ControlService : Service() {
         Log.d(TAG, "Service Created")
         acquireLocks()
 
-        // Start Local Web Server
-        try {
-            localWebServer = LocalWebServer(this, WEB_SERVER_PORT)
-            localWebServer?.start()
-            Log.d(TAG, "Local Web Server started on port $WEB_SERVER_PORT")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start Local Web Server: ${e.message}")
+        val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
+
+        // Start Local Web Server only if enabled
+        val webServerEnabled = prefs.getBoolean("web_server_enabled", true)
+        if (webServerEnabled) {
+            startWebServer()
+        } else {
+            Log.d(TAG, "Local Web Server is disabled by user preference")
         }
         
-        val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("ws_url", "https://pygram.xnv.biz.id") ?: ""
         val devId = prefs.getString("device_id", "my_phone") ?: "unknown"
         val authToken = prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8") ?: ""
@@ -60,6 +60,24 @@ class ControlService : Service() {
         commandHandler = CommandHandler(this)
         pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler, isTurbo)
         pollingManager.start()
+    }
+
+    private fun startWebServer() {
+        try {
+            if (localWebServer == null || !localWebServer!!.isAlive) {
+                localWebServer = LocalWebServer(this, WEB_SERVER_PORT)
+                localWebServer?.start()
+                Log.d(TAG, "Local Web Server started on port $WEB_SERVER_PORT")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start Local Web Server: ${e.message}")
+        }
+    }
+
+    private fun stopWebServer() {
+        localWebServer?.stop()
+        localWebServer = null
+        Log.d(TAG, "Local Web Server stopped")
     }
 
     private fun acquireLocks() {
@@ -98,24 +116,37 @@ class ControlService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == "RESTART_POLLING") {
-            Log.d(TAG, "Restarting Polling Manager with new config")
-            if (::pollingManager.isInitialized) {
-                pollingManager.stop()
+        when (intent?.action) {
+            "RESTART_POLLING" -> {
+                Log.d(TAG, "Restarting Polling Manager with new config")
+                if (::pollingManager.isInitialized) {
+                    pollingManager.stop()
+                }
+
+                val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
+                val serverUrl = prefs.getString("ws_url", "") ?: ""
+                val devId = prefs.getString("device_id", "") ?: ""
+                val authToken = prefs.getString("auth_token", "") ?: ""
+                val isTurbo = prefs.getBoolean("turbo_mode", true)
+
+                var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
+                if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
+
+                if (cleanUrl.isNotEmpty()) {
+                    pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler, isTurbo)
+                    pollingManager.start()
+                }
             }
-            
-            val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
-            val serverUrl = prefs.getString("ws_url", "") ?: ""
-            val devId = prefs.getString("device_id", "") ?: ""
-            val authToken = prefs.getString("auth_token", "") ?: ""
-            val isTurbo = prefs.getBoolean("turbo_mode", true)
-
-            var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
-            if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
-
-            if (cleanUrl.isNotEmpty()) {
-                pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler, isTurbo)
-                pollingManager.start()
+            "TOGGLE_WEB_SERVER" -> {
+                val enabled = intent.getBooleanExtra("enabled", true)
+                Log.d(TAG, "Toggle Web Server: enabled=$enabled")
+                val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
+                prefs.edit().putBoolean("web_server_enabled", enabled).apply()
+                if (enabled) {
+                    startWebServer()
+                } else {
+                    stopWebServer()
+                }
             }
         }
         return START_STICKY
@@ -123,8 +154,8 @@ class ControlService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        pollingManager.stop()
-        localWebServer?.stop()
+        if (::pollingManager.isInitialized) pollingManager.stop()
+        stopWebServer()
         wakeLock?.let { if (it.isHeld) it.release() }
         wifiLock?.let { if (it.isHeld) it.release() }
     }
