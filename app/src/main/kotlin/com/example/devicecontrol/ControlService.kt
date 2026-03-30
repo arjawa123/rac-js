@@ -154,7 +154,10 @@ class ControlService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::pollingManager.isInitialized) pollingManager.stop()
+        if (::pollingManager.isInitialized) {
+            pollingManager.sendOfflineSignal()
+            pollingManager.stop()
+        }
         stopWebServer()
         wakeLock?.let { if (it.isHeld) it.release() }
         wifiLock?.let { if (it.isHeld) it.release() }

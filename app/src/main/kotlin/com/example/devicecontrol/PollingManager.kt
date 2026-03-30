@@ -77,7 +77,35 @@ class PollingManager(
     }
 
     fun stop() {
+        isRunning = true // Biarkan poll terakhir berjalan atau gunakan fungsi khusus
         isRunning = false
+    }
+
+    fun sendOfflineSignal() {
+        try {
+            val url = baseUrl.toHttpUrl().newBuilder()
+                .addPathSegment("poll")
+                .addQueryParameter("client_id", clientId)
+                .addQueryParameter("auth", authToken)
+                .addQueryParameter("offline", "1")
+                .build()
+
+            val request = Request.Builder()
+                .url(url)
+                .build()
+
+            // Gunakan call sinkron karena service sedang dimatikan
+            Thread {
+                try {
+                    client.newCall(request).execute().close()
+                    Log.d(TAG, "Offline signal sent successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to send offline signal: ${e.message}")
+                }
+            }.start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Offline signal error: ${e.message}")
+        }
     }
 
     private fun poll() {

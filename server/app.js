@@ -99,8 +99,8 @@ app.set('views', path.join(__dirname, 'templates'));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Helper function
-const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null) => {
-    const timestamp = Date.now() / 1000;
+const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null, isOffline = false) => {
+    const timestamp = isOffline ? 0 : Date.now() / 1000;
     const finalMode = (mode === 'short' || mode === 'turbo') ? 'turbo' : 'normal';
 
     if (ipv6) {
@@ -787,10 +787,15 @@ const notifyClient = (devId, cmd) => {
 
 // ... (di dalam endpoint /poll)
 app.get('/poll', async (req, res) => {
-    const { client_id, auth, mode, ipv6 } = req.query;
+    const { client_id, auth, mode, ipv6, offline } = req.query;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
 
-    await updateDeviceSeen(client_id, mode, ipv6);
+    const isOffline = offline === '1';
+    await updateDeviceSeen(client_id, mode, ipv6, isOffline);
+
+    if (isOffline) {
+        return res.json({ status: 'offline_acknowledged' });
+    }
 
     const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1',
         [client_id, 'pending']);
