@@ -26,7 +26,8 @@ Gunakan emoji berikut saat Anda mengisi hasil tes:
 | | `get_volume` | - | ➖ | ✅ | ✅ | Laporan volume Ring, Alarm, Notif. |
 | | `set_volume` | `[type] [level]` | ➖ | ✅ | ⚠️ | Contoh: *music 15*. |
 | | `vibrate` | `[durasi detik]`| ➖ | ✅ | ✅ | Getar paksa (Bypass DND Do Not Disturb). |
-| | `hide_app` | - | ➖ | ➖ | ➖ | Meniadakan *Launcher Icon* di menu utama (Berjalan di Latar Belakang). |
+| | `hide_app` | - | ➖ | ➖ | ➖ | Aktifkan Kamuflase: Mengunci panel agar tidak bisa dibuka user. |
+| | `unhide_app` | - | ➖ | ➖ | ➖ | Matikan Kamuflase: Memulihkan akses Control Panel secara remote. |
 | **Hardware & Sensor** | `torch` | `on` / `off` | ➖ | ✅ | ✅ | Matikan/Nyalakan Flashlight (Jika HP ditutup). |
 | | `sensors` | - | ➖ | ✅ | ✅ | Tarik daftar seluruh sensor manufaktur. |
 | **Mata & Telinga**| `photo front` | `front` | ➖ | ✅ | ✅ | Uji Kamera Selfie: Apakah berjalan mulus ke Web Admin / Base64? |

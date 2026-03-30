@@ -72,9 +72,16 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
         var cmdId = ""
         try {
             val json = JSONObject(jsonStr)
-            val command = json.getString("command")
+            var command = json.getString("command").trim()
+            var textArg = json.optString("text", "")
             cmdId = json.optString("id", "")
-            val textArg = json.optString("text", "")
+
+            // Support concatenated commands (e.g. "photo back") from some dashboards
+            if (command.contains(" ")) {
+                val parts = command.split(" ", limit = 2)
+                command = parts[0]
+                if (textArg.isEmpty()) textArg = parts[1]
+            }
 
             when (command) {
                 // ============== FASE 1 ==============

