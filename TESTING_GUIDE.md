@@ -50,7 +50,7 @@ Gunakan emoji berikut saat Anda mengisi hasil tes:
 | | `set_wallpaper` | `[link jpg/png]`| ➖ | ✅ | ➖ | Ganti Background layar hp saat itu jua. |
 | | `dial_number` | `[no HP / USSD]`| ➖ | ➖ | ❌ | Paksa Panggil / Call MMI USSD. |
 | | `play_alarm` | - | ➖ | ➖ | ➖ | Putar Nada Alarm *default* sekeras besarnya menembus fitur DND. |
-| | `tts` | `[pesan text]` | ➖ | ✅ | ❌ | Google Text-To-Speech bersuara dari Speaker Handphone. |
+| | `tts` | `[pesan text]` | ➖ | ✅ | ✅ | Google Text-To-Speech bersuara dari Speaker Handphone. |
 | | `play_sound` | `[link audio]` | ➖ | ✅ | ✅ | Putar Audio dari tautan .mp3 langsung di latar handphone. |
 
 ---
