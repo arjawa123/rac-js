@@ -573,7 +573,11 @@ Format Eksekusi Manual:
                     [{ text: '❌ Batal / Tutup', callback_data: 'cancel_input', style: 'danger' }]
                 ]
             };
-            return ctx.reply(`⌨️ <b>Mode Interaktif: [${cmdName}]</b>\nTarget: <code>${devId}</code>\n\n${commandsWithArgs[cmdName]}\n\n<i>(Anda bisa mengirim input berkali-kali, tekan Kembali jika sudah selesai)</i>`, { parse_mode: 'HTML', reply_markup: cancelBtn });
+            const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+            await clearPreviousNav(chatId);
+            const sent = await ctx.reply(`⌨️ <b>Mode Interaktif: [${cmdName}]</b>\nTarget: <code>${devId}</code>\n\n${commandsWithArgs[cmdName]}\n\n<i>(Anda bisa mengirim input berkali-kali, tekan Kembali jika sudah selesai)</i>`, { parse_mode: 'HTML', reply_markup: cancelBtn });
+            trackNav(chatId, sent.message_id);
+            return;
         }
 
         // Dekode shortId jika menggunakan Mapping Path ID
