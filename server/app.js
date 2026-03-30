@@ -266,7 +266,9 @@ const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) 
         pathMap[upId] = upPath;
         navBar.push(Markup.button.callback('⬆️ Naik', 'runcmd:' + client_id + ':ls_id ' + upId));
     }
-    navBar.push(Markup.button.callback('🔍 Cari (.ext)', 'runcmd:' + client_id + ':find ' + state.path + '|'));
+    const findPathId = Math.random().toString(36).substring(2, 10);
+    pathMap[findPathId] = state.path;
+    navBar.push(Markup.button.callback('🔍 Cari (.ext)', 'runcmd:' + client_id + ':find_id ' + findPathId));
     flatBtns.push(navBar);
 
     for (let i = 0; i < pageItems.length; i += 2) {
@@ -549,13 +551,13 @@ Format Eksekusi Manual:
             return;
         }
 
-        if (cmdName === 'ls_id' || cmdName === 'dl_id') {
+        if (cmdName === 'ls_id' || cmdName === 'dl_id' || cmdName === 'rm_id' || cmdName === 'find_id') {
             const mappedPath = pathMap[cmdText];
             if (!mappedPath) return ctx.answerCbQuery('❌ Sesi explorer kedaluwarsa');
             cmdText = mappedPath;
         }
 
-        const realCmdName = cmdName === 'ls_id' ? 'ls' : (cmdName === 'dl_id' ? 'download' : cmdName);
+        const realCmdName = cmdName === 'ls_id' ? 'ls' : (cmdName === 'dl_id' ? 'download' : (cmdName === 'rm_id' ? 'rm' : (cmdName === 'find_id' ? 'find' : cmdName)));
         if (realCmdName === 'ls' && cmdText) devicePaths[devId] = cmdText;
 
         ctx.answerCbQuery(`Menjalankan ${realCmdName}...`).catch(() => { });
@@ -581,10 +583,14 @@ Format Eksekusi Manual:
 
         const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
         const caption = `📄 <b>File:</b> <code>${escapeHTML(fileName)}</code>\n📍 <b>Path:</b> <code>${escapeHTML(filePath)}</code>`;
+        const parentPath = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
+        const parentId = Math.random().toString(36).substring(2, 10);
+        pathMap[parentId] = parentPath;
+
         const menu = [
-            [{ text: '📥 Download', callback_data: `runcmd:${devId}:download ${filePath}` }],
-            [{ text: '✏️ Rename / Move', callback_data: `rename_init:${devId}:${shortId}` }, { text: '🗑 Hapus', callback_data: `runcmd:${devId}:rm ${filePath}` }],
-            [{ text: '🔙 Kembali ke Folder', callback_data: `runcmd:${devId}:ls ${filePath.substring(0, filePath.lastIndexOf('/'))}` }]
+            [{ text: '📥 Download', callback_data: `runcmd:${devId}:dl_id ${shortId}` }],
+            [{ text: '✏️ Rename / Move', callback_data: `rename_init:${devId}:${shortId}` }, { text: '🗑 Hapus', callback_data: `runcmd:${devId}:rm_id ${shortId}` }],
+            [{ text: '🔙 Kembali ke Folder', callback_data: `runcmd:${devId}:ls_id ${parentId}` }]
         ];
 
         await clearPreviousNav(ctx.chat.id);
