@@ -8,7 +8,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
 
-class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
+class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", port) {
 
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
