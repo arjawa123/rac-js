@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.devicecontrol"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.1.2"
+        versionCode = 9
+        versionName = "1.1.3"
     }
 
     buildTypes {
