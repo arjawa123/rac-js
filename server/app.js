@@ -662,8 +662,13 @@ Format Eksekusi Manual:
             [{ text: '✏️ Rename / Move', callback_data: `rename_init:${devId}:${shortId}` }, { text: '🗑 Hapus', callback_data: `runcmd:${devId}:rm ${filePath}`, style: 'danger' }],
             [{ text: '🔙 Kembali ke Folder', callback_data: `runcmd:${devId}:ls ${filePath.substring(0, filePath.lastIndexOf('/'))}` }]
         ];
-        ...
-        bot.action(/^rename_init:(.+):(.+)$/, async (ctx) => {
+
+        await clearPreviousNav(ctx.chat.id);
+        const sent = await ctx.reply(caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: menu } });
+        trackNav(ctx.chat.id, sent.message_id);
+    });
+
+    bot.action(/^rename_init:(.+):(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
         const shortId = ctx.match[2];
         const filePath = pathMap[shortId];
@@ -681,14 +686,6 @@ Format Eksekusi Manual:
         await clearPreviousNav(ctx.chat.id);
         const sent = await ctx.reply(`✏️ <b>Rename / Move</b>\n\nFile Asal: <code>${escapeHTML(fileName)}</code>\n\nMasukkan nama baru atau path tujuan lengkap:`, { parse_mode: 'HTML', reply_markup: cancelBtn });
         trackNav(ctx.chat.id, sent.message_id);
-        });
-
-        bot.action(/^pagecmd:(.+):(.+)$/, async (ctx) => {
-
-        const sent = await ctx.reply(caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: menu } });
-        trackNav(ctx.chat.id, sent.message_id);
-    });
-
     bot.action(/^pagecmd:(.+):(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
         const pageNum = parseInt(ctx.match[2]);
