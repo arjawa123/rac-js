@@ -536,6 +536,22 @@ Format Eksekusi Manual:
         const cmdName = parts[0];
         let cmdText = parts.slice(1).join(' ');
 
+        // Logika Khusus: find_id butuh input user untuk ekstensi
+        if (cmdName === 'find_id' && !cmdText.includes('|')) {
+            const mappedPath = pathMap[cmdText];
+            if (!mappedPath) return ctx.answerCbQuery('❌ Sesi explorer kedaluwarsa');
+            
+            activeInput[ctx.chat.id] = { devId, command: 'find', findRoot: mappedPath };
+            const cancelBtn = {
+                inline_keyboard: [[{ text: '🔙 Batal', callback_data: `select_dev:${devId}` }]]
+            };
+            const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+            await clearPreviousNav(chatId);
+            const sent = await ctx.reply(`🔍 <b>Recursive Search</b>\n📍 Root: <code>${escapeHTML(mappedPath)}</code>\n\nMasukkan ekstensi file yang dicari (Cth: <code>.jpg</code> atau <code>*</code> untuk semua):`, { parse_mode: 'HTML', reply_markup: cancelBtn });
+            trackNav(chatId, sent.message_id);
+            return;
+        }
+
         if (commandsWithArgs[cmdName] && !cmdText) {
             activeInput[ctx.chat.id] = { devId, command: cmdName };
             const cancelBtn = {
@@ -631,7 +647,7 @@ Format Eksekusi Manual:
         if (ctx.message.text.startsWith('/')) return next();
 
         if (state) {
-            let { devId, command, srcPath } = state;
+            let { devId, command, srcPath, findRoot } = state;
             let finalPayload = ctx.message.text;
 
             if (command === 'mv_finish') {
@@ -642,6 +658,9 @@ Format Eksekusi Manual:
                     dest = parentDir + '/' + dest;
                 }
                 finalPayload = `${srcPath}|${dest}`;
+                delete activeInput[chatId];
+            } else if (command === 'find' && findRoot) {
+                finalPayload = `${findRoot}|${ctx.message.text}`;
                 delete activeInput[chatId];
             }
 
@@ -876,20 +895,71 @@ const formatUtcToLocal = (u) => { if (!u) return '-'; const d = new Date(u + 'Z'
 app.get('/admin/api/logs', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-        const query = `SELECT CAST(id AS TEXT) as id, 'log' as type, device_id, command_id, level, created_at, SUBSTR(message, 1, 300) AS message_preview FROM system_logs WHERE command_id IS NULL UNION ALL SELECT CAST(COALESCE(l.id, c.id) AS TEXT) as id, CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type, c.device_id, c.id AS command_id, CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, COALESCE(l.created_at, c.created_at) as created_at, SUBSTR('Cmd: ' || c.command || ' ' || COALESCE(c.text, '') || COALESCE(' ➔ ' || l.message, ''), 1, 300) AS message_preview FROM commands c LEFT JOIN system_logs l ON c.id = l.command_id ORDER BY created_at DESC LIMIT 100`;
+        const query = `
+            SELECT 
+                CAST(id AS TEXT) as id, 
+                'log' as type, 
+                device_id, 
+                command_id, 
+                level, 
+                created_at, 
+                SUBSTR(message, 1, 300) AS message_preview,
+                message as full_message
+            FROM system_logs 
+            WHERE command_id IS NULL 
+            UNION ALL 
+            SELECT 
+                CAST(COALESCE(l.id, c.id) AS TEXT) as id, 
+                CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type, 
+                c.device_id, 
+                c.id AS command_id, 
+                CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, 
+                COALESCE(l.created_at, c.created_at) as created_at, 
+                SUBSTR('Cmd: ' || c.command || ' ' || COALESCE(c.text, '') || COALESCE(' ➔ ' || l.message, ''), 1, 300) AS message_preview,
+                COALESCE(l.message, c.text) as full_message
+            FROM commands c 
+            LEFT JOIN system_logs l ON c.id = l.command_id 
+            ORDER BY created_at DESC LIMIT 100`;
         const logs = await db.all(query);
         res.json({ logs: logs.map(l => ({ ...l, created_at: formatUtcToLocal(l.created_at) })) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
 app.get('/admin/api/stats', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        
         const topCommands = await db.all(`SELECT command, COUNT(*) as count FROM commands GROUP BY command ORDER BY count DESC LIMIT 5`);
+        
+        const responseTimes = await db.all(`
+            SELECT command, 
+                   AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_duration
+            FROM commands 
+            WHERE status = 'completed' AND completed_at IS NOT NULL
+            GROUP BY command 
+            ORDER BY avg_duration ASC 
+            LIMIT 5
+        `);
+
         const devices = await db.all('SELECT last_seen FROM devices');
         const now = Date.now() / 1000;
         let online = 0, offline = 0;
         devices.forEach(d => { if ((now - d.last_seen) < 90) online++; else offline++; });
-        res.json({ topCommands, deviceStatus: { online, offline } });
+
+        const dailyActivity = await db.all(`
+            SELECT DATE(created_at) as date, COUNT(*) as count 
+            FROM commands 
+            WHERE created_at > DATE('now', '-7 days')
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        `);
+
+        res.json({ 
+            topCommands, 
+            fastestCommands: responseTimes,
+            deviceStatus: { online, offline },
+            dailyActivity
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/admin/api/log/:id', async (req, res) => {
