@@ -258,6 +258,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 checkAndStartService()
                 Toast.makeText(this, "Service ACTIVATED", Toast.LENGTH_SHORT).show()
+                // Update UI after a short delay so OS has time to start the service
+                statusBtn.postDelayed({ updateStatusUI() }, 300)
             }
         }
         connCard.addView(statusBtn)
