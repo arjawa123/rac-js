@@ -1,51 +1,238 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-    <title>RAC-JS Direct Access</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAC-JS Direct Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
-        .card { background: #1e1e1e; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        h1 { color: #bb86fc; }
-        .btn { background: #03dac6; color: #000; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-        .file-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #333; }
-        #camera-feed { width: 100%; max-width: 640px; background: #000; min-height: 360px; }
+        [x-cloak] { display: none !important; }
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .card { background-color: #1e293b; border: 1px solid #334155; }
+        .btn-primary { background-color: #6366f1; }
+        .btn-primary:hover { background-color: #4f46e5; }
+        .terminal { background-color: #000; font-family: 'Courier New', Courier, monospace; }
     </style>
 </head>
-<body>
-    <h1>RAC-JS Direct Control (IPv6)</h1>
-    <div class="card">
-        <h3>Device Info</h3>
-        <p id="device-info">Loading...</p>
-    </div>
+<body x-data="app()" x-init="init()">
+    <div class="max-w-4xl mx-auto p-4 md:p-8">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-indigo-400">RAC-JS Direct Access</h1>
+                <p class="text-slate-400">Control via Local Web Server (IPv6 Supported)</p>
+            </div>
+            <div class="text-right">
+                <span class="px-3 py-1 rounded-full text-xs font-bold" 
+                      :class="deviceInfo.status === 'online' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'"
+                      x-text="deviceInfo.status ? '● ONLINE' : '○ OFFLINE'">
+                </span>
+            </div>
+        </header>
 
-    <div class="card">
-        <h3>File Manager</h3>
-        <div id="file-list"></div>
+        <!-- Grid Layout -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Status Card -->
+            <div class="card p-6 rounded-xl shadow-lg">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <span class="mr-2">📱</span> Device Info
+                </h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-slate-400">Model:</span> <span x-text="deviceInfo.model"></span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Android:</span> <span x-text="deviceInfo.android_version"></span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">IPv6:</span> <span class="text-green-400">Enabled</span></div>
+                </div>
+            </div>
+
+            <!-- Battery Card -->
+            <div class="card p-6 rounded-xl shadow-lg">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <span class="mr-2">🔋</span> Battery Status
+                </h3>
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-indigo-400 mb-2" x-text="battery + '%'">0%</div>
+                    <div class="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div class="bg-indigo-500 h-full" :style="'width: ' + battery + '%'"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card p-6 rounded-xl shadow-lg">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <span class="mr-2">⚡</span> Quick Actions
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button @click="exec('torch', 'toggle')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs">🔦 Torch</button>
+                    <button @click="exec('vibrate', '2')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs">📳 Vibrate</button>
+                    <button @click="promptToast()" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs">💬 Toast</button>
+                    <button @click="exec('play_alarm', '')" class="bg-red-900 hover:bg-red-800 p-2 rounded text-xs">🚨 Alarm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Section -->
+        <div class="card rounded-xl overflow-hidden mb-8 shadow-lg">
+            <div class="bg-slate-800 px-4 py-2 flex justify-between items-center">
+                <span class="text-xs font-bold text-slate-300">💻 INTERACTIVE SHELL</span>
+                <button @click="terminalOutput = ''" class="text-xs text-slate-500 hover:text-white">Clear</button>
+            </div>
+            <div class="terminal p-4 h-64 overflow-y-auto text-green-500 text-sm whitespace-pre-wrap" x-ref="term">
+                <template x-for="line in terminalOutput.split('\n')">
+                    <div x-text="line"></div>
+                </template>
+                <div class="flex mt-2">
+                    <span class="mr-2">$</span>
+                    <input type="text" x-model="shellInput" @keydown.enter="runShell()" 
+                           class="bg-transparent border-none outline-none text-white w-full" 
+                           placeholder="Type command and press enter...">
+                </div>
+            </div>
+        </div>
+
+        <!-- File Manager Section -->
+        <div class="card rounded-xl shadow-lg">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
+                <h3 class="font-bold flex items-center"><span class="mr-2">📂</span> File Manager</h3>
+                <div class="text-xs text-slate-400" x-text="currentPath"></div>
+            </div>
+            <div class="p-2 flex gap-2 bg-slate-900 border-b border-slate-700">
+                <button @click="goUp()" class="bg-slate-700 px-3 py-1 rounded text-xs hover:bg-slate-600">⬆️ Up</button>
+                <button @click="loadFiles('/storage/emulated/0')" class="bg-slate-700 px-3 py-1 rounded text-xs hover:bg-slate-600">🏠 Home</button>
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                <template x-if="files.length === 0">
+                    <div class="p-8 text-center text-slate-500 italic">No files found or permission denied.</div>
+                </template>
+                <template x-for="file in files" :key="file.path">
+                    <div class="flex justify-between items-center p-3 hover:bg-slate-800 border-b border-slate-700/50 transition-colors">
+                        <div class="flex items-center cursor-pointer overflow-hidden mr-4" @click="openFile(file)">
+                            <span class="mr-3 text-xl" x-text="file.is_dir ? '📁' : '📄'"></span>
+                            <div class="truncate">
+                                <div class="text-sm font-medium" x-text="file.name"></div>
+                                <div class="text-[10px] text-slate-500" x-text="file.is_dir ? 'Folder' : formatSize(file.size)"></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <template x-if="!file.is_dir">
+                                <a :href="'/api/files?path=' + encodeURIComponent(file.path)" download class="p-2 hover:bg-slate-700 rounded text-indigo-400">📥</a>
+                            </template>
+                            <button @click="deleteFile(file)" class="p-2 hover:bg-red-900 rounded text-red-400">🗑️</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center text-slate-600 text-xs">
+            RAC-JS Direct Node &copy; 2026 | Termux Optimized
+        </footer>
     </div>
 
     <script>
-        fetch('/api/info')
-            .then(r => r.json())
-            .then(data => {
-                document.getElementById('device-info').innerText = `${data.model} (Android ${data.android_version})`;
-            });
+        function app() {
+            return {
+                deviceInfo: {},
+                battery: 0,
+                terminalOutput: "Welcome to RAC-JS Shell\nType 'help' for info\n",
+                shellInput: "",
+                currentPath: "/storage/emulated/0",
+                files: [],
+                
+                async init() {
+                    this.refreshInfo();
+                    this.loadFiles(this.currentPath);
+                    setInterval(() => this.refreshInfo(), 10000);
+                },
 
-        function loadFiles(path = '/') {
-            fetch(`/api/files?path=${encodeURIComponent(path)}`)
-                .then(r => r.json())
-                .then(files => {
-                    const list = document.getElementById('file-list');
-                    list.innerHTML = '';
-                    files.forEach(f => {
-                        const div = document.createElement('div');
-                        div.className = 'file-item';
-                        div.innerHTML = `<span>${f.is_dir ? '📁' : '📄'} ${f.name}</span> <button onclick="loadFiles('${f.path}')">Open</button>`;
-                        list.appendChild(div);
+                async refreshInfo() {
+                    try {
+                        const res = await fetch('/api/info');
+                        this.deviceInfo = await res.json();
+                        
+                        const battRes = await this.execCommand('get_battery', '');
+                        if (battRes.type === 'battery_level') this.battery = battRes.data;
+                    } catch (e) { console.error(e); }
+                },
+
+                async execCommand(command, text) {
+                    const res = await fetch('/api/command', {
+                        method: 'POST',
+                        body: 'postData=' + encodeURIComponent(JSON.stringify({ command, text, id: 'direct_' + Date.now() })),
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                     });
-                });
+                    return await res.json();
+                },
+
+                async exec(cmd, arg) {
+                    const res = await this.execCommand(cmd, arg);
+                    alert(res.type + ": " + (typeof res.data === 'string' ? res.data : JSON.stringify(res.data)));
+                },
+
+                promptToast() {
+                    const msg = prompt("Enter toast message:");
+                    if (msg) this.exec('show_toast', msg);
+                },
+
+                async runShell() {
+                    const cmd = this.shellInput;
+                    if (!cmd) return;
+                    this.terminalOutput += "$ " + cmd + "\n";
+                    this.shellInput = "";
+                    
+                    try {
+                        const res = await this.execCommand('shell', cmd);
+                        this.terminalOutput += res.data + "\n";
+                    } catch (e) {
+                        this.terminalOutput += "Error: " + e.message + "\n";
+                    }
+                    this.$nextTick(() => { this.$refs.term.scrollTop = this.$refs.term.scrollHeight; });
+                },
+
+                async loadFiles(path) {
+                    this.currentPath = path;
+                    try {
+                        const res = await fetch('/api/files?path=' + encodeURIComponent(path));
+                        this.files = await res.json();
+                    } catch (e) {
+                        this.files = [];
+                        console.error(e);
+                    }
+                },
+
+                openFile(file) {
+                    if (file.is_dir) {
+                        this.loadFiles(file.path);
+                    } else {
+                        window.open('/api/files?path=' + encodeURIComponent(file.path));
+                    }
+                },
+
+                goUp() {
+                    if (this.currentPath === "/" || this.currentPath === "") return;
+                    const parts = this.currentPath.split("/");
+                    parts.pop();
+                    const newPath = parts.join("/") || "/";
+                    this.loadFiles(newPath);
+                },
+
+                async deleteFile(file) {
+                    if (confirm("Hapus permanen: " + file.name + "?")) {
+                        const res = await this.execCommand('rm', file.path);
+                        alert(res.data);
+                        this.loadFiles(this.currentPath);
+                    }
+                },
+
+                formatSize(bytes) {
+                    if (bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                }
+            }
         }
-        loadFiles('/sdcard');
     </script>
 </body>
 </html>
