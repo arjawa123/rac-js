@@ -895,31 +895,34 @@ const formatUtcToLocal = (u) => { if (!u) return '-'; const d = new Date(u + 'Z'
 app.get('/admin/api/logs', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        
+        // Optimasi: Gunakan query yang lebih efisien dan pastikan field 'message' tersedia untuk frontend
         const query = `
-            SELECT 
-                CAST(id AS TEXT) as id, 
-                'log' as type, 
-                device_id, 
-                command_id, 
-                level, 
-                created_at, 
-                SUBSTR(message, 1, 300) AS message_preview,
-                message as full_message
-            FROM system_logs 
-            WHERE command_id IS NULL 
-            UNION ALL 
-            SELECT 
-                CAST(COALESCE(l.id, c.id) AS TEXT) as id, 
-                CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type, 
-                c.device_id, 
-                c.id AS command_id, 
-                CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, 
-                COALESCE(l.created_at, c.created_at) as created_at, 
-                SUBSTR('Cmd: ' || c.command || ' ' || COALESCE(c.text, '') || COALESCE(' ➔ ' || l.message, ''), 1, 300) AS message_preview,
-                COALESCE(l.message, c.text) as full_message
-            FROM commands c 
-            LEFT JOIN system_logs l ON c.id = l.command_id 
+            SELECT * FROM (
+                SELECT 
+                    CAST(id AS TEXT) as id, 
+                    'log' as type, 
+                    device_id, 
+                    command_id, 
+                    level, 
+                    created_at, 
+                    message as message
+                FROM system_logs 
+                WHERE command_id IS NULL 
+                UNION ALL 
+                SELECT 
+                    CAST(COALESCE(l.id, c.id) AS TEXT) as id, 
+                    CASE WHEN l.id IS NOT NULL THEN 'log' ELSE 'cmd' END as type, 
+                    c.device_id, 
+                    c.id AS command_id, 
+                    CASE WHEN l.id IS NOT NULL THEN l.level ELSE c.status END AS level, 
+                    COALESCE(l.created_at, c.created_at) as created_at, 
+                    SUBSTR('Cmd: ' || c.command || ' ' || COALESCE(c.text, '') || COALESCE(' ➔ ' || l.message, ''), 1, 1000) as message
+                FROM commands c 
+                LEFT JOIN system_logs l ON c.id = l.command_id
+            ) AS combined
             ORDER BY created_at DESC LIMIT 100`;
+            
         const logs = await db.all(query);
         res.json({ logs: logs.map(l => ({ ...l, created_at: formatUtcToLocal(l.created_at) })) });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -931,14 +934,29 @@ app.get('/admin/api/stats', async (req, res) => {
         
         const topCommands = await db.all(`SELECT command, COUNT(*) as count FROM commands GROUP BY command ORDER BY count DESC LIMIT 5`);
         
-        const responseTimes = await db.all(`
+        // Slowest commands (for the bar chart)
+        const slowestCommands = await db.all(`
             SELECT command, 
-                   AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_duration
+                   AVG(CASE WHEN polling_mode IN ('turbo', 'short') THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_turbo,
+                   AVG(CASE WHEN polling_mode IN ('normal', 'long') OR polling_mode IS NULL THEN (julianday(completed_at) - julianday(created_at)) * 86400.0 END) as avg_normal,
+                   AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg_total
             FROM commands 
             WHERE status = 'completed' AND completed_at IS NOT NULL
             GROUP BY command 
-            ORDER BY avg_duration ASC 
-            LIMIT 5
+            ORDER BY avg_total DESC 
+            LIMIT 10
+        `);
+
+        const turboAvgRes = await db.get(`
+            SELECT AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg
+            FROM commands 
+            WHERE status = 'completed' AND completed_at IS NOT NULL AND polling_mode IN ('turbo', 'short')
+        `);
+
+        const normalAvgRes = await db.get(`
+            SELECT AVG((julianday(completed_at) - julianday(created_at)) * 86400.0) as avg
+            FROM commands 
+            WHERE status = 'completed' AND completed_at IS NOT NULL AND (polling_mode IN ('normal', 'long') OR polling_mode IS NULL)
         `);
 
         const devices = await db.all('SELECT last_seen FROM devices');
@@ -956,7 +974,9 @@ app.get('/admin/api/stats', async (req, res) => {
 
         res.json({ 
             topCommands, 
-            fastestCommands: responseTimes,
+            slowestCommands,
+            avgResponseTurbo: turboAvgRes?.avg || 0,
+            avgResponseNormal: normalAvgRes?.avg || 0,
             deviceStatus: { online, offline },
             dailyActivity
         });

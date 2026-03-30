@@ -731,20 +731,22 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                 "find" -> {
                     Thread {
                         try {
-                            // Format: [path]|[ext]
+                            // Format: [path]|[keyword]
                             val parts = textArg.split("|")
                             val rootPath = if (parts.isNotEmpty()) parts[0] else "/storage/emulated/0"
-                            val ext = if (parts.size > 1) parts[1].lowercase() else ""
+                            val query = if (parts.size > 1) parts[1].lowercase() else ""
                             
                             val results = JSONArray()
                             val root = java.io.File(rootPath)
                             
                             fun search(dir: java.io.File) {
+                                if (results.length() > 100) return // Limit untuk mencegah OOM/Spam
                                 dir.listFiles()?.forEach {
                                     if (it.isDirectory) {
                                         search(it)
                                     } else {
-                                        if (ext.isEmpty() || it.name.lowercase().endsWith(ext)) {
+                                        // Case-insensitive search (keyword match)
+                                        if (query.isEmpty() || query == "*" || it.name.lowercase().contains(query)) {
                                             results.put(JSONObject().apply {
                                                 put("name", it.name)
                                                 put("path", it.absolutePath)
