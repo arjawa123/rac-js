@@ -1,6 +1,7 @@
 package com.example.devicecontrol
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -155,7 +156,7 @@ class MainActivity : AppCompatActivity() {
             }
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(C_GREEN)
+                setColor(C_RED)
             }
         }
 
@@ -448,6 +449,43 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(scrollView)
         checkPermissions()
+        updateStatusUI()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateStatusUI()
+    }
+
+    private fun updateStatusUI() {
+        if (!::statusDot.isInitialized || !::statusText.isInitialized) return
+        
+        val isRunning = isServiceRunning(ControlService::class.java)
+        if (isRunning) {
+            statusText.text = "● Service ACTIVE"
+            statusText.setTextColor(C_GREEN)
+            statusDot.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(C_GREEN)
+            }
+        } else {
+            statusText.text = "● Service not running"
+            statusText.setTextColor(C_TEXT_MUTED)
+            statusDot.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(C_RED)
+            }
+        }
+    }
+
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+            if (serviceClass.name == service.service.className) {
+                return true
+            }
+        }
+        return false
     }
 
     // ─────────────────────────────────────────────────────────────

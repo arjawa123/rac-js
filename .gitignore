@@ -3,6 +3,7 @@ server/.venv
 *.env
 .env
 app/build
+build
 *.zip
 *.db
 .agent
