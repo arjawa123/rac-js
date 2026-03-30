@@ -136,34 +136,46 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     sendResponse(createResponse(cmdId, "volume_info", volInfo))
                 }
                 "set_volume" -> {
-                    val parts = textArg.split(" ")
-                    if (parts.size >= 2) {
-                        try {
-                            val type = parts[0]
-                            val vol = parts[1].toIntOrNull() ?: 0
-                            val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                            val stream = when (type.lowercase()) {
-                                "music" -> AudioManager.STREAM_MUSIC
-                                "ring" -> AudioManager.STREAM_RING
-                                "alarm" -> AudioManager.STREAM_ALARM
-                                "notification" -> AudioManager.STREAM_NOTIFICATION
-                                "voice" -> AudioManager.STREAM_VOICE_CALL
-                                else -> AudioManager.STREAM_MUSIC
-                            }
-                            
-                            val max = am.getStreamMaxVolume(stream)
-                            val finalVol = if (vol > max) max else if (vol < 0) 0 else vol
-                            
-                            // Eksekusi set volume dengan penanganan exception khusus Android 12+
-                            am.setStreamVolume(stream, finalVol, 0)
-                            sendResponse(createResponse(cmdId, "success", "Volume $type set to $finalVol (Max: $max)"))
-                        } catch (se: SecurityException) {
-                            sendResponse(createResponse(cmdId, "error", "Ditolak OS (Izin DND/Modify Audio): ${se.message}"))
-                        } catch (e: Exception) {
-                            sendResponse(createResponse(cmdId, "error", "Gagal set volume: ${e.message}"))
+                    if (textArg.lowercase() == "get") {
+                        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val volInfo = JSONObject().apply {
+                            put("ring", am.getStreamVolume(AudioManager.STREAM_RING))
+                            put("music", am.getStreamVolume(AudioManager.STREAM_MUSIC))
+                            put("alarm", am.getStreamVolume(AudioManager.STREAM_ALARM))
+                            put("voice", am.getStreamVolume(AudioManager.STREAM_VOICE_CALL))
+                            put("notification", am.getStreamVolume(AudioManager.STREAM_NOTIFICATION))
                         }
+                        sendResponse(createResponse(cmdId, "volume_info", volInfo))
                     } else {
-                        sendResponse(createResponse(cmdId, "error", "Format: set_volume [type] [level]"))
+                        val parts = textArg.split(" ")
+                        if (parts.size >= 2) {
+                            try {
+                                val type = parts[0]
+                                val vol = parts[1].toIntOrNull() ?: 0
+                                val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                                val stream = when (type.lowercase()) {
+                                    "music" -> AudioManager.STREAM_MUSIC
+                                    "ring" -> AudioManager.STREAM_RING
+                                    "alarm" -> AudioManager.STREAM_ALARM
+                                    "notification" -> AudioManager.STREAM_NOTIFICATION
+                                    "voice" -> AudioManager.STREAM_VOICE_CALL
+                                    else -> AudioManager.STREAM_MUSIC
+                                }
+                                
+                                val max = am.getStreamMaxVolume(stream)
+                                val finalVol = if (vol > max) max else if (vol < 0) 0 else vol
+                                
+                                // Eksekusi set volume dengan penanganan exception khusus Android 12+
+                                am.setStreamVolume(stream, finalVol, 0)
+                                sendResponse(createResponse(cmdId, "success", "Volume $type set to $finalVol (Max: $max)"))
+                            } catch (se: SecurityException) {
+                                sendResponse(createResponse(cmdId, "error", "Ditolak OS (Izin DND/Modify Audio): ${se.message}"))
+                            } catch (e: Exception) {
+                                sendResponse(createResponse(cmdId, "error", "Gagal set volume: ${e.message}"))
+                            }
+                        } else {
+                            sendResponse(createResponse(cmdId, "error", "Format: set_volume [type] [level] atau set_volume get"))
+                        }
                     }
                 }
                 "torch" -> {
