@@ -47,6 +47,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusDot:  View
     private lateinit var statusText: TextView
+    private lateinit var statusBtn:  Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -229,33 +230,37 @@ class MainActivity : AppCompatActivity() {
         }
         connCard.addView(statusText)
 
-        val activateBtn = makePrimaryBtn("ACTIVATE SERVICE")
-        activateBtn.setOnClickListener {
-            val url      = urlInput.text.toString().trim()
-            val devId    = idInput.text.toString().trim()
-            val authTok  = authInput.text.toString().trim()
-            val isTurbo  = turboSwitch.isChecked
+        statusBtn = makePrimaryBtn("ACTIVATE SERVICE")
+        statusBtn.setOnClickListener {
+            val isRunning = isServiceRunning(ControlService::class.java)
+            if (isRunning) {
+                // STOP SERVICE
+                stopService(Intent(this, ControlService::class.java))
+                updateStatusUI()
+                Toast.makeText(this, "Service STOPPED", Toast.LENGTH_SHORT).show()
+            } else {
+                // START SERVICE
+                val url      = urlInput.text.toString().trim()
+                val devId    = idInput.text.toString().trim()
+                val authTok  = authInput.text.toString().trim()
+                val isTurbo  = turboSwitch.isChecked
 
-            if (url.isEmpty()) {
-                Toast.makeText(this, "URL wajib diisi", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                if (url.isEmpty()) {
+                    Toast.makeText(this, "URL wajib diisi", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                prefs.edit().apply {
+                    putString("ws_url", url)
+                    putString("device_id", devId)
+                    putString("auth_token", authTok)
+                    putBoolean("turbo_mode", isTurbo)
+                    apply()
+                }
+                checkAndStartService()
+                Toast.makeText(this, "Service ACTIVATED", Toast.LENGTH_SHORT).show()
             }
-            prefs.edit().apply {
-                putString("ws_url", url)
-                putString("device_id", devId)
-                putString("auth_token", authTok)
-                putBoolean("turbo_mode", isTurbo)
-                apply()
-            }
-            statusText.text = "● Service ACTIVE"
-            statusText.setTextColor(C_GREEN)
-            statusDot.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(C_GREEN)
-            }
-            checkAndStartService()
         }
-        connCard.addView(activateBtn)
+        connCard.addView(statusBtn)
         root.addView(connCard)
 
         // ─────────────────────────────────────────────────────────
@@ -380,7 +385,7 @@ class MainActivity : AppCompatActivity() {
         val wsCard = makeCard(mbDp = 24)
         wsCard.addView(makeSectionLabel("WEB SERVER"))
 
-        val wsEnabled = prefs.getBoolean("web_server_enabled", true)
+        val wsEnabled = prefs.getBoolean("web_server_enabled", false)
         val wsSwitch  = makeSwitch(wsEnabled)
 
         val wsStatusBadge = TextView(this).apply {
@@ -472,7 +477,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatusUI() {
-        if (!::statusDot.isInitialized || !::statusText.isInitialized) return
+        if (!::statusDot.isInitialized || !::statusText.isInitialized || !::statusBtn.isInitialized) return
         
         val isRunning = isServiceRunning(ControlService::class.java)
         if (isRunning) {
@@ -482,12 +487,26 @@ class MainActivity : AppCompatActivity() {
                 shape = GradientDrawable.OVAL
                 setColor(C_GREEN)
             }
+            // Update Toggle Button to STOP mode
+            statusBtn.text = "STOP SERVICE"
+            statusBtn.setTextColor(Color.WHITE)
+            statusBtn.background = GradientDrawable().apply {
+                setColor(C_RED)
+                cornerRadius = (10 * resources.displayMetrics.density).toFloat()
+            }
         } else {
             statusText.text = "● Service not running"
             statusText.setTextColor(C_TEXT_MUTED)
             statusDot.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(C_RED)
+            }
+            // Update Toggle Button to ACTIVATE mode
+            statusBtn.text = "ACTIVATE SERVICE"
+            statusBtn.setTextColor(C_BG)
+            statusBtn.background = GradientDrawable().apply {
+                setColor(C_TEAL)
+                cornerRadius = (10 * resources.displayMetrics.density).toFloat()
             }
         }
     }

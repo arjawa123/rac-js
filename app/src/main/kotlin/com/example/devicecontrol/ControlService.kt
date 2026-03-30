@@ -42,7 +42,7 @@ class ControlService : Service() {
         val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
 
         // Start Local Web Server only if enabled
-        val webServerEnabled = prefs.getBoolean("web_server_enabled", true)
+        val webServerEnabled = prefs.getBoolean("web_server_enabled", false)
         if (webServerEnabled) {
             startWebServer()
         } else {
