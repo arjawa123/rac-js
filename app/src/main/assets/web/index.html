@@ -197,10 +197,12 @@
                 async refreshInfo() {
                     try {
                         const res = await fetch('/api/info');
-                        this.deviceInfo = await res.json();
-                        
+                        if (res.ok) this.deviceInfo = await res.json();
+
                         const battRes = await this.execCommand('get_battery', '');
-                        if (battRes.type === 'battery_level') this.battery = battRes.data;
+                        if (battRes && (battRes.type === 'battery_level' || battRes.type === 'success')) {
+                            this.battery = battRes.data;
+                        }
                     } catch (e) { console.error("Info fetch failed", e); }
                 },
 
@@ -212,7 +214,9 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: payload
                         });
-                        return await res.json();
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.data || "HTTP Error");
+                        return data;
                     } catch (e) {
                         return { type: 'error', data: e.message };
                     }
@@ -221,23 +225,23 @@
                 async exec(cmd, arg) {
                     const res = await this.execCommand(cmd, arg);
                     if (res.type === 'error') {
-                        alert("Gagal: " + res.data);
+                        this.terminalLines.push({ type: 'error', text: "Cmd Error: " + res.data });
                     }
                 },
 
                 async runShell() {
                     const cmd = this.shellInput.trim();
                     if (!cmd) return;
-                    
+
                     this.terminalLines.push({ type: 'input', text: cmd });
                     this.shellInput = "";
                     this.scrollTerm();
-                    
+
                     const res = await this.execCommand('shell', cmd);
                     if (res.type === 'shell_output') {
                         this.terminalLines.push({ type: 'output', text: res.data });
                     } else {
-                        this.terminalLines.push({ type: 'error', text: res.data });
+                        this.terminalLines.push({ type: 'error', text: res.data || "Unknown error" });
                     }
                     this.scrollTerm();
                 },
@@ -245,7 +249,7 @@
                 scrollTerm() {
                     this.$nextTick(() => {
                         const container = this.$refs.termContainer;
-                        container.scrollTop = container.scrollHeight;
+                        if (container) container.scrollTop = container.scrollHeight;
                     });
                 },
 
@@ -254,8 +258,9 @@
                     this.currentPath = path;
                     try {
                         const res = await fetch('/api/files?path=' + encodeURIComponent(path));
-                        if (!res.ok) throw new Error("Permission denied");
-                        this.files = await res.json();
+                        const data = await res.json();
+                        if (!res.ok || data.error) throw new Error(data.error || "Permission denied");
+                        this.files = data;
                     } catch (e) {
                         this.files = [];
                         this.terminalLines.push({ type: 'error', text: "FS Error: " + e.message });
@@ -263,7 +268,6 @@
                         this.loadingFiles = false;
                     }
                 },
-
                 openFile(file) {
                     if (file.is_dir) {
                         this.loadFiles(file.path);
