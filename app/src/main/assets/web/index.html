@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,22 +8,86 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
-        [x-cloak] { display: none !important; }
-        body { background-color: #0a0f1e; color: #cbd5e1; font-family: 'Inter', sans-serif; }
-        .card { background-color: #161e2d; border: 1px solid #1e293b; border-radius: 1rem; }
-        .terminal-bg { background-color: #050505; border: 1px solid #334155; }
-        .terminal-text { font-family: 'Fira Code', 'Courier New', monospace; color: #10b981; }
-        .terminal-prompt { color: #6366f1; font-weight: bold; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #161e2d; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        [x-cloak] {
+            display: none !important;
+        }
+
+        body {
+            background-color: #0a0f1e;
+            color: #cbd5e1;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .card {
+            background-color: #161e2d;
+            border: 1px solid #1e293b;
+            border-radius: 1rem;
+        }
+
+        .terminal-bg {
+            background-color: #050505;
+            border: 1px solid #334155;
+        }
+
+        .terminal-text {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            color: #10b981;
+        }
+
+        .terminal-prompt {
+            color: #6366f1;
+            font-weight: bold;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #161e2d;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+
         input[type="file"]::file-selector-button {
-            background-color: #1e293b; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer;
+            background-color: #1e293b;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
         }
     </style>
 </head>
+
 <body x-data="app()" x-init="init()" class="min-h-screen pb-12">
-    <div class="max-w-5xl mx-auto px-4 pt-6">
+    <!-- LOGIN SCREEN -->
+    <div x-show="!isLoggedIn" x-cloak class="fixed inset-0 z-[200] bg-[#0D1117] flex items-center justify-center p-4">
+        <div class="card p-8 w-full max-w-md shadow-2xl border-indigo-500/30">
+            <div class="text-center mb-8">
+                <div
+                    class="w-20 h-20 bg-indigo-600/20 text-indigo-400 rounded-3xl flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner border border-indigo-500/20">
+                    🔒</div>
+                <h2 class="text-2xl font-black text-white">Akses Terkunci</h2>
+                <p class="text-slate-500 text-sm mt-1">Masukkan Admin Web Password</p>
+            </div>
+            <div class="space-y-4">
+                <input type="password" x-model="loginPass" @keydown.enter="doLogin()" placeholder="Password..."
+                    class="w-full bg-slate-900 border border-slate-700 rounded-xl px-5 py-4 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                <button @click="doLogin()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-indigo-900/40">MASUK
+                    KE PANEL</button>
+                <div x-show="loginErr" x-text="loginErr" class="text-red-400 text-xs text-center font-bold"></div>
+            </div>
+            <p class="text-[10px] text-slate-600 text-center mt-8 uppercase tracking-[0.2em]">RAC-JS LOCAL CORE SECURITY
+            </p>
+        </div>
+    </div>
+
+    <div x-show="isLoggedIn" class="max-w-5xl mx-auto px-4 pt-6">
         <!-- HEADER -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
@@ -54,14 +119,16 @@
                     <p class="text-lg font-bold text-white" x-text="deviceInfo.android_version || '-'"></p>
                 </div>
             </div>
-            <button @click="exec('torch', 'toggle')" class="card p-4 flex items-center gap-4 hover:bg-slate-800 transition-all text-left">
+            <button @click="exec('torch', 'toggle')"
+                class="card p-4 flex items-center gap-4 hover:bg-slate-800 transition-all text-left">
                 <div class="bg-yellow-500/10 p-3 rounded-lg text-yellow-400">🔦</div>
                 <div>
                     <p class="text-[10px] uppercase font-bold text-slate-500">Flashlight</p>
                     <p class="text-lg font-bold text-white">Toggle</p>
                 </div>
             </button>
-            <button @click="exec('vibrate', '2')" class="card p-4 flex items-center gap-4 hover:bg-slate-800 transition-all text-left">
+            <button @click="exec('vibrate', '2')"
+                class="card p-4 flex items-center gap-4 hover:bg-slate-800 transition-all text-left">
                 <div class="bg-pink-500/10 p-3 rounded-lg text-pink-400">📳</div>
                 <div>
                     <p class="text-[10px] uppercase font-bold text-slate-500">Vibrate</p>
@@ -80,24 +147,32 @@
                             <div class="w-3 h-3 rounded-full bg-yellow-500/50"></div>
                             <div class="w-3 h-3 rounded-full bg-green-500/50"></div>
                         </div>
-                        <span class="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Interactive Terminal</span>
-                        <button @click="terminalLines = []" class="text-[10px] text-slate-500 hover:text-white transition-colors">CLEAR</button>
+                        <span class="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Interactive
+                            Terminal</span>
+                        <button @click="terminalLines = []"
+                            class="text-[10px] text-slate-500 hover:text-white transition-colors">CLEAR</button>
                     </div>
-                    <div class="terminal-bg p-4 h-80 overflow-y-auto terminal-text text-sm custom-scrollbar" x-ref="termContainer">
-                        <div class="mb-2 text-slate-500"># RAC-JS Shell v2.0 - Connected to <span x-text="deviceInfo.model"></span></div>
+                    <div class="terminal-bg p-4 h-80 overflow-y-auto terminal-text text-sm custom-scrollbar"
+                        x-ref="termContainer">
+                        <div class="mb-2 text-slate-500"># RAC-JS Shell v2.0 - Connected to <span
+                                x-text="deviceInfo.model"></span></div>
                         <template x-for="line in terminalLines">
                             <div class="mb-1 break-all">
                                 <template x-if="line.type === 'input'">
                                     <span class="terminal-prompt">root@android:~$ </span>
                                 </template>
-                                <span :class="line.type === 'error' ? 'text-red-400' : ''" x-text="line.text"></span>
+                                <span :class="line.type === 'error' ? 'text-red-400' : 'text-emerald-400'"
+                                    class="whitespace-pre-wrap block leading-relaxed text-[13px]"
+                                    x-text="line.text"></span>
                             </div>
                         </template>
                         <div class="flex items-center mt-2">
                             <span class="terminal-prompt mr-2">root@android:~$ </span>
-                            <input type="text" x-model="shellInput" @keydown.enter="runShell()" 
-                                   class="bg-transparent border-none outline-none text-indigo-300 w-full p-0 font-mono" 
-                                   autofocus placeholder="...">
+                            <input type="text" x-model="shellInput" @keydown.enter.stop.prevent="runShell()"
+                                enterkeyhint="send" inputmode="text" autocomplete="off" autocorrect="off"
+                                autocapitalize="off" spellcheck="false" tabindex="1"
+                                class="bg-transparent border-none outline-none text-indigo-300 w-full p-0 font-mono"
+                                autofocus placeholder="...">
                         </div>
                     </div>
                 </div>
@@ -106,12 +181,15 @@
                 <div class="card p-6">
                     <h3 class="text-sm font-bold text-white mb-4 uppercase tracking-wider">System Broadcast</h3>
                     <div class="flex flex-col md:flex-row gap-3">
-                        <input type="text" x-model="toastText" placeholder="Pesan Toast..." 
-                               class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-indigo-500">
-                        <button @click="exec('show_toast', toastText)" class="btn-primary px-6 py-2 rounded-lg text-sm font-bold text-white">Kirim Toast</button>
+                        <input type="text" x-model="toastText" placeholder="Pesan Toast..." tabindex="-1"
+                            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-indigo-500">
+                        <button @click="exec('show_toast', toastText)"
+                            class="btn-primary px-6 py-2 rounded-lg text-sm font-bold text-white">Kirim Toast</button>
                     </div>
                     <div class="mt-4 flex gap-3">
-                        <button @click="exec('play_alarm', '')" class="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-lg text-xs font-bold text-white uppercase tracking-widest shadow-lg shadow-red-900/20">🚨 BUNYIKAN ALARM DARURAT</button>
+                        <button @click="exec('play_alarm', '')"
+                            class="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-lg text-xs font-bold text-white uppercase tracking-widest shadow-lg shadow-red-900/20">🚨
+                            BUNYIKAN ALARM DARURAT</button>
                     </div>
                 </div>
             </div>
@@ -121,15 +199,41 @@
                 <div class="card overflow-hidden flex flex-col shadow-2xl h-full min-h-[500px]">
                     <div class="p-4 border-b border-slate-700 bg-slate-800/30">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="font-bold text-white flex items-center"><span class="mr-2">📂</span> EXPLORER</h3>
-                            <span class="text-[10px] text-slate-500 font-mono truncate max-w-[150px]" x-text="currentPath"></span>
+                            <h3 class="font-bold text-white flex items-center"><span class="mr-2">📂</span> EXPLORER
+                            </h3>
+                            <span class="text-[10px] text-slate-500 font-mono truncate max-w-[150px]"
+                                x-text="currentPath"></span>
                         </div>
-                        <div class="flex gap-2">
-                            <button @click="goUp()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-xs font-bold transition-colors">⬆️ BACK</button>
-                            <button @click="loadFiles('/storage/emulated/0')" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-xs font-bold transition-colors">🏠 HOME</button>
+                        <div class="flex gap-2 mb-3">
+                            <button @click="goUp()"
+                                class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-xs font-bold transition-colors">⬆️
+                                BACK</button>
+                            <button @click="loadFiles('/storage/emulated/0')"
+                                class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-xs font-bold transition-colors">🏠
+                                HOME</button>
+                        </div>
+                        <!-- Upload Form (di atas daftar file) -->
+                        <div class="bg-slate-900/60 rounded-lg p-4 border border-slate-700/50">
+                            <p class="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest">⬆️ Transmisi
+                                Berkas</p>
+                            <div class="flex flex-col gap-3">
+                                <label
+                                    class="w-full flex flex-col items-center px-4 py-3 bg-slate-800 text-slate-300 rounded-xl border border-dashed border-slate-600 cursor-pointer hover:bg-slate-750 transition-all">
+                                    <span class="text-xs font-bold"
+                                        x-text="selectedUploadFile ? selectedUploadFile.name : 'Pilih Berkas...'"></span>
+                                    <input type="file" @change="selectedUploadFile = $event.target.files[0]"
+                                        tabindex="-1" class="hidden">
+                                </label>
+                                <button @click="startUpload()" :disabled="!selectedUploadFile || uploading"
+                                    :class="!selectedUploadFile || uploading ? 'opacity-50 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95 shadow-lg shadow-indigo-900/20'"
+                                    class="w-full py-3 rounded-xl text-xs font-black text-white uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                    <span x-show="!uploading" class="flex items-center gap-2">🚀 MULAI UNGGAH</span>
+                                    <span x-show="uploading" class="animate-pulse">MENGIRIM...</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    
+
                     <!-- File List -->
                     <div class="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/20">
                         <template x-if="loadingFiles">
@@ -139,31 +243,29 @@
                             <div class="p-12 text-center text-slate-500 italic">Folder kosong atau tidak ada izin.</div>
                         </template>
                         <template x-for="file in files" :key="file.path">
-                            <div class="group flex justify-between items-center p-3 hover:bg-indigo-500/10 border-b border-slate-800/50 transition-all">
-                                <div class="flex items-center cursor-pointer overflow-hidden flex-1" @click="openFile(file)">
-                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mr-3 shrink-0" 
-                                         :class="file.is_dir ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-400'">
+                            <div
+                                class="group flex justify-between items-center p-3 hover:bg-indigo-500/10 border-b border-slate-800/50 transition-all">
+                                <div class="flex items-center cursor-pointer overflow-hidden flex-1"
+                                    @click="openFile(file)">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mr-3 shrink-0"
+                                        :class="file.is_dir ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-400'">
                                         <span class="text-xl" x-text="file.is_dir ? '📁' : '📄'"></span>
                                     </div>
                                     <div class="truncate">
-                                        <div class="text-sm font-semibold text-slate-200 truncate group-hover:text-indigo-300 transition-colors" x-text="file.name"></div>
-                                        <div class="text-[10px] text-slate-500 font-mono" x-text="file.is_dir ? 'Directory' : formatSize(file.size)"></div>
+                                        <div class="text-sm font-semibold text-slate-200 truncate group-hover:text-indigo-300 transition-colors"
+                                            x-text="file.name"></div>
+                                        <div class="text-[10px] text-slate-500 font-mono"
+                                            x-text="file.is_dir ? 'Directory' : formatSize(file.size)"></div>
                                     </div>
                                 </div>
                                 <div class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button @click.stop="renameFile(file)" class="p-2 text-slate-400 hover:text-white" title="Rename">✏️</button>
-                                    <button @click.stop="deleteFile(file)" class="p-2 text-slate-400 hover:text-red-400" title="Delete">🗑️</button>
+                                    <button @click.stop="renameFile(file)" class="p-2 text-slate-400 hover:text-white"
+                                        title="Rename">✏️</button>
+                                    <button @click.stop="deleteFile(file)" class="p-2 text-slate-400 hover:text-red-400"
+                                        title="Delete">🗑️</button>
                                 </div>
                             </div>
                         </template>
-                    </div>
-
-                    <!-- Footer: Upload -->
-                    <div class="p-4 border-t border-slate-700 bg-slate-800/30">
-                        <p class="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Upload ke Folder Ini</p>
-                        <div class="flex gap-2">
-                            <input type="file" @change="handleUpload($event)" class="text-xs w-full overflow-hidden">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -179,6 +281,9 @@
     <script>
         function app() {
             return {
+                isLoggedIn: false,
+                loginPass: "",
+                loginErr: "",
                 deviceInfo: {},
                 battery: 0,
                 terminalLines: [],
@@ -187,11 +292,38 @@
                 files: [],
                 loadingFiles: false,
                 toastText: "",
-                
+                selectedUploadFile: null,
+                uploading: false,
+
                 async init() {
-                    this.refreshInfo();
-                    this.loadFiles(this.currentPath);
-                    setInterval(() => this.refreshInfo(), 15000);
+                    const hasToken = document.cookie.includes("session_token=");
+                    if (hasToken) {
+                        this.isLoggedIn = true;
+                        this.refreshInfo();
+                        this.loadFiles(this.currentPath);
+                        setInterval(() => this.refreshInfo(), 15000);
+                    }
+                },
+
+                async doLogin() {
+                    this.loginErr = "";
+                    try {
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ password: this.loginPass })
+                        });
+                        const data = await res.json();
+                        if (data.token) {
+                            document.cookie = `session_token=${data.token}; path=/; max-age=86400`;
+                            this.isLoggedIn = true;
+                            this.init();
+                        } else {
+                            this.loginErr = data.error || "Gagal masuk.";
+                        }
+                    } catch (e) {
+                        this.loginErr = "Gangguan koneksi.";
+                    }
                 },
 
                 async refreshInfo() {
@@ -215,6 +347,11 @@
                             body: payload
                         });
                         const data = await res.json();
+                        if (res.status === 401) {
+                            this.isLoggedIn = false;
+                            document.cookie = "session_token=; path=/; max-age=0";
+                            return;
+                        }
                         if (!res.ok) throw new Error(data.data || "HTTP Error");
                         return data;
                     } catch (e) {
@@ -258,6 +395,10 @@
                     this.currentPath = path;
                     try {
                         const res = await fetch('/api/files?path=' + encodeURIComponent(path));
+                        if (res.status === 401) {
+                            this.isLoggedIn = false;
+                            return;
+                        }
                         const data = await res.json();
                         if (!res.ok || data.error) throw new Error(data.error || "Permission denied");
                         this.files = data;
@@ -301,20 +442,28 @@
                     }
                 },
 
-                async handleUpload(event) {
-                    const file = event.target.files[0];
+                async startUpload() {
+                    const file = this.selectedUploadFile;
                     if (!file) return;
 
+                    this.uploading = true;
                     const reader = new FileReader();
                     reader.onload = async (e) => {
-                        const base64Data = e.target.result.split(',')[1];
-                        const destPath = this.currentPath + "/" + file.name;
-                        const payload = destPath + "^^^" + base64Data;
-                        
-                        this.terminalLines.push({ type: 'output', text: "Uploading " + file.name + "..." });
-                        const res = await this.execCommand('upload', payload);
-                        this.terminalLines.push({ type: 'output', text: res.data });
-                        this.loadFiles(this.currentPath);
+                        try {
+                            const base64Data = e.target.result.split(',')[1];
+                            const destPath = this.currentPath + "/" + file.name;
+                            const payload = destPath + "^^^" + base64Data;
+
+                            this.terminalLines.push({ type: 'output', text: "Uploading " + file.name + "..." });
+                            const res = await this.execCommand('upload', payload);
+                            this.terminalLines.push({ type: 'output', text: res.data || "Selesai." });
+                            this.selectedUploadFile = null;
+                            this.loadFiles(this.currentPath);
+                        } catch (e) {
+                            this.terminalLines.push({ type: 'error', text: "Upload Failed: " + e.message });
+                        } finally {
+                            this.uploading = false;
+                        }
                     };
                     reader.readAsDataURL(file);
                 },
@@ -330,4 +479,5 @@
         }
     </script>
 </body>
+
 </html>

