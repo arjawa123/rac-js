@@ -619,6 +619,21 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         sendResponse(resp); return resp
                     }
                 }
+                "set_web_server" -> {
+                    try {
+                        val enabled = textArg.lowercase() == "on" || textArg == "1" || textArg.lowercase() == "true"
+                        val intent = Intent(context, ControlService::class.java).apply {
+                            action = "TOGGLE_WEB_SERVER"
+                            putExtra("enabled", enabled)
+                        }
+                        context.startService(intent)
+                        val resp = createResponse(cmdId, "success", "Local Web Server set to " + if (enabled) "ON" else "OFF")
+                        sendResponse(resp); return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Failed to toggle web server: ${e.message}")
+                        sendResponse(resp); return resp
+                    }
+                }
             }
 
             // Async-only: long running tasks yang tidak perlu return langsung ke HTTP

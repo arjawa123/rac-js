@@ -356,6 +356,7 @@ Format Eksekusi Manual:
 • <b>get_device_info</b>: Spesifikasi fisik.
 • <b>get_battery</b>: Status baterai.
 • <b>set_volume</b>: Metrik audio.
+• <b>set_web_server</b>: Toggle Web Server Lokal (on/off).
 • <b>hide_app</b> / <b>unhide_app</b>: Kamuflase ikon.
 • <b>lock_screen</b>: Kunci layar perangkat.
 • <b>screen_on</b>: Hidupkan layar paksa.
