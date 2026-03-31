@@ -32,20 +32,27 @@ Akses kendali penuh melalui input teks pada Bot Telegram atau menu Dashboard:
 | | `show_toast` | Tampilkan pesan pop-up di layar HP |
 | | `hide_app` | Aktifkan Mode Kamuflase (Kunci Control Panel) |
 | | `unhide_app` | Matikan Kamuflase (Buka kembali Control Panel) |
+| | `lock_screen` | Kunci layar perangkat secara paksa |
+| | `screen_on` | Hidupkan layar perangkat (Wake up) |
 | **Media** | `photo front` | Ambil foto kamera depan (Selfie) |
 | | `photo back` | Ambil foto kamera belakang |
 | | `record_sound` | Rekam audio mikrofon (Payload: detik) |
 | | `tts` | Suara Google TTS (Payload: teks) |
 | | `play_alarm` | Bunyikan alarm darurat volume maksimal |
+| | `play_sound` | Putar file audio dari URL (Payload: url) |
 | **Data** | `contacts` | Ekstrak seluruh daftar kontak |
 | | `sms_list` | Tarik seluruh pesan SMS masuk |
 | | `location` | Tangkap koordinat GPS & link G-Maps |
 | | `get_call_logs` | Tarik riwayat panggilan telepon |
 | | `clipboard` | Baca data salinan (Copy/Paste) terbaru |
+| | `app_list` | Tarik daftar aplikasi terinstall |
 | **File & Pro** | `ls` | Penjelajah file (File Explorer) |
 | | `download` | Sedot file dari HP ke Telegram |
 | | `upload` | Susupkan file dari Telegram ke HP |
 | | `shell` | Eksekusi terminal BASH secara remote |
+| | `rm` | Hapus file/folder secara permanen |
+| | `mv` | Pindah atau ganti nama file |
+| | `find` | Cari file berdasarkan nama/ekstensi |
 
 ---
 

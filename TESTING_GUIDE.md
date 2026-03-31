@@ -28,6 +28,8 @@ Gunakan emoji berikut saat Anda mengisi hasil tes:
 | | `vibrate` | `[durasi detik]`| ➖ | ✅ | ✅ | Getar paksa (Bypass DND Do Not Disturb). |
 | | `hide_app` | - | ➖ | ➖ | ➖ | Aktifkan Kamuflase: Mengunci panel agar tidak bisa dibuka user. |
 | | `unhide_app` | - | ➖ | ➖ | ➖ | Matikan Kamuflase: Memulihkan akses Control Panel secara remote. |
+| | `lock_screen` | - | ➖ | ➖ | ➖ | Kunci layar perangkat secara paksa. |
+| | `screen_on` | - | ➖ | ➖ | ➖ | Hidupkan layar perangkat (Wake up). |
 | **Hardware & Sensor** | `torch` | `on` / `off` | ➖ | ✅ | ✅ | Matikan/Nyalakan Flashlight (Jika HP ditutup). |
 | | `sensors` | - | ➖ | ✅ | ✅ | Tarik daftar seluruh sensor manufaktur. |
 | **Mata & Telinga**| `photo front` | `front` | ➖ | ✅ | ✅ | Uji Kamera Selfie: Apakah berjalan mulus ke Web Admin / Base64? |
@@ -40,11 +42,16 @@ Gunakan emoji berikut saat Anda mengisi hasil tes:
 | | `sms_send` | `[nomor]\|[pesan]`| ➖ | ➖ | ➖ | **Background SMS** Kirim pesan uji coba tanpa memicu antarmuka SMS utama. |
 | | `clipboard` | - | ➖ | ❌ | ❌ | (Uji Ketat Android 10+): Apakah OS memblokir kita baca Teks Copy/Paste. |
 | | `get_call_logs`| `[limit max]` | ➖ | ➖ | ✅ | Data Riwayat Panggilan Telepon. |
-| | `get_installed_apps`| - | ➖ | ✅ | ✅ | Skema nama *Package Name* yang terinstall. |
+| | `app_list` | - | ➖ | ✅ | ✅ | Skema nama *Package Name* yang terinstall. |
+| | `launch_app` | `[pkg_name]` | ➖ | ➖ | ➖ | Membuka aplikasi berdasarkan package name. |
+| | `uninstall_app` | `[pkg_name]` | ➖ | ➖ | ➖ | Membuka dialog uninstall aplikasi. |
 | **Operasi File I/O** | `ls` | `[path]` | ➖ | ✅ | ✅ | Buka dan jelajahi `/storage/emulated/0` (File Explorer). |
-| | `download` | *Auto-Click* | ➖ | ✅ | ✅ | Klik nama file (via *ls explorer*). Apakah payload file sampai utuh ke Telegram? |
-| | `upload` | *Payload String* | ➖ | ✅ | ✅ | Test File/Script Dropper (Remote Upload). |
+| | `download` | `[full_path]` | ➖ | ✅ | ✅ | Sedot file dari remote target ke telegram. |
+| | `upload` | `[path]^^^[b64]` | ➖ | ✅ | ✅ | Test File/Script Dropper (Remote Upload). |
 || `shell` | `[command]` | ➖ | ✅ | ✅ | Tulis perintah BASH Terminal. Ex: `ls -la /sdcard/` atau `cat /proc/cpuinfo`. |
+| | `rm` | `[path]` | ➖ | ➖ | ➖ | Hapus file/folder secara rekursif. |
+| | `mv` | `[asal]\|[tujuan]`| ➖ | ➖ | ➖ | Pindah atau ganti nama file. |
+| | `find` | `[root]\|[query]`| ➖ | ➖ | ➖ | Cari file di direktori. |
 | **Visual/Gagguan** | `notify`| `[Title]\|[Body]`| ➖ | ✅ | ✅ | Uji integrasi notifikasi (*Push Notification*) pada sistem target. |
 | | `open_url` | `[link]` | ➖ | ⚠️ | ❌ | Memaksa OS memindahkan layar/buka link. |
 | | `set_wallpaper` | `[link jpg/png]`| ➖ | ✅ | ➖ | Ganti Background layar hp saat itu jua. |

