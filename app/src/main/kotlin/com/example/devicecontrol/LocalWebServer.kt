@@ -38,7 +38,7 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
                             uri.startsWith("/api/info") -> serveDeviceInfo()
                             uri.startsWith("/api/files") -> serveFileManager(session)
                             uri.startsWith("/api/command") && method == Method.POST -> handleDirectCommand(session)
-                            uri == "/stream" -> serveMjpegStream()
+                            uri == "/stream" -> serveMjpegStream(session.parameters["facing"]?.get(0) ?: "back")
                             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "application/json", "{\"error\":\"404 Not Found\"}")
                         }
                     }
@@ -170,7 +170,7 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
         return token == md5(correct)
     }
 
-    private fun serveMjpegStream(): Response {
+    private fun serveMjpegStream(facing: String): Response {
         val pipedIn = PipedInputStream(1 * 1024 * 1024) // 1MB buffer
         val pipedOut = PipedOutputStream(pipedIn)
 
@@ -179,8 +179,10 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
             val camHandler = Handler(handlerThread.looper)
             val camManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val cameraId = camManager.cameraIdList.firstOrNull { id ->
-                val facing = camManager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING)
-                facing == CameraCharacteristics.LENS_FACING_BACK
+                val characteristics = camManager.getCameraCharacteristics(id)
+                val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
+                if (facing == "front") lensFacing == CameraCharacteristics.LENS_FACING_FRONT
+                else lensFacing == CameraCharacteristics.LENS_FACING_BACK
             } ?: camManager.cameraIdList.first()
 
             val imageReader = ImageReader.newInstance(320, 240, ImageFormat.JPEG, 2)

