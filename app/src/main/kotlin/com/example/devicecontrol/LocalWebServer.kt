@@ -9,7 +9,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
 
-class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD("::", port) {
+class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, port) {
 
     private val commandHandler = CommandHandler(context)
 

@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 
 import java.net.NetworkInterface
 import java.net.Inet6Address
+import java.net.Inet4Address
 import java.util.Collections
 
 class PollingManager(
@@ -39,34 +40,41 @@ class PollingManager(
         try {
             val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
             for (intf in interfaces) {
-                // Lewati interface yang mati atau loopback
                 if (!intf.isUp || intf.isLoopback) continue
-                
                 val addrs = Collections.list(intf.inetAddresses)
                 for (addr in addrs) {
                     if (addr is Inet6Address) {
-                        // Filter: Lewati Loopback, Link-Local (fe80::), Multicast (ff00::), dan Site-Local (fec0::)
                         if (addr.isLoopbackAddress || addr.isLinkLocalAddress || 
                             addr.isMulticastAddress || addr.isSiteLocalAddress) continue
-                        
                         val sAddr = addr.hostAddress
-                        // Hilangkan zone index (misal: %wlan0 atau %eth0)
                         val delim = sAddr.indexOf('%')
                         val cleanAddr = if (delim < 0) sAddr.uppercase() else sAddr.substring(0, delim).uppercase()
-                        
-                        // Opsional: Pastikan ini adalah Global Unicast (biasanya dimulai dengan 2xxx: atau 3xxx:)
-                        if (cleanAddr.startsWith("2") || cleanAddr.startsWith("3")) {
-                            return cleanAddr
-                        }
-                        
-                        // Fallback jika bukan 2xxx/3xxx tapi tetap bukan link-local (misal ULA fc00::/7)
+                        if (cleanAddr.startsWith("2") || cleanAddr.startsWith("3")) return cleanAddr
                         return cleanAddr
                     }
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Gagal ambil IPv6: ${e.message}")
-        }
+        } catch (e: Exception) { Log.e(TAG, "IPv6 Error: ${e.message}") }
+        return null
+    }
+
+    private fun getPublicIPv4(): String? {
+        try {
+            val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+            for (intf in interfaces) {
+                if (!intf.isUp || intf.isLoopback) continue
+                val addrs = Collections.list(intf.inetAddresses)
+                for (addr in addrs) {
+                    if (addr is Inet4Address && !addr.isLoopbackAddress) {
+                        val sAddr = addr.hostAddress
+                        // Skip internal IPs (10.x, 172.16-31.x, 192.168.x) if possible, 
+                        // but for local server accessibility, we often need the local IP.
+                        // The user specifically asked to show both.
+                        return sAddr
+                    }
+                }
+            }
+        } catch (e: Exception) { Log.e(TAG, "IPv4 Error: ${e.message}") }
         return null
     }
 
@@ -113,15 +121,15 @@ class PollingManager(
 
         try {
             val ipv6 = getPublicIPv6() ?: ""
+            val ipv4 = getPublicIPv4() ?: ""
             val urlBuilder = baseUrl.toHttpUrl().newBuilder()
                 .addPathSegment("poll")
                 .addQueryParameter("client_id", clientId)
                 .addQueryParameter("auth", authToken)
                 .addQueryParameter("mode", if (isTurbo) "short" else "long")
             
-            if (ipv6.isNotEmpty()) {
-                urlBuilder.addQueryParameter("ipv6", ipv6)
-            }
+            if (ipv6.isNotEmpty()) urlBuilder.addQueryParameter("ipv6", ipv6)
+            if (ipv4.isNotEmpty()) urlBuilder.addQueryParameter("ipv4", ipv4)
 
             val request = Request.Builder()
                 .url(urlBuilder.build())

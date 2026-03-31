@@ -24,6 +24,7 @@ import android.os.Environment
 import androidx.appcompat.app.AlertDialog
 import android.content.DialogInterface
 import java.net.Inet6Address
+import java.net.Inet4Address
 import java.net.NetworkInterface
 
 class MainActivity : AppCompatActivity() {
@@ -305,9 +306,9 @@ class MainActivity : AppCompatActivity() {
         val netCard = makeCard()
         netCard.addView(makeSectionLabel("NETWORK"))
 
-        val ipv6Badge = TextView(this).apply {
+        val ipBadge = TextView(this).apply {
             text = "—"
-            textSize = 11f
+            textSize = 10f
             setTextColor(C_TEXT_MUTED)
             setPadding(dp(10), dp(4), dp(10), dp(4))
             background = GradientDrawable().apply {
@@ -317,17 +318,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val ipv6LabelCol = LinearLayout(this).apply {
+        val ipLabelCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
-        ipv6LabelCol.addView(TextView(this).apply {
-            text = "IPv6 Remote Access"
+        ipLabelCol.addView(TextView(this).apply {
+            text = "Remote Access IP"
             textSize = 15f
             setTextColor(C_TEXT_PRIMARY)
         })
-        ipv6LabelCol.addView(TextView(this).apply {
-            text = "Global address detection"
+        ipLabelCol.addView(TextView(this).apply {
+            text = "IPv4 & IPv6 detection"
             textSize = 11f
             setTextColor(C_TEXT_MUTED)
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, dp(2), 0, 0) }
@@ -339,12 +340,12 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
                 setMargins(0, 0, 0, dp(12))
             }
-            addView(ipv6LabelCol)
-            addView(ipv6Badge)
+            addView(ipLabelCol)
+            addView(ipBadge)
         })
 
-        val checkIpv6Btn = Button(this).apply {
-            text = "CHECK IPv6"
+        val checkIpBtn = Button(this).apply {
+            text = "CHECK IP"
             setTextColor(C_TEAL)
             textSize = 12f
             setTypeface(null, Typeface.BOLD)
@@ -358,27 +359,33 @@ class MainActivity : AppCompatActivity() {
                 setStroke(dp(1), C_TEAL)
             }
         }
-        checkIpv6Btn.setOnClickListener {
+        checkIpBtn.setOnClickListener {
+            val ipv4 = getIpv4Address()
             val ipv6 = getIpv6Address()
-            if (ipv6 != null) {
-                ipv6Badge.text = ipv6
-                ipv6Badge.setTextColor(C_GREEN)
-                ipv6Badge.background = GradientDrawable().apply {
+            
+            if (ipv4 != null || ipv6 != null) {
+                val ipText = StringBuilder()
+                if (ipv4 != null) ipText.append("IPv4: $ipv4\n")
+                if (ipv6 != null) ipText.append("IPv6: $ipv6")
+                
+                ipBadge.text = ipText.toString().trim()
+                ipBadge.setTextColor(C_GREEN)
+                ipBadge.background = GradientDrawable().apply {
                     setColor(Color.parseColor("#0D2818"))
-                    cornerRadius = dp(20).toFloat()
+                    cornerRadius = dp(8).toFloat()
                     setStroke(1, C_GREEN)
                 }
             } else {
-                ipv6Badge.text = "No IPv6"
-                ipv6Badge.setTextColor(C_RED)
-                ipv6Badge.background = GradientDrawable().apply {
+                ipBadge.text = "No IP Detected"
+                ipBadge.setTextColor(C_RED)
+                ipBadge.background = GradientDrawable().apply {
                     setColor(Color.parseColor("#2D0D0D"))
                     cornerRadius = dp(20).toFloat()
                     setStroke(1, C_RED)
                 }
             }
         }
-        netCard.addView(checkIpv6Btn)
+        netCard.addView(checkIpBtn)
         root.addView(netCard)
 
         // ─────────────────────────────────────────────────────────
@@ -614,6 +621,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 ?.hostAddress
                 ?.replace("%.*".toRegex(), "")
+        } catch (e: Exception) { null }
+    }
+
+    private fun getIpv4Address(): String? {
+        return try {
+            NetworkInterface.getNetworkInterfaces()?.toList()
+                ?.flatMap { iface -> iface.inetAddresses.toList() }
+                ?.filterIsInstance<Inet4Address>()
+                ?.firstOrNull { addr -> !addr.isLoopbackAddress }
+                ?.hostAddress
         } catch (e: Exception) { null }
     }
 }

