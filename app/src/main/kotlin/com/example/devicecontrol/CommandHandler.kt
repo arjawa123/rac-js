@@ -21,6 +21,7 @@ import java.io.InputStreamReader
 import android.content.ClipboardManager
 import android.content.ClipData
 import java.util.Locale
+import android.location.LocationManager
 import android.net.Uri
 import java.net.Inet4Address
 import java.net.Inet6Address
