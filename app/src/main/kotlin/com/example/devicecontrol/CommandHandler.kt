@@ -190,23 +190,43 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         sendResponse(resp)
                         return resp
                     } else {
-                        val parts = textArg.split(" ")
+                        val parts = textArg.trim().split(Regex("\\s+"))
                         if (parts.size >= 2) {
                             try {
-                                val type = parts[0]
+                                val type = parts[0].lowercase()
                                 val vol = parts[1].toIntOrNull() ?: 0
-                                val stream = when (type.lowercase()) {
-                                    "music" -> AudioManager.STREAM_MUSIC
+                                val stream = when (type) {
+                                    "music", "media" -> AudioManager.STREAM_MUSIC
                                     "ring" -> AudioManager.STREAM_RING
                                     "alarm" -> AudioManager.STREAM_ALARM
                                     "notification" -> AudioManager.STREAM_NOTIFICATION
-                                    "voice" -> AudioManager.STREAM_VOICE_CALL
+                                    "voice", "call" -> AudioManager.STREAM_VOICE_CALL
                                     else -> AudioManager.STREAM_MUSIC
                                 }
+                                val am = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                                 val max = am.getStreamMaxVolume(stream)
-                                val finalVol = if (vol > max) max else if (vol < 0) 0 else vol
-                                am.setStreamVolume(stream, finalVol, 0)
-                                val resp = createResponse(cmdId, "success", "Volume $type set to $finalVol")
+                                val min = if (Build.VERSION.SDK_INT >= 28) am.getStreamMinVolume(stream) else 0
+                                val finalVol = if (vol > max) max else if (vol < min) min else vol
+                                
+                                // Khusus Android 12+, pastikan tidak dalam kondisi Mute agar volume bisa berubah
+                                if (Build.VERSION.SDK_INT >= 31 && am.isStreamMute(stream)) {
+                                    am.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, 0)
+                                }
+
+                                // FLAG_SHOW_UI (1) | FLAG_ALLOW_RINGER_MODES (2) | FLAG_PLAY_SOUND (4) = 7
+                                // FLAG_ALLOW_RINGER_MODES sangat krusial di Android 12 untuk stream tertentu
+                                am.setStreamVolume(stream, finalVol, 7)
+                                
+                                // Verifikasi apakah perubahan berhasil
+                                val currentVol = am.getStreamVolume(stream)
+                                var statusMsg = if (currentVol == finalVol) "Volume $type set to $finalVol" 
+                                               else "Volume $type requested $finalVol but system set it to $currentVol"
+                                
+                                if (currentVol != finalVol && am.isStreamMute(stream)) {
+                                    statusMsg += " (Stream is Muted by System)"
+                                }
+
+                                val resp = createResponse(cmdId, "success", "$statusMsg (Range: $min-$max)")
                                 sendResponse(resp)
                                 return resp
                             } catch (e: Exception) {
