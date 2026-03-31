@@ -36,7 +36,6 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
                     }
                 }
             }
-            }
         } catch (e: Exception) {
             Log.e("LocalWebServer", "Global Serve Error", e)
             newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json", "{\"error\":\"${e.message}\"}")
