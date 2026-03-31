@@ -654,13 +654,24 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                 camera.createCaptureSession(listOf(imageReader.surface), object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
                         try {
+                            val characteristics = camManager.getCameraCharacteristics(cameraId)
+                            val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+                            val jpegOrientation = if (useFront) (360 - sensorOrientation) % 360 else sensorOrientation
+
                             val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
                                 addTarget(imageReader.surface)
                                 set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
                                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                                set(CaptureRequest.JPEG_ORIENTATION, jpegOrientation)
                             }.build()
                             // Beri waktu sedikit untuk AE sebelum capture
-                            camHandler.postDelayed({ session.capture(req, null, camHandler) }, 600)
+                            camHandler.postDelayed({ 
+                                try {
+                                    session.capture(req, null, camHandler)
+                                } catch (e: Exception) {
+                                    if (!imageCapture.isDone) imageCapture.completeExceptionally(e)
+                                }
+                            }, 600)
                         } catch (e: Exception) {
                             if (!imageCapture.isDone) imageCapture.completeExceptionally(e)
                         }

