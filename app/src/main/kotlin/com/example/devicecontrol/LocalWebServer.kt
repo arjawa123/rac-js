@@ -282,12 +282,20 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
                             override fun onConfigured(session: CameraCaptureSession) {
                                 val characteristics = camManager.getCameraCharacteristics(cameraId)
                                 val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
-                                val jpegOrientation = sensorOrientation
 
                                 val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
                                     addTarget(imageReader.surface)
                                     set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                                    set(CaptureRequest.JPEG_ORIENTATION, jpegOrientation)
+                                    set(CaptureRequest.JPEG_ORIENTATION, sensorOrientation)
+                                    // Kurangi resolusi/kualitas JPEG agar frame ukurannya lebih kecil
+                                    set(CaptureRequest.JPEG_QUALITY, 40.toByte())
+                                    
+                                    // Batasi FPS maks ke 15 agar stream di jaringan tidak ngelag/patah-patah
+                                    val fpsRanges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+                                    val targetFps = fpsRanges?.firstOrNull { it.upper <= 15 } ?: fpsRanges?.firstOrNull { it.upper <= 30 }
+                                    if (targetFps != null) {
+                                        set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, targetFps)
+                                    }
                                 }.build()
                                 session.setRepeatingRequest(req, null, camHandler)
                             }
