@@ -105,11 +105,14 @@ const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null, ipv4 = n
     const timestamp = isOffline ? 0 : Date.now() / 1000;
     const finalMode = (mode === 'short' || mode === 'turbo') ? 'turbo' : 'normal';
 
+    // PENTING: polling_mode hanya di-set saat INSERT device baru.
+    // Saat UPDATE (ON CONFLICT), polling_mode TIDAK ditimpa agar perubahan
+    // dari admin (set_polling_mode) tidak teroverwrite oleh polling perangkat.
     if (ipv6 || ipv4) {
-        await db.run('INSERT INTO devices (id, last_seen, polling_mode, ipv6, ipv4) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode, ipv6=excluded.ipv6, ipv4=excluded.ipv4',
+        await db.run('INSERT INTO devices (id, last_seen, polling_mode, ipv6, ipv4) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, ipv6=excluded.ipv6, ipv4=excluded.ipv4',
             [deviceId, timestamp, finalMode, ipv6, ipv4]);
     } else {
-        await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, polling_mode=excluded.polling_mode',
+        await db.run('INSERT INTO devices (id, last_seen, polling_mode) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen',
             [deviceId, timestamp, finalMode]);
     }
 };
@@ -1001,6 +1004,15 @@ app.post('/admin/api/command', async (req, res) => {
     try {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
         const { device_id, command, text } = req.body;
+
+        // Handler khusus: set_polling_mode langsung update DB, tidak perlu antrian command
+        if (command === 'set_polling_mode') {
+            const newMode = (text === 'turbo' || text === 'short') ? 'turbo' : 'normal';
+            const result = await db.run('UPDATE devices SET polling_mode = ? WHERE id = ?', [newMode, device_id]);
+            if (result.changes === 0) return res.status(404).json({ error: 'Device not found' });
+            return res.json({ status: 'success', polling_mode: newMode });
+        }
+
         const cmdId = uuidv4().slice(0, 8);
         const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [device_id]);
         const currentMode = device?.polling_mode || 'normal';
