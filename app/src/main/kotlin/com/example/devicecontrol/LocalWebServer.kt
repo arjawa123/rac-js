@@ -60,30 +60,43 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
         val audioFormat = AudioFormat.ENCODING_PCM_16BIT
         val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
         
-        val pipedIn = PipedInputStream(128 * 1024)
-        val pipedOut = PipedOutputStream(pipedIn)
-        
         var active = true
+        val pipedIn = object : java.io.PipedInputStream(128 * 1024) {
+            override fun close() {
+                active = false
+                super.close()
+            }
+        }
+        val pipedOut = java.io.PipedOutputStream(pipedIn)
         
         Thread {
+            var audioRecord: AudioRecord? = null
             try {
-                val audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioFormat, minBufferSize)
+                audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioFormat, minBufferSize)
                 audioRecord.startRecording()
                 val buffer = ByteArray(minBufferSize)
                 while (active) {
-                    val read = audioRecord.read(buffer, 0, buffer.size)
-                    if (read > 0) {
-                        pipedOut.write(buffer, 0, read)
+                    val read = try {
+                        audioRecord.read(buffer, 0, buffer.size)
+                    } catch (e: Exception) { -1 }
+                    
+                    if (read > 0 && active) {
+                        try {
+                            pipedOut.write(buffer, 0, read)
+                        } catch (e: Exception) {
+                            active = false
+                        }
                     } else if (read < 0) {
                         active = false
                     }
                 }
-                audioRecord.stop()
-                audioRecord.release()
             } catch (e: Exception) {
                 Log.e("LocalWebServer", "Mic stream error", e)
                 active = false
             } finally {
+                active = false
+                try { audioRecord?.stop() } catch (_: Exception) {}
+                try { audioRecord?.release() } catch (_: Exception) {}
                 try { pipedOut.close() } catch (_: Exception) {}
             }
         }.start()

