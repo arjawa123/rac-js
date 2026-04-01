@@ -141,6 +141,21 @@ const escapeHTML = (str) => {
         .replace(/'/g, "&#39;");
 };
 
+// Helper untuk memberitahu perangkat jika ada perubahan status/mode saat mereka sedang long-polling
+const notifyDeviceSync = async (deviceId) => {
+    if (waitingClients[deviceId]) {
+        try {
+            const device = await db.get('SELECT polling_mode FROM devices WHERE id = ?', [deviceId]);
+            const mode = device?.polling_mode || 'normal';
+            waitingClients[deviceId].json({ command: 'none', polling_mode: mode });
+            delete waitingClients[deviceId];
+            console.log(`[Sync] Notified ${deviceId} about mode sync.`);
+        } catch (e) {
+            delete waitingClients[deviceId];
+        }
+    }
+};
+
 const formatDeviceResponse = (data) => {
     if (data === null || data === undefined) return '\n└ [Kosong]';
     if (typeof data === 'string') return `\n└ <code>${escapeHTML(data)}</code>`;
@@ -570,6 +585,8 @@ Format Eksekusi Manual:
                     return;
                 }
                 ctx.answerCbQuery(`✅ Mode diubah ke ${modeLabel}`).catch(() => { });
+                // Segera beritahu perangkat yang sedang long-polling
+                await notifyDeviceSync(devId);
                 // Refresh menu agar label mode terupdate
                 await sendDeviceMenu(ctx, devId, false);
             } catch (e) {
@@ -1046,8 +1063,24 @@ app.get('/admin/api/devices', async (req, res) => {
         if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
         const devices = await db.all('SELECT * FROM devices');
         const now = Date.now() / 1000;
-        const devicesData = devices.map(d => ({ id: d.id, last_seen: d.last_seen, is_online: (now - d.last_seen) < 90, polling_mode: d.polling_mode || 'long', ipv6: d.ipv6, ipv4: d.ipv4 }));
+        const devicesData = devices.map(d => ({ id: d.id, last_seen: d.last_seen, is_online: (now - d.last_seen) < 90, polling_mode: d.polling_mode || 'normal', ipv6: d.ipv6, ipv4: d.ipv4 }));
         res.json({ devices: devicesData });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/admin/api/device/mode', async (req, res) => {
+    try {
+        if (!verifyAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+        const { device_id, mode } = req.body;
+        if (!device_id || !mode) return res.status(400).json({ error: 'Missing device_id or mode' });
+
+        const newMode = (mode === 'turbo' || mode === 'short') ? 'turbo' : 'normal';
+        await db.run('UPDATE devices SET polling_mode = ? WHERE id = ?', [newMode, device_id]);
+
+        console.log(`[Admin] Polling mode changed for ${device_id} to ${newMode}`);
+        // Segera beritahu perangkat yang sedang long-polling agar sinkron
+        await notifyDeviceSync(device_id);
+        res.json({ success: true, mode: newMode });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 const formatUtcToLocal = (u) => { if (!u) return '-'; const d = new Date(u + 'Z'); return d.toLocaleString('id-ID'); };

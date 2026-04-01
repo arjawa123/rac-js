@@ -207,12 +207,13 @@
                                     class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all">
                                 </div>
                                 <div class="flex flex-col gap-3 relative z-10">
-                                    <span class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl w-fit"><svg class="w-6 h-6"
-                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <span class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl w-fit"><svg
+                                            class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg></span>
-                                    <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Device
+                                    <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">
+                                        Device
                                         Online</h3>
                                     <p class="text-3xl font-black text-white leading-none"
                                         x-text="stats.deviceStatus?.online || 0"></p>
@@ -223,12 +224,14 @@
                                     class="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all">
                                 </div>
                                 <div class="flex flex-col gap-3 relative z-10">
-                                    <span class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl w-fit"><svg class="w-6 h-6"
-                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <span class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl w-fit"><svg
+                                            class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z">
+                                            </path>
                                         </svg></span>
-                                    <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Device
+                                    <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">
+                                        Device
                                         Offline</h3>
                                     <p class="text-3xl font-black text-white leading-none"
                                         x-text="stats.deviceStatus?.offline || 0"></p>
@@ -239,12 +242,13 @@
                                     class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all">
                                 </div>
                                 <div class="flex flex-col gap-3 relative z-10">
-                                    <span class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl w-fit"><svg class="w-6 h-6"
-                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <span class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl w-fit"><svg
+                                            class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                         </svg></span>
-                                    <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Top Command
+                                    <h3 class="text-[11px] font-black text-gray-500 uppercase tracking-widest mt-2">Top
+                                        Command
                                     </h3>
                                     <p class="text-xl md:text-2xl font-black text-white truncate leading-none pt-1"
                                         x-text="(stats.topCommands && stats.topCommands[0] && stats.topCommands[0].command) || '-'">
@@ -267,18 +271,21 @@
                                             <span
                                                 class="text-[9px] font-black text-emerald-500/70 uppercase tracking-widest">Turbo
                                                 Mode</span>
-                                            <span class="text-xs font-black text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                                            <span
+                                                class="text-xs font-black text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                                                 x-text="stats.avgResponseTurbo ? stats.avgResponseTurbo.toFixed(2) + 's' : '-'"></span>
                                         </div>
                                         <div class="flex items-center justify-between mt-1">
                                             <span
                                                 class="text-[9px] font-black text-amber-500/70 uppercase tracking-widest">Normal
                                                 Mode</span>
-                                            <span class="text-xs font-black text-white shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                                            <span
+                                                class="text-xs font-black text-white shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                                                 x-text="stats.avgResponseNormal ? stats.avgResponseNormal.toFixed(2) + 's' : '-'"></span>
                                         </div>
                                     </div>
-                                    <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Waktu Respon
+                                    <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Waktu
+                                        Respon
                                         (Avg)</h3>
                                 </div>
                             </div>
@@ -377,25 +384,33 @@
                                                 </svg></button>
                                         </div>
                                     </div>
-                                    <div class="text-[11px] font-medium text-gray-500 flex items-center gap-1.5 mb-1"><svg
-                                            class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div class="text-[11px] font-medium text-gray-500 flex items-center gap-1.5 mb-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg> Aktif: <span x-text="formatDate(device.last_seen)"></span></div>
                                     <div class="mt-2 flex flex-wrap gap-2">
                                         <template x-if="device.ipv6">
-                                            <a :href="'http://[' + device.ipv6 + ']:8080'" target="_blank" 
-                                               class="text-[9px] bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-lg border border-indigo-500/20 font-bold flex items-center gap-1 hover:bg-indigo-500/20 transition-all">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                            <a :href="'http://[' + device.ipv6 + ']:8080'" target="_blank"
+                                                class="text-[9px] bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-lg border border-indigo-500/20 font-bold flex items-center gap-1 hover:bg-indigo-500/20 transition-all">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                                                    </path>
                                                 </svg> IPv6 Access
                                             </a>
                                         </template>
                                         <template x-if="device.ipv4">
-                                            <a :href="'http://' + device.ipv4 + ':8080'" target="_blank" 
-                                               class="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/20 font-bold flex items-center gap-1 hover:bg-emerald-500/20 transition-all">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                            <a :href="'http://' + device.ipv4 + ':8080'" target="_blank"
+                                                class="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/20 font-bold flex items-center gap-1 hover:bg-emerald-500/20 transition-all">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                                                    </path>
                                                 </svg> IPv4 Access
                                             </a>
                                         </template>
@@ -436,6 +451,22 @@
                                 <h2 class="text-xl font-bold text-white">Eksekusi Perintah</h2>
                                 <p class="text-sm text-gray-400">Target: <span class="font-mono text-primary font-bold"
                                         x-text="selectedDevice"></span></p>
+                            </div>
+                            <div class="ml-auto"
+                                x-data="{ dev() { return devices.find(d => d.id === selectedDevice) || {} } }">
+                                <button @click="togglePollingMode(selectedDevice, dev().polling_mode)"
+                                    class="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border shadow-sm active:scale-95"
+                                    :class="dev().polling_mode === 'turbo' ? 'bg-primary/20 text-indigo-300 border-primary/40' : 'bg-amber-500/10 text-amber-500 border-amber-500/30'">
+                                    <span x-show="dev().polling_mode === 'turbo'" class="flex items-center gap-1.5"><svg
+                                            class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg> MODE TURBO</span>
+                                    <span x-show="dev().polling_mode !== 'turbo'" class="flex items-center gap-1.5"><svg
+                                            class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg> MODE NORMAL</span>
+                                </button>
                             </div>
                         </div>
 
@@ -610,11 +641,21 @@
                                 <template x-if="isFetchingLogs && logs.length === 0">
                                     <template x-for="i in 10" :key="i">
                                         <tr class="animate-pulse">
-                                            <td class="px-3 md:px-6 py-4"><div class="h-3 bg-white/5 rounded w-24"></div></td>
-                                            <td class="px-3 md:px-6 py-4"><div class="h-3 bg-white/5 rounded w-16"></div></td>
-                                            <td class="px-3 md:px-6 py-4 text-center"><div class="h-5 bg-white/5 rounded w-16 mx-auto"></div></td>
-                                            <td class="px-3 md:px-6 py-4"><div class="h-3 bg-white/5 rounded w-full"></div></td>
-                                            <td class="px-3 md:px-6 py-4 text-right hidden md:table-cell"><div class="h-8 bg-white/5 rounded w-20 ml-auto"></div></td>
+                                            <td class="px-3 md:px-6 py-4">
+                                                <div class="h-3 bg-white/5 rounded w-24"></div>
+                                            </td>
+                                            <td class="px-3 md:px-6 py-4">
+                                                <div class="h-3 bg-white/5 rounded w-16"></div>
+                                            </td>
+                                            <td class="px-3 md:px-6 py-4 text-center">
+                                                <div class="h-5 bg-white/5 rounded w-16 mx-auto"></div>
+                                            </td>
+                                            <td class="px-3 md:px-6 py-4">
+                                                <div class="h-3 bg-white/5 rounded w-full"></div>
+                                            </td>
+                                            <td class="px-3 md:px-6 py-4 text-right hidden md:table-cell">
+                                                <div class="h-8 bg-white/5 rounded w-20 ml-auto"></div>
+                                            </td>
                                         </tr>
                                     </template>
                                 </template>
@@ -641,17 +682,27 @@
                                         </td>
                                         <td class="px-3 md:px-6 py-3 md:py-4 text-right hidden md:table-cell">
                                             <div class="flex items-center justify-end gap-2">
-                                                <button x-show="['pending', 'sent'].includes(log.level)" @click.stop="cancelCommand(log.id)"
+                                                <button x-show="['pending', 'sent'].includes(log.level)"
+                                                    @click.stop="cancelCommand(log.id)"
                                                     class="px-3 py-1.5 rounded-lg text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 font-bold text-[10px] tracking-wide transition-colors active:scale-95 shadow-sm inline-flex items-center gap-1 opacity-0 lg:group-hover:opacity-100">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
                                                     </svg> Batal
                                                 </button>
-                                                <button x-show="log.type !== 'cmd'" @click.stop="openDetailModal(log.id)"
+                                                <button x-show="log.type !== 'cmd'"
+                                                    @click.stop="openDetailModal(log.id)"
                                                     class="px-4 py-2 rounded-xl text-primary bg-primary/10 hover:bg-primary/20 font-bold text-[11px] tracking-wide transition-colors active:scale-95 shadow-sm inline-flex gap-1.5 opacity-0 lg:group-hover:opacity-100">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                                                        </path>
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2.5"
+                                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                                        </path>
                                                     </svg> Buka
                                                 </button>
                                             </div>
@@ -1671,6 +1722,25 @@
                         }
                         return '<span class="' + cls + ' font-bold">' + match + '</span>';
                     });
+                },
+
+                async togglePollingMode(devId, currentMode) {
+                    const newMode = (currentMode === 'turbo' || currentMode === 'short') ? 'normal' : 'turbo';
+                    try {
+                        const res = await fetch('/admin/api/device/mode', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ device_id: devId, mode: newMode })
+                        });
+                        if (res.ok) {
+                            this.showToast('Mode polling diubah ke ' + newMode.toUpperCase(), 'success');
+                            this.fetchDevices();
+                        } else {
+                            this.showToast('Gagal mengubah mode polling', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('Gangguan jaringan!', 'error');
+                    }
                 }
             }))
         });
