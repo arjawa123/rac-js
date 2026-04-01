@@ -113,7 +113,7 @@ class LocalWebServer(private val context: Context, port: Int) : NanoHTTPD(null, 
             }
 
             Log.d("LocalWebServer", "Executing: $jsonStr")
-            val result = commandHandler.handle(jsonStr) { /* Async callback */ }
+            val result = commandHandler.handle(jsonStr, { /* Async callback */ }, null)
             
             if (result != null) {
                 newFixedLengthResponse(Response.Status.OK, "application/json", result)

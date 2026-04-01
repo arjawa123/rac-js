@@ -931,6 +931,13 @@
                         this.refreshInfo();
                         this.loadFiles(this.currentPath);
                         setInterval(() => this.refreshInfo(), 15000);
+
+                        // Fix: Auto-scroll terminal saat keyboard muncul (resize event)
+                        window.addEventListener('resize', () => {
+                            if (this.activeTab === 'terminal') {
+                                setTimeout(() => this.scrollTerm(), 100);
+                            }
+                        });
                     }
                 },
                 async doLogin() {
