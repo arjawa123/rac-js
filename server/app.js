@@ -23,6 +23,7 @@ const { v4: uuidv4 } = require('uuid');
  * =================================== */
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
 const WEBHOOK_URL = process.env.WEBHOOK_URL || '';
+const WEBHOOK_IP = process.env.WEBHOOK_IP || '';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'my-secret-token';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const PORT = process.env.PORT || 3000;
@@ -828,14 +829,23 @@ Format Eksekusi Manual:
     });
 
     if (WEBHOOK_URL) {
-        bot.telegram.setWebhook(`${WEBHOOK_URL}`).catch(err => console.error('Webhook error:', err));
+        const webhookOptions = WEBHOOK_IP ? { ip_address: WEBHOOK_IP } : undefined;
+        bot.telegram.setWebhook(WEBHOOK_URL, webhookOptions).catch(err => console.error('Webhook error:', err));
     }
 }
 
 app.get('/', (req, res) => res.json({ status: 'running' }));
-app.post('/webhook', (req, res) => {
-    if (bot) bot.handleUpdate(req.body, res);
-    else res.status(200).send('Bot not configured');
+app.get('/webhook', (req, res) => res.json({ status: bot ? 'webhook_ready' : 'bot_not_configured' }));
+app.post('/webhook', async (req, res) => {
+    if (!bot) return res.status(200).send('Bot not configured');
+
+    try {
+        await bot.handleUpdate(req.body);
+    } catch (err) {
+        console.error('Telegram webhook update error:', err);
+    }
+
+    if (!res.headersSent) res.sendStatus(200);
 });
 
 const waitingClients = {};
